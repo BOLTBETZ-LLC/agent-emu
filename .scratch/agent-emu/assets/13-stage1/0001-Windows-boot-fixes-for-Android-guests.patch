@@ -1,0 +1,86 @@
+From 6704542b72d8c01121988e87e799480a77a29b81 Mon Sep 17 00:00:00 2001
+From: Aaron Lilla <aaronlillaclaude@gmail.com>
+Date: Wed, 7 Oct 2026 16:39:23 -0700
+Subject: [PATCH] Windows boot fixes for Android guests
+
+Skip the sparse flag on read-only disk opens (Windows denies it), and let
+AGENT_EMU_NO_NET skip the slirp net backend.
+---
+ disk/src/disk.rs                 |  6 +++++-
+ src/crosvm/sys/windows/broker.rs | 27 ++++++++++++++++-----------
+ src/main.rs                      |  3 ++-
+ 3 files changed, 23 insertions(+), 13 deletions(-)
+
+diff --git a/disk/src/disk.rs b/disk/src/disk.rs
+index 88de2bac5..81ecdde4b 100644
+--- a/disk/src/disk.rs
++++ b/disk/src/disk.rs
+@@ -349,7 +349,11 @@ pub(crate) fn disk_file_from_file(
+ ) -> Result<Box<dyn DiskFile>> {
+     Ok(match image_type {
+         ImageType::Raw => {
+-            sys::apply_raw_disk_file_options(&raw_image, params.is_sparse_file)?;
++            // agent-emu: Windows can't set the sparse flag through a read-only handle.
++            sys::apply_raw_disk_file_options(
++                &raw_image,
++                params.is_sparse_file && !params.is_read_only,
++            )?;
+             Box::new(raw_image) as Box<dyn DiskFile>
+         }
+         #[cfg(feature = "qcow")]
+diff --git a/src/crosvm/sys/windows/broker.rs b/src/crosvm/sys/windows/broker.rs
+index be1885e76..73348f345 100644
+--- a/src/crosvm/sys/windows/broker.rs
++++ b/src/crosvm/sys/windows/broker.rs
+@@ -636,18 +636,23 @@ fn run_internal(mut cfg: Config, log_args: LogArgs) -> Result<()> {
+         &process_invariants,
+     )?;
+ 
++    // agent-emu: AGENT_EMU_NO_NET skips the slirp net backend (boot bring-up without network).
+     #[cfg(all(feature = "net", feature = "slirp"))]
+-    let (_slirp_child, _net_children) = start_up_net_backend(
+-        &mut main_child,
+-        &mut children,
+-        &mut exit_events,
+-        &mut wait_ctx,
+-        &mut cfg,
+-        &log_args,
+-        &mut metric_tubes,
+-        #[cfg(feature = "process-invariants")]
+-        &process_invariants,
+-    )?;
++    let _net_backend = if std::env::var_os("AGENT_EMU_NO_NET").is_none() {
++        Some(start_up_net_backend(
++            &mut main_child,
++            &mut children,
++            &mut exit_events,
++            &mut wait_ctx,
++            &mut cfg,
++            &log_args,
++            &mut metric_tubes,
++            #[cfg(feature = "process-invariants")]
++            &process_invariants,
++        )?)
++    } else {
++        None
++    };
+ 
+     #[cfg(feature = "audio")]
+     let num_audio_devices = if let Some(gpu_params) = cfg.gpu_parameters.as_ref() {
+diff --git a/src/main.rs b/src/main.rs
+index 1b2d57b97..2f2756e39 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -451,7 +451,8 @@ fn create_composite(cmd: cmdline::CreateCompositeCommand) -> std::result::Result
+             let size = open_disk_file(DiskFileParams {
+                 path: PathBuf::from(&path),
+                 is_read_only: !writable,
+-                is_sparse_file: true,
++                // agent-emu: Windows can't set the sparse flag through a read-only handle.
++                is_sparse_file: writable,
+                 ..Default::default()
+             })
+             .map_err(|e| error!("Failed to create DiskFile instance: {}", e))?
+-- 
+2.55.0.windows.4
+
