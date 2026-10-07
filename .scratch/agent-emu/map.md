@@ -28,9 +28,17 @@ A build-ready spec for a slim Android emulator built for agents to test apps. Th
 - **Proof app**: EAS build `183b566c-2d7c-448a-ad2e-fb1ec459374d`. Profile `staging`, v1.4.0 (22), APK, commit `09ef72912b9edf91410b5055aa3a321b3b577d1b` of v2-React-Native. Artifact: https://expo.dev/artifacts/eas/93pP9VDx6Y5XYamfbhF9oms5rXZd5oh9-SBMvI-xo0s.apk (expires 2027-01-05).
 - **Host machine**: 32 GB RAM, 20 threads (Intel Core Ultra 7 265), NVIDIA RTX 5060 Ti plus Intel iGPU, Windows 11 Home.
 - **Skills**: grilling tickets call `grilling` and `domain-modeling`. Research tickets call `research`.
+- **Two-model work (Aaron, 2026-10-07)**: Claude and GPT-6.1 Sol (`codex exec -m gpt-6.1-sol`, not gpt-6-sol) work this map together. Each research ticket gets two blind passes, one Claude and one GPT-6.1 Sol (`*.codex.md` on `research/codex-*` branches). The ticket's Answer reconciles the two and names any disagreement.
 - **Standing rules**: use sources from the last 6 months where possible, and every claim cites a URL. Never run a full test suite or a heavy build in parallel; at most 2 heavy jobs run at once.
 
 ## Decisions so far
+
+- [crosvm on Windows hypervisor](issues/01-crosvm-on-whpx.md): public crosvm runs on WHPX but is untested there, and its display opens a desktop window. Fork it to add a headless display, gfxstream and a boot test. OpenVMM is the fallback. An API 36 boot is not proven yet.
+- [WHPX memory capabilities](issues/02-whpx-memory-capabilities.md): WHPX can share a read-only base image across VMs. The VMM can build copy-on-write, lazy page fill (x64 `GpaAccessFaultExit`), balloon reclaim and dirty tracking; this PC supports both needed features. There is no KSM-style dedup. Still open: whether Windows page combining reaches guest RAM.
+- [Proof app without GMS](issues/04-proof-app-without-gms.md): the app likely reaches its login v2 Start screen with no GMS and no fakes. The APK has x86_64 and embedded JS, FCM runs only after login, and Amplitude is off. Still open: whether native Firebase providers fail before JS starts.
+- [GPU cost per Device](issues/07-gpu-cost-per-device.md): VRAM is fine on the 16 GB card. Host RAM is the risk, mainly gfxstream's fixed 128 MiB staging buffer per Device, so the spec needs a smaller staging buffer plus the cross-domain blob path. Still open: whether the issue #198 fix speeds up the proof app.
+- [Minimum AOSP API 36 footprint](issues/03-minimum-aosp-footprint.md): no published RAM number exists. Start from Cuttlefish `aosp_cf_x86_64_slim` with drawing turned back on (it ships with `debug.hwui.drawing_enabled=0`). `boot.art` is anonymous dirty memory and can't be shared across Devices; file-backed .oat/.so pages can, but only through DAX. 400 MB unique is plausible but unmeasured.
+- [Computer-use fast path](issues/06-computer-use-fast-path.md): under 50 ms looks reachable, an estimated 37-41 ms at 60 Hz. Screenshots come from the host via gfxstream `getScreenshot` encoded as JPEG q75, and input goes through crosvm virtio-input. Most of the time is Android's own two-frame input-to-display. Nothing is measured on this PC yet; GPU readback time is still open.
 
 ## Not yet specified
 
