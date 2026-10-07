@@ -1,7 +1,7 @@
 # Guest image source
 
 Type: research
-Status: claimed
+Status: resolved
 Blocked by:
 
 ## Question
