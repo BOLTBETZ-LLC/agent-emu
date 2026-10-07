@@ -1,7 +1,7 @@
 # Computer-use API v1
 
 Type: grilling
-Status: open
+Status: claimed
 Blocked by: 06
 
 ## Question

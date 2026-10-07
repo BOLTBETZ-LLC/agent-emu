@@ -1,0 +1,14 @@
+14:42:28 create agentemu-base-google_atd
+14:42:30 boot (headless, cold, no snapshot)
+14:43:16 boot_completed after 46 s
+14:43:37 install
+Success
+14:43:40 package com.boltbetz.staging
+true
+14:44:28 screenshot taken 48 s after launch
+14:44:29 crash buffer lines: 0  FATAL in logcat: 0
+2748
+14:44:29 guest memory
+14:44:30 host memory
+14:44:34 shutdown
+14:44:44 DONE

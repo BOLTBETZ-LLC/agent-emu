@@ -1,0 +1,3 @@
+emulator pid=50364 WS_MB=11 Private_Commit_MB=11 WS_Private_MB=2
+qemu-system-x86_64-headless pid=16132 WS_MB=3,379 Private_Commit_MB=4,225 WS_Private_MB=3,311
+powershell pid=8332 WS_MB=98 Private_Commit_MB=83 WS_Private_MB=1

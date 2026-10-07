@@ -1,0 +1,80 @@
+Applications Memory Usage (in Kilobytes):
+Uptime: 110595 Realtime: 110595
+
+** MEMINFO in pid 2748 [com.boltbetz.staging] **
+                   Pss  Private  Private     Swap      Rss     Heap     Heap     Heap
+                 Total    Dirty    Clean    Dirty    Total     Size    Alloc     Free
+                ------   ------   ------   ------   ------   ------   ------   ------
+  Native Heap    79155    79084        0        0    82820    93368    85987     3431
+  Dalvik Heap    10046     9872        0        0    17532    16874     8437     8437
+ Dalvik Other     4956     4884        0        0     5772                           
+        Stack     1672     1672        0        0     1680                           
+       Ashmem       15        0        0        0      608                           
+    Other dev       14        0       12        0      260                           
+     .so mmap     5703      284     2000        0    43676                           
+    .jar mmap     2455        0       68        0    41084                           
+    .apk mmap    57010     1512    47608        0    67460                           
+    .ttf mmap      105        0        0        0      316                           
+    .dex mmap    34544        0    34432        0    35680                           
+    .oat mmap      929        0       64        0    12872                           
+    .art mmap     1577      872        0        0    32060                           
+   Other mmap     1236        4      812        0     3592                           
+      Unknown    18393    18384        0        0    19264                           
+        TOTAL   217810   116568    84996        0   364676   110242    94424    11868
+ 
+ App Summary
+                       Pss(KB)                        Rss(KB)
+                        ------                         ------
+           Java Heap:    10744                          49592
+         Native Heap:    79084                          82820
+                Code:    85972                         201212
+               Stack:     1672                           1680
+            Graphics:        0                              0
+       Private Other:    24092
+              System:    16246
+             Unknown:                                   29372
+ 
+           TOTAL PSS:   217810            TOTAL RSS:   364676      TOTAL SWAP (KB):        0
+ 
+ Objects
+               Views:      139         ViewRootImpl:        4
+         AppContexts:        5           Activities:        1
+              Assets:       14        AssetManagers:        0
+       Local Binders:       47        Proxy Binders:       58
+       Parcel memory:       16         Parcel count:       66
+    Death Recipients:        0             WebViews:        0
+ 
+ Native Allocations
+                         Count                       Total(kB)
+                        ------                         ------
+    Other (malloced):     1337                            126
+ Other (nonmalloced):      136                             89
+   Bitmap (malloced):       13                          37433
+ 
+ SQL
+         MEMORY_USED:     1072
+  PAGECACHE_OVERFLOW:      506          MALLOC_SIZE:       59
+ 
+ DATABASES
+      pgsz     dbsz   Lookaside(b) cache hits cache misses cache size  Dbname
+PER CONNECTION STATS
+         4       20             48    47    51     6  /data/user/0/com.boltbetz.staging/databases/RKStorage
+         4       84             18    27   213     1  /data/user/0/com.boltbetz.staging/databases/updates.db
+         4        8                    0     0     0    (attached) temp
+         4       84             16   130    33     1  /data/user/0/com.boltbetz.staging/databases/updates.db (2)
+         4       32             18     9    48     1  /data/user/0/com.boltbetz.staging/databases/eas_observe
+         4        8                    0     0     0    (attached) temp
+         4       32             16     2    20     1  /data/user/0/com.boltbetz.staging/databases/eas_observe (1)
+         4      104             18     8    75     1  /data/user/0/com.boltbetz.staging/no_backup/androidx.work.workdb
+         4        8                    0     0     0    (attached) temp
+         4      104             16     4    21     1  /data/user/0/com.boltbetz.staging/no_backup/androidx.work.workdb (2)
+         4       60             18    17    83     1  /data/user/0/com.boltbetz.staging/databases/app_metrics
+         4        8                    0     0     0    (attached) temp
+         4       60             16     2    21     1  /data/user/0/com.boltbetz.staging/databases/app_metrics (1)
+POOL STATS
+     cache hits  cache misses    cache size  Dbname
+             47            52            99  /data/user/0/com.boltbetz.staging/databases/RKStorage
+            156           264           420  /data/user/0/com.boltbetz.staging/databases/updates.db
+             11            72            83  /data/user/0/com.boltbetz.staging/databases/eas_observe
+             11           114           125  /data/user/0/com.boltbetz.staging/no_backup/androidx.work.workdb
+             19           108           127  /data/user/0/com.boltbetz.staging/databases/app_metrics

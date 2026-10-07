@@ -1,0 +1,14 @@
+14:44:44 create agentemu-base-aosp_atd
+14:44:45 boot (headless, cold, no snapshot)
+14:45:30 boot_completed after 45 s
+14:45:52 install
+Success
+14:45:54 package com.boltbetz.staging
+true
+14:46:42 screenshot taken 47 s after launch
+14:46:42 crash buffer lines: 0  FATAL in logcat: 0
+2197
+14:46:42 guest memory
+14:46:43 host memory
+14:46:47 shutdown
+14:46:57 DONE

@@ -1,0 +1,14 @@
+14:46:57 create agentemu-base-default
+14:46:58 boot (headless, cold, no snapshot)
+14:47:41 boot_completed after 43 s
+14:48:03 install
+Success
+14:48:05 package com.boltbetz.staging
+true
+14:48:53 screenshot taken 48 s after launch
+14:48:54 crash buffer lines: 0  FATAL in logcat: 0
+2559
+14:48:54 guest memory
+14:48:55 host memory
+14:48:59 shutdown
+14:49:09 DONE

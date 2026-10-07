@@ -1,0 +1,12 @@
+hw.gpu.enabled=no
+hw.gpu.mode=auto
+hw.lcd.backlight=yes
+hw.lcd.circular=false
+hw.lcd.density=420
+hw.lcd.depth=32
+hw.lcd.height=2400
+hw.lcd.transparent=false
+hw.lcd.vsync=60
+hw.lcd.width=1080
+hw.ramSize=2G
+vm.heapSize=228M
