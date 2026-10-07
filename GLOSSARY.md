@@ -32,3 +32,11 @@ The time from an agent asking for a screenshot or sending an input to the result
 
 **Fork**
 Making a new Device from the exact current state of a running Device.
+
+**Settled**
+A Device screen that has stopped changing: no new frames are being drawn and the app is idle.
+_Avoid_: stable, ready, loaded.
+
+**Lease**
+Exclusive control of one Device by one agent. Others may watch but not act.
+_Avoid_: lock, claim, session.
