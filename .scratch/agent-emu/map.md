@@ -42,11 +42,11 @@ A build-ready spec for a slim Android emulator built for agents to test apps. Th
 - [Shared system image on Windows](issues/11-shared-system-image-on-windows.md): share the system image with virtio-pmem DAX, using one read-only file mapped into each Device's VMM. This needs a crosvm Windows pmem port, a custom guest kernel (`FS_DAX`, `ZONE_DEVICE`) and an uncompressed, non-inline erofs image with no dm-verity. APEX payloads stay private unless apexd is patched. Savings are unmeasured; the estimate is about 70-185 MB per Device.
 - [Baseline on stock emulator](issues/05-baseline-on-stock-emulator.md): measured. The proof app reaches its first screen on all three stock API 36 images, including both no-GMS ones, with 0 crashes. The stock emulator costs 3.1-3.3 GB of host unique memory per Device while the guest uses only 1.1-1.35 GB. The app alone is about 220 MB PSS, leaving about 180 MB for everything else. ATD images disable drawing (`debug.hwui.drawing_enabled=0`).
 - [Computer-use API v1](issues/10-computer-use-api-v1.md): every action returns a settled 1080x2400 JPEG; settled means frames stopped AND the app is idle, with a 3 s deadline flagged as not settled. Inputs are tap, long_press, swipe, type_text, key and gesture, with coordinates in frame pixels. The UI tree is on request, animations are off, MCP has one tool per call, and one agent leases a Device at a time.
+- [Lock the route](issues/08-lock-the-route.md): Route A is confirmed. Fork crosvm on WHPX (adding a headless display, gfxstream, Windows pmem DAX and a boot test), with a Cuttlefish `aosp_cf_x86_64_slim` API 36 guest, one crosvm process per Device and one Rust fleet daemon. The biggest risk, an API 36 boot on crosvm/WHPX, is unproven.
 
 ## Not yet specified
 
 - **Fork and snapshot design**: memory layout, a shared read-only base image plus a per-Device overlay, and how resume works on WHPX without userfaultfd or KSM. Depends on what WHPX can do and on the route lock.
-- **Image build pipeline**: how a trimmed AOSP API 36 x86_64 image is produced and kept reproducible. Which services are dropped depends on the footprint research.
 - **Device lifecycle and fleet manager**: start, stop, health, resource caps across 10 Devices, and per-Device CPU pinning or shares.
 - **Networking per Device**: NAT, reaching the staging backend, and isolating Devices from each other.
 - **Viewer design**: how a human attaches to a headless Device.
