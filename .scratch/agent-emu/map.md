@@ -47,7 +47,6 @@ A build-ready spec for a slim Android emulator built for agents to test apps. Th
 
 ## Not yet specified
 
-- **Fork and snapshot design**: memory layout, a shared read-only base image plus a per-Device overlay, and how resume works on WHPX without userfaultfd or KSM. Depends on what WHPX can do and on the route lock.
 - **Device lifecycle and fleet manager**: start, stop, health, resource caps across 10 Devices, and per-Device CPU pinning or shares.
 - **Networking per Device**: NAT, reaching the staging backend, and isolating Devices from each other.
 - **Viewer design**: how a human attaches to a headless Device.
