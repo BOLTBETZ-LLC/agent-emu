@@ -29,6 +29,7 @@ A build-ready spec for a slim Android emulator built for agents to test apps. Th
 - **Host machine**: 32 GB RAM, 20 threads (Intel Core Ultra 7 265), NVIDIA RTX 5060 Ti plus Intel iGPU, Windows 11 Home.
 - **Skills**: grilling tickets call `grilling` and `domain-modeling`. Research tickets call `research`.
 - **Two-model work (Aaron, 2026-10-07)**: Claude and GPT-6.1 Sol (`codex exec -m gpt-6.1-sol`, not gpt-6-sol) work this map together. Each research ticket gets two blind passes, one Claude and one GPT-6.1 Sol (`*.codex.md` on `research/codex-*` branches). The ticket's Answer reconciles the two and names any disagreement.
+- **Speed rule (Aaron, 2026-10-07)**: "best for agents to work with and move as fast as possible and not do anything unnecessary or do massive tests. critical paths only". Applies to the spec and to every build step.
 - **Standing rules**: use sources from the last 6 months where possible, and every claim cites a URL. Never run a full test suite or a heavy build in parallel; at most 2 heavy jobs run at once.
 
 ## Decisions so far
@@ -55,7 +56,7 @@ A build-ready spec for a slim Android emulator built for agents to test apps. Th
 
 
 - **Portability seams**: what keeps the Linux and macOS ports open.
-- **Spec document structure**: where the final spec lives and its sections.
+
 
 ## Out of scope
 
