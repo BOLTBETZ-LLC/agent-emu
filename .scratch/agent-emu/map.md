@@ -49,6 +49,7 @@ A build-ready spec for a slim Android emulator built for agents to test apps. Th
 - [Structured agent API v1](issues/15-structured-agent-api-v1.md): all four layers are in v1, after computer use and the UI tree, in this order: logs and crash events, device controls (deep link, GPS, QR image, clock, permissions, install/clear), Hermes CDP app state, then network capture and mocking. Each is binary API calls plus matching MCP tools.
 - [Fork design](issues/16-fork-design.md): Fork means pause, checkpoint and restore into a new crosvm process, copying RAM eagerly for now. v1 builds no Fork code but keeps 8 small seams. GPU snapshot is the blocker: the cross-domain blob path (needed for the memory budget) can't snapshot today. Aaron kept the blob path; GPU snapshot is solved later.
 - [Guest image source](issues/12-guest-image-source.md): no slim prebuilt exists (last built 2023-07-06). The spike starts from the API 36 `aosp_cf_x86_64_only_phone` prebuilt 15581820, repacks system as uncompressed chunk-based erofs, and rebuilds the GKI kernel with `ZONE_DEVICE`/`FS_DAX`. The full slim build needs a 64 GB+ Linux builder. Route and slim target stand.
+- [Boot proof spike plan](issues/13-boot-proof-spike-plan.md): stage 1 is crosvm/WHPX booting stock only_phone 15581820 to the first screen, with a gfxstream screenshot and host memory. Stage 2 is the DAX kernel plus erofs repack plus Windows pmem. Kill Route A after 3 failed fix attempts. Linux steps run in WSL2 Ubuntu on this PC.
 
 ## Not yet specified
 
