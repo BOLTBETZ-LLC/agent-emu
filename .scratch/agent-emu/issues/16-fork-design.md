@@ -67,3 +67,7 @@ Default: (a), since Fork is designed in but not built; v1 must-do 8 keeps (b) op
 - **Resetting ANDROID_ID in a clone.** A: delete ssaid entries and restart the app (idea). B: needs a SettingsProvider key-rotation op; raw XML edits are not established. **Unresolved;** both agree preserve by default. A guest test (rotate, then read ANDROID_ID from a second app) settles it.
 
 Context: Pass A (Claude) `C:/dev/worktrees/agent-emu--research-fork-design/.scratch/agent-emu/research/16-fork-design.md` on branch `research/fork-design`. Pass B (GPT-6.1 Sol) `C:/dev/worktrees/agent-emu--codex-fork-design/.scratch/agent-emu/research/16-fork-design.codex.md` on branch `research/codex-fork-design`.
+
+### Decision (Aaron, 2026-10-07)
+
+Keep the cross-domain blob GPU path in v1, as the memory budget needs. GPU snapshot for Fork is solved later in rutabaga, gfxstream and crosvm. Whether that's possible is unknown. v1 only keeps the 8 seams above.

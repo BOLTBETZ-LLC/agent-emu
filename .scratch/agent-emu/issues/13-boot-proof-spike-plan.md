@@ -1,7 +1,7 @@
 # Boot proof spike plan
 
 Type: grilling
-Status: open
+Status: claimed
 Blocked by: 12
 
 ## Question
