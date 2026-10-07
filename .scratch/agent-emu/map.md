@@ -44,14 +44,16 @@ A build-ready spec for a slim Android emulator built for agents to test apps. Th
 - [Computer-use API v1](issues/10-computer-use-api-v1.md): every action returns a settled 1080x2400 JPEG; settled means frames stopped AND the app is idle, with a 3 s deadline flagged as not settled. Inputs are tap, long_press, swipe, type_text, key and gesture, with coordinates in frame pixels. The UI tree is on request, animations are off, MCP has one tool per call, and one agent leases a Device at a time.
 - [Lock the route](issues/08-lock-the-route.md): Route A is confirmed. Fork crosvm on WHPX (adding a headless display, gfxstream, Windows pmem DAX and a boot test), with a Cuttlefish `aosp_cf_x86_64_slim` API 36 guest, one crosvm process per Device and one Rust fleet daemon. The biggest risk, an API 36 boot on crosvm/WHPX, is unproven.
 - [Memory budget](issues/09-memory-budget.md): 400 MB per Device split as VMM 30, kernel 25, daemons 25, SurfaceFlinger 20, zygote 40, system_server 90, app 170. Over budget means cutting in a fixed order: graphics, balloon, system_server trim, APEX DAX, zram. Still over 500 after that means re-grill.
+- [Device networking](issues/14-device-networking.md): internet is on and isolated per Device (NAT through crosvm slirp). Host localhost is reachable at 10.0.2.2. There are offline and shaping switches for tests. Traffic capture (HTTPS via a test CA) is off unless an agent asks.
+- [Structured agent API v1](issues/15-structured-agent-api-v1.md): all four layers are in v1, after computer use and the UI tree, in this order: logs and crash events, device controls (deep link, GPS, QR image, clock, permissions, install/clear), Hermes CDP app state, then network capture and mocking. Each is binary API calls plus matching MCP tools.
 
 ## Not yet specified
 
 - **Device lifecycle and fleet manager**: start, stop, health, resource caps across 10 Devices, and per-Device CPU pinning or shares.
-- **Networking per Device**: NAT, reaching the staging backend, and isolating Devices from each other.
+
 - **Viewer design**: how a human attaches to a headless Device.
-- **MCP layer shape**: tool names and granularity over the binary API.
-- **Structured agent API layers beyond computer use**: UI tree, Hermes/JS state, network capture, storage, logs, clock.
+
+
 - **Portability seams**: what keeps the Linux and macOS ports open.
 - **Spec document structure**: where the final spec lives and its sections.
 
