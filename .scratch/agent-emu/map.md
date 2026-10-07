@@ -50,16 +50,13 @@ A build-ready spec for a slim Android emulator built for agents to test apps. Th
 - [Fork design](issues/16-fork-design.md): Fork means pause, checkpoint and restore into a new crosvm process, copying RAM eagerly for now. v1 builds no Fork code but keeps 8 small seams. GPU snapshot is the blocker: the cross-domain blob path (needed for the memory budget) can't snapshot today. Aaron kept the blob path; GPU snapshot is solved later.
 - [Guest image source](issues/12-guest-image-source.md): no slim prebuilt exists (last built 2023-07-06). The spike starts from the API 36 `aosp_cf_x86_64_only_phone` prebuilt 15581820, repacks system as uncompressed chunk-based erofs, and rebuilds the GKI kernel with `ZONE_DEVICE`/`FS_DAX`. The full slim build needs a 64 GB+ Linux builder. Route and slim target stand.
 - [Boot proof spike plan](issues/13-boot-proof-spike-plan.md): stage 1 is crosvm/WHPX booting stock only_phone 15581820 to the first screen, with a gfxstream screenshot and host memory. Stage 2 is the DAX kernel plus erofs repack plus Windows pmem. Kill Route A after 3 failed fix attempts. Linux steps run in WSL2 Ubuntu on this PC.
+- [Fleet manager](issues/18-fleet-manager.md): recommended default. The Rust daemon `agent-emud` runs one crosvm child per Device inside a Windows Job Object (memory cap, kill on exit). Each Device gets 2 vCPUs, idle Devices run at low priority, and a crashed Device is restarted once.
+- [Viewer](issues/19-viewer.md): recommended default. A local web page served by `agent-emud` shows every Device live (MJPEG) and passes clicks and keys. It's a watcher until a human takes the lease.
+- [Portability seams](issues/20-portability-seams.md): recommended default. crosvm's own hypervisor trait, one memory-trick trait (WHPX now, userfaultfd/KSM on Linux), and a cross-platform daemon.
 
 ## Not yet specified
 
-- **Device lifecycle and fleet manager**: start, stop, health, resource caps across 10 Devices, and per-Device CPU pinning or shares.
-
-- **Viewer design**: how a human attaches to a headless Device.
-
-
-- **Portability seams**: what keeps the Linux and macOS ports open.
-
+Nothing. All fog has been graduated and decided.
 
 ## Out of scope
 
