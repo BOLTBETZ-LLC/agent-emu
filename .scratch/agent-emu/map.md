@@ -54,6 +54,10 @@ A build-ready spec for a slim Android emulator built for agents to test apps. Th
 - [Viewer](issues/19-viewer.md): recommended default. A local web page served by `agent-emud` shows every Device live (MJPEG) and passes clicks and keys. It's a watcher until a human takes the lease.
 - [Portability seams](issues/20-portability-seams.md): recommended default. crosvm's own hypervisor trait, one memory-trick trait (WHPX now, userfaultfd/KSM on Linux), and a cross-platform daemon.
 
+## Destination reached
+
+- [spec.md](spec.md): the build-ready spec, written for builder agents. It has a decisions table, architecture, a 9-step critical-path build order with exit checks, acceptance checks, 30 known traps, and §8 defaults that settle the contradictions between tickets. Execution has started: spike stage 1 (Boot proof spike plan).
+
 ## Not yet specified
 
 Nothing. All fog has been graduated and decided.
