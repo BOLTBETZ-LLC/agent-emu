@@ -1,7 +1,7 @@
 # Baseline on stock emulator
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: 04
 
 ## Question
