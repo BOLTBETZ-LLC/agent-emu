@@ -1,0 +1,80 @@
+{
+ "tag": "fleet6-896",
+ "n": 6,
+ "mem": "896",
+ "cpus": "2",
+ "pmem": true,
+ "devices": [
+  {
+   "id": 0,
+   "dir": "C:/dev/agent-emu-work/fleet/d0",
+   "ready_s": 131.3,
+   "install": "Success",
+   "launch": "Status: ok\nTotalTime: 5500",
+   "app_pid": "4836",
+   "guest_used": "Used RAM:   971,528K (  594,268K used pss +   377,260K kernel)"
+  },
+  {
+   "id": 1,
+   "dir": "C:/dev/agent-emu-work/fleet/d1",
+   "ready_s": 160.7,
+   "install": "Success",
+   "launch": "Status: ok\nTotalTime: 2398",
+   "app_pid": "5766",
+   "guest_used": "Used RAM:   974,639K (  591,675K used pss +   382,964K kernel)"
+  },
+  {
+   "id": 2,
+   "dir": "C:/dev/agent-emu-work/fleet/d2",
+   "ready_s": 170.8,
+   "install": "Success",
+   "launch": "Status: ok\nTotalTime: 2259",
+   "app_pid": "5648",
+   "guest_used": "Used RAM: 1,001,065K (  610,005K used pss +   391,060K kernel)"
+  },
+  {
+   "id": 3,
+   "dir": "C:/dev/agent-emu-work/fleet/d3",
+   "ready_s": 183.0,
+   "install": "Success",
+   "launch": "Status: ok\nTotalTime: 2076",
+   "app_pid": "5494",
+   "guest_used": "Used RAM:   982,367K (  601,243K used pss +   381,124K kernel)"
+  },
+  {
+   "id": 4,
+   "dir": "C:/dev/agent-emu-work/fleet/d4",
+   "ready_s": 192.6,
+   "install": "Success",
+   "launch": "Status: ok\nTotalTime: 2099",
+   "app_pid": "6079",
+   "guest_used": "Used RAM:   994,920K (  614,616K used pss +   380,304K kernel)"
+  },
+  {
+   "id": 5,
+   "dir": "C:/dev/agent-emu-work/fleet/d5",
+   "ready_s": 205.1,
+   "install": "Success",
+   "launch": "Status: ok\nTotalTime: 2230",
+   "app_pid": "5803",
+   "guest_used": "Used RAM: 1,021,688K (  638,564K used pss +   383,124K kernel)"
+  }
+ ],
+ "host_before": {
+  "available_mb": 13519,
+  "committed_mb": 30819,
+  "mem_compression_ws_mb": 477
+ },
+ "available_before_mb": 13519,
+ "host_after": {
+  "available_mb": 8106,
+  "committed_mb": 37535,
+  "mem_compression_ws_mb": 513
+ },
+ "available_after_mb": 8106,
+ "committed_delta_mb": 6716,
+ "mem_compression_delta_mb": 36,
+ "fleet_cost_mb": 5413,
+ "per_device_mb": 902,
+ "crosvm_ws_total_mb": 11830
+}

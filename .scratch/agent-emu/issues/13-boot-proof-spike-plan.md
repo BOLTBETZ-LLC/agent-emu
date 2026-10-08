@@ -167,6 +167,10 @@ Each Device gets its own dir with hard-linked read-only images (one disk copy, o
 | fleet2-block (system on a block disk, same DAX kernel) | 2 | 34.0 / 53.0 | both | 682 MB | ~341 MB | 3,679 MB |
 | **fleet4-pmem** | 4 | 40.8 / 65.5 / 76.3 / 85.9 | all 4, first screens seen by eye | 4,883 MB (Available) / 4,819 MB (Committed) / +124 MB compression store | **~1,221 MB** | 8,842 MB |
 
+| **fleet6-896** (slim3, pmem, 896 MB, 2 vCPU) | 6 | 131 / 161 / 171 / 183 / 193 / 205 | all 6 (pids 4836, 5766, 5648, 5494, 6079, 5803). First screens seen by eye: 5 clean; **d2 had a "Bluetooth keeps stopping" system dialog over the app** | 5,413 MB (Available) / 6,716 MB (Committed) / +36 MB compression | **~902 MB** (Available), ~1,119 MB (Committed) | n/a |
+
+- fleet6-896 guard: minimum Available was 7,747 MB, so it never came near the 3,000 MB stop. Other sessions were running throughout.
+- **Trap:** slim3 crash-loops `com.android.bluetooth`, and its "keeps stopping" dialog can cover the app under test. Fix: set `settings put global hide_error_dialogs 1` in Device setup, and drop Bluetooth from the image or fix its crash.
 - At 4 Devices the Available delta and the Committed delta agree within 1.5%, so **~1.2 GB per Device at `--mem 1024`** is the reliable number. The cost is guest RAM (1 GB, fully resident) plus about 200 MB of VMM, GPU and device processes. The 2-Device numbers were noise.
 - **fleet8-pmem (8 Devices × 1 GB): stopped by the memory guard.** Available fell to 1,133 MB during boot (48 crosvm processes). The cause was not the Devices alone: the WSL VM (`vmmemWSL`) held **10.9 GB** from the kernel build and the repacks. Rerun after `wsl --shutdown`. Rule for the spec: the Fleet host must not run the image-build VM at the same time.
 - **slim3 (slim2 minus SystemUI and its RRO; `config.disable_systemui=true`) + pmem at `--mem 768`: OOM at boot.**

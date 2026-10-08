@@ -68,7 +68,8 @@ A build-ready spec for a slim Android emulator built for agents to test apps. Th
 - **Settle v2:** tap → first frame p50 27 / p95 56 ms (one cold tap; warm 24-43); HOME → first frame 36/37 ms; settled 206-355 ms. JPEG encode is 2 ms (`jpeg-encoder` SIMD). The 33 ms quiet window ends early on cold app launches, so the app-idle helper is needed.
 - **crosvm fixes:** vsock log spam (GB per boot down to ~220 KB); net `start_queue` root cause (`workers.get(idx).is_some()` was always true); slirp TCP hostfwd. **adb works:** `adb connect 127.0.0.1:6520`, `getprop sys.boot_completed` = 1, `adb install` Success (13.3 s).
 - **Trap:** slim3 has no wallpaper or SystemUI, so stale pixels stay in the scanout where no window draws (seen by eye in `assets/10-settle-v2/2-home.jpg`). Needs an opaque base layer or a scanout clear.
-- **Open:** 6-Device run at 896 MB (running); headless display; stale-pixel fix; app-idle helper; structured API layers; the `system_dlkm` swap.
+- **6 Devices at 896 MB: all apps alive, ~902 MB per Device** (Available; Committed ~1.1 GB). One screen had a Bluetooth crash dialog over the app.
+- **Open:** headless display; stale-pixel fix; app-idle helper; structured API layers; the `system_dlkm` swap.
 
 ## Not yet specified
 
