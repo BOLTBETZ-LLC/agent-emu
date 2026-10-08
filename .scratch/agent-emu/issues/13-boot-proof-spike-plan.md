@@ -934,3 +934,56 @@ Why: CoW clones privatize ~340 MB because the guest churns memory through zram. 
 **Smallest size where the app survives 10 min with no swap: 896 MB.** `run-slim4ns/READY` contains `896`.
 
 To go lower without swap, the app's code pages should be DAX-backed like `/system`: install it into the pmem image, or put `/data/app` on DAX. Otherwise 768 thrashes on refaults.
+
+### App code on DAX: appdax (2026-10-08)
+
+Goal: stop the app's own code refaulting from non-DAX `/data`, while it stays a normal user app.
+
+**What the app reads, and from where** (slim4ns, 896 MB, `dumpsys package` + `/proc/<pid>/smaps`):
+- `extractNativeLibs=false`: `lib/x86_64/*.so` are STORED in the APK and mapped from `base.apk`; `lib/x86_64/` on disk is empty.
+- The Hermes bundle `assets/index.android.bundle` (8.9 MB) is STORED (uncompressed), so it can be mapped from the APK.
+- `classes*.dex` (6 files) are DEFLATED. dexopt is `[status=verify] [reason=install]`, so ART reads dex from `oat/x86_64/base.vdex` (51 MB; `base.odex` is 394 KB), not from the APK.
+- `flags=[ HAS_CODE ALLOW_CLEAR_USER_DATA ]`: a plain user app.
+- The installed `base.apk` is byte-identical to the host APK (both sha256 `74b606bb186d...`).
+- Resident file-backed pages of the app: `/data/app` 11.2 MB, `/apex/com.android.art` 9.5, `/system/lib64` 4.8 (pmem0, DAX), `/product/app` 4.3.
+- The app process is mostly anonymous: Pss_Anon 179 MB of a 200 MB Pss.
+
+**Method (preferred route, it works; the system-app fallback was not needed):**
+- `stage2/appdax/app-pmem.img` (197 MB, sha256 `e69e4067d07b31c89436aa740c3f3c3d6528f05b1d6f260a1098d6c6655e922c`):
+  - an uncompressed chunk-based erofs like system-pmem (`mkfs.erofs -b 4096 --chunksize 4096 -E noinline_data`, uid/gid 1000, padded to 2 MiB);
+  - it holds `/com.boltbetz.staging/base.apk` and `oat/x86_64/base.{odex,vdex}`, copied from a real install. The oat came out through the `out` disk with `tar`.
+- It is attached as a second `--pmem ...,ro=true`, so it appears in the guest as `/dev/block/pmem1`.
+- In the image (`stage2/appdax/vendor/`, added to a tree by `add-to-tree.sh`):
+  - `/vendor/bin/appdax.sh` mounts pmem1 at `/mnt/appdax` (`erofs ro,dax=always`).
+  - For each package dir in the image it finds the install with `pm path` and checks that the `base.apk` size matches.
+  - It then bind-mounts `base.apk` and `oat/<isa>/*` read-only over the installed files.
+  - `/vendor/etc/init/appdax.rc` runs it on `sys.boot_completed=1` (for clones, where the app is already installed) and on `sys.agentemu.appdax=1` (the harness sets this after `pm install`).
+- The app is still a normal user app: no FLAG_SYSTEM, same install dir, same permissions.
+- Proof (`/proc/mounts`): `/dev/block/pmem1 /data/app/~~.../base.apk erofs ...,dax=always`, plus `base.odex` and `base.vdex`; logcat `appdax: com.boltbetz.staging code bound from pmem1 into /data/app/~~...`.
+- App smaps afterwards: its `/data/app` mappings are on device `103:05` (pmem1) with ~1 MB counted RSS, down from 11.2 MB on `fe:59`. ART used the bound odex/vdex: there was no dex2oat at launch.
+- SELinux is permissive on these images; an enforcing image would need labels for the bind sources (not done).
+- Images:
+  - **slim4dax** = slim4 (zram on) + appdax, run dir `run-slim4dax`;
+  - **slim4nsdax** = slim4ns (no swap) + appdax, run dir `run-slim4nsdax`;
+  - both hold `app-pmem.img`. Harness: `soakrun.sh <run-dir> <mem> <tag>`.
+
+**10-min soaks** (`diet_soak.py`: a tap every 20 s, force-stop + relaunch at minute 5). Every end screenshot below was seen by eye and shows the offline dialog.
+
+| Image | `--mem` | Survives 10 min | MemAvailable min | pswpin / pswpout (pages) | kswapd steals | file refaults |
+|---|---|---|---|---|---|---|
+| slim4ns (reference) | 896 | yes | 16 MB | 0 / 0 | 1,055,425 | 893,366 |
+| **slim4nsdax** | 896 | yes | 21 MB | 0 / 0 | 114,433 (−89 %) | **60,627 (−93 %)** |
+| slim4nsdax | 768 | **no**: lmkd killed TOP 30 s after launch, `thrashing (17610%)` | n/a | 0 / 0 | n/a | n/a |
+| **slim4dax (zram on)** | **768** | **yes** (relaunch 778 ms) | 41 MB | 31,506 / 38,292 | 88,809 | **12,871** |
+| slim4dax (zram on) | 640 | yes (relaunch 888 ms) | 14 MB | 255,764 / 272,526 | 478,698 | 113,973 |
+
+- **Smallest size that survives 10 min:**
+  - with zram: **640 MB**, but with heavy churn (~1 GB swapped each way, 114k refaults);
+  - without swap: **896 MB**.
+- **Refault rate:**
+  - slim4dax at 768: 12,871 per 10 min, **1.4 % of slim4ns at 896** (893,366);
+  - slim4nsdax at 896: 60,627, 6.8 %.
+- `run-slim4dax/READY` = `768`. That is the lowest size with low churn: 123 MB swapped in, 150 MB out, 50 MB of refaults over 10 min. `run-slim4nsdax/READY` = `896`.
+- zram off at 640 was not run, because 768 already fails without swap.
+- **Why no-swap still fails at 768:** the remaining file pages are not DAX. In the 768 app's smaps the top file mappings are `/apex/com.google.cf.vulkan` 18 MB (loop on `/data`), `/product/app` 11 MB, and `/apex/com.android.art` 9.7 MB (decompressed apex on `/data`). system_server maps 53 MB from `/system_ext/priv-app`.
+- **Next lever:** put `system_ext`, `product` and `vendor` on pmem too. They are already uncompressed erofs, but are dm-linear on super with hashtree; the change is a first-stage fstab like `/system`. The APEXes are harder, because their loop devices are never DAX.
