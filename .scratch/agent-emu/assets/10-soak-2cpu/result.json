@@ -1,0 +1,210 @@
+{
+ "cpus": 2,
+ "soak_s": 900,
+ "ready_s": 119.9,
+ "install": "Success",
+ "ril": "running\npid=925\n      1 0\n      3 19",
+ "rild_cpu": "  964 35.0 libcuttlefish-r libcuttlefish-rild\n  964 33.3 libcuttlefish-r libcuttlefish-rild\n  964 33.0 libcuttlefish-r libcuttlefish-rild\n 3049  0.0 FakeRilThread   com.android.phone",
+ "hwui_swipes": [
+  "Janky frames: 0 (0.00%)",
+  "50th percentile: 4950ms",
+  "95th percentile: 4950ms"
+ ],
+ "system_server_start": "1001",
+ "home_start": {
+  "p50": 34,
+  "p95": 41,
+  "frames": 20,
+  "n": 20,
+  "raw": [
+   39,
+   40,
+   35,
+   30,
+   34,
+   36,
+   30,
+   31,
+   30,
+   35,
+   30,
+   30,
+   41,
+   32,
+   38,
+   37,
+   33,
+   40,
+   34,
+   30
+  ]
+ },
+ "soak": [
+  {
+   "t": "02:05:07",
+   "system_server": "1001",
+   "app": "4390",
+   "events_by_process": {
+    "com.android.nfc": 2
+   },
+   "available_mb": 10979
+  },
+  {
+   "t": "02:06:10",
+   "system_server": "1001",
+   "app": "4390",
+   "events_by_process": {
+    "com.android.nfc": 3
+   },
+   "available_mb": 9414
+  },
+  {
+   "t": "02:07:12",
+   "system_server": "1001",
+   "app": "4390",
+   "events_by_process": {
+    "com.android.nfc": 5
+   },
+   "available_mb": 9689
+  },
+  {
+   "t": "02:08:15",
+   "system_server": "1001",
+   "app": "4390",
+   "events_by_process": {
+    "com.android.nfc": 6
+   },
+   "available_mb": 9689
+  },
+  {
+   "t": "02:09:17",
+   "system_server": "1001",
+   "app": "4390",
+   "events_by_process": {
+    "com.android.nfc": 7
+   },
+   "available_mb": 9658
+  },
+  {
+   "t": "02:10:20",
+   "system_server": "1001",
+   "app": "4390",
+   "events_by_process": {
+    "com.android.nfc": 9
+   },
+   "available_mb": 9609
+  },
+  {
+   "t": "02:11:23",
+   "system_server": "1001",
+   "app": "4390",
+   "events_by_process": {
+    "com.android.nfc": 10
+   },
+   "available_mb": 8977
+  },
+  {
+   "t": "02:12:25",
+   "system_server": "1001",
+   "app": "4390",
+   "events_by_process": {
+    "com.android.nfc": 12
+   },
+   "available_mb": 9088
+  },
+  {
+   "t": "02:13:28",
+   "system_server": "1001",
+   "app": "4390",
+   "events_by_process": {
+    "com.android.nfc": 13
+   },
+   "available_mb": 9039
+  },
+  {
+   "t": "02:14:30",
+   "system_server": "1001",
+   "app": "4390",
+   "events_by_process": {
+    "com.android.nfc": 14
+   },
+   "available_mb": 9064
+  },
+  {
+   "t": "02:15:33",
+   "system_server": "1001",
+   "app": "4390",
+   "events_by_process": {
+    "com.android.nfc": 16
+   },
+   "available_mb": 8944
+  },
+  {
+   "t": "02:16:35",
+   "system_server": "1001",
+   "app": "4390",
+   "events_by_process": {
+    "com.android.nfc": 17
+   },
+   "available_mb": 9523
+  },
+  {
+   "t": "02:17:38",
+   "system_server": "1001",
+   "app": "4390",
+   "events_by_process": {
+    "com.android.nfc": 18
+   },
+   "available_mb": 9532
+  },
+  {
+   "t": "02:18:41",
+   "system_server": "1001",
+   "app": "4390",
+   "events_by_process": {
+    "com.android.nfc": 20
+   },
+   "available_mb": 9494
+  },
+  {
+   "t": "02:19:43",
+   "system_server": "1001",
+   "app": "4390",
+   "events_by_process": {
+    "com.android.nfc": 21
+   },
+   "available_mb": 9088
+  }
+ ],
+ "system_server_end": "1001",
+ "system_server_unchanged": true,
+ "app_alive_all": true,
+ "home_end": {
+  "p50": 35,
+  "p95": 46,
+  "frames": 20,
+  "n": 20,
+  "raw": [
+   35,
+   30,
+   37,
+   35,
+   41,
+   25,
+   38,
+   32,
+   28,
+   28,
+   41,
+   31,
+   41,
+   37,
+   31,
+   33,
+   34,
+   35,
+   46,
+   32
+  ]
+ }
+}

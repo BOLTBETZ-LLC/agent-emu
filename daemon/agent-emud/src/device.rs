@@ -33,8 +33,11 @@ const PARTS: &str = "misc:misc.img:writable frp:frp.img:writable boot_a:boot.img
 // its "keeps stopping" dialog can cover the app. Never `pm disable-user` it: the next airplane-mode
 // change makes BluetoothManagerService unbind a service it never bound, and system_server crash-loops.
 // log.tag.RIL S: the RIL logs "Can't connect to port:9600d" (no modem simulator) ~40 MB a minute.
+// renice 19 on the RIL: it spins ~32% of a vCPU retrying a modem that isn't there; stopped, HWUI frames went
+// 40 -> 23 ms p50 (issue 10). Never `ctl.stop vendor.ril-daemon`: com.android.phone then hangs waiting for
+// the radio HAL and ANR-restarts every ~45 s. Lowest priority keeps the service up but off the UI's CPU.
 const SETUP: &str = "settings put global hide_error_dialogs 1; \
-    am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS; setprop log.tag.RIL S; \
+    am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS; setprop log.tag.RIL S; for t in $(ls /proc/$(pidof libcuttlefish-rild)/task 2>/dev/null); do renice -n 19 -p $t; done >/dev/null 2>&1; \
     cmd connectivity airplane-mode enable; settings put global window_animation_scale 0; \
     settings put global transition_animation_scale 0; settings put global animator_duration_scale 0; \
     svc power stayon true; input keyevent KEYCODE_WAKEUP; wm dismiss-keyguard; \
@@ -313,7 +316,7 @@ impl Device {
     /// `net: false` boots without virtio-net (so without adb); only the console, fast input and frame
     /// paths remain. Untested.
     /// `others_ok`: skip the "no other crosvm running" check (the caller already runs Devices).
-    pub async fn spawn(cfg: &Cfg, idx: u32, image_name: &str, mem: Option<&str>, net: bool, others_ok: bool) -> R<Arc<Device>> {
+    pub async fn spawn(cfg: &Cfg, idx: u32, image_name: &str, mem: Option<&str>, cpus: Option<&str>, net: bool, others_ok: bool) -> R<Arc<Device>> {
         let (run, image_mem) = image(image_name)?;
         let mem = mem.or(image_mem).unwrap_or(&cfg.mem).to_string();
         let avail = available_mb();
@@ -336,7 +339,7 @@ impl Device {
         let child = cmd
             .args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-File"]).arg(boot_script())
             .env("AE_PARAMS", DIET_PARAMS).env("AE_SINKS", DIET_SINKS).env("AE_GPU_EXTRA", DIET_GPU)
-            .env("AE_DIR", win(&dir)).env("AE_ID", idx.to_string()).env("AE_MEM", &mem).env("AE_CPUS", &cfg.cpus)
+            .env("AE_DIR", win(&dir)).env("AE_ID", idx.to_string()).env("AE_MEM", &mem).env("AE_CPUS", cpus.unwrap_or(&cfg.cpus))
             .env("AE_EXTRA", format!("--socket PIPE:ae-vm-{idx} --pmem path={},ro=true --input multi-touch[path={}] --input keyboard[path={}]",
                 pmem.to_string_lossy().replace('\\', "/"), fast::touch_pipe(idx), fast::kbd_pipe(idx)))
             // No desktop window: crosvm's 2D GPU uses the stub display; frames still come from fb.bin.

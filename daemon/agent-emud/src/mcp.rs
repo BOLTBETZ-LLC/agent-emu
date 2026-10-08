@@ -48,6 +48,7 @@ fn tools() -> Value {
             "inputSchema": {"type": "object", "required": ["n"], "properties": {
                 "n": num, "base": {"type": "number", "description": "first Device index, default 0"},
                 "image": {"type": "string", "description": "slim3 | slim4 | slim5"}, "mem": num,
+                "cpus": {"type": "number", "description": "vCPUs per Device, default AE_CPUS (2)"},
                 "net": {"type": "boolean", "description": "false = no virtio-net and no adb (untested)"},
                 "auto_squeeze": {"type": "boolean", "description": "default true"},
                 "squeeze_settle_s": {"type": "number", "description": "wait after launch before squeezing, default 45"},

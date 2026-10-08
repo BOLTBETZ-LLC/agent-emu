@@ -158,3 +158,20 @@ The swipe's first frame does not move with the swipe's speed, so it is a fixed ~
 4. skiavk does not work on this guest (the app dies).
 
 App-gesture-bound inputs (this carousel) stay near 90 ms: for those, p95 < 50 ms needs the app, or the host GPU (gfxstream), not the emulator's input or copy path.
+
+**Decision (2026-10-08):** the ~90 ms on app gestures (the Welcome carousel) is the proof app's own handling, not the emulator: it is the same at every swipe speed while HOME is at ~35 ms. Getting it under 50 ms needs host GPU rendering (gfxstream) or app changes. No gfxstream work now. `start`/`fleet` take `cpus` (default stays 2).
+
+### Device setup: RIL at lowest priority, soak (2026-10-08, slim3 896 MB defaults, `daemon/soak_smoke.py`, `assets/10-soak-2cpu`, `10-home-4cpu`, `10-rilstop/`)
+
+- **Do not stop the RIL.** With `setprop ctl.stop vendor.ril-daemon` (killed at uptime 124 s), `com.android.phone` hung on BOOT_COMPLETED (ANR at +3 min), then failed to start every ~45 s (`failed to complete startup`, 19 ANRs in 15 min). Each restart and ANR dump costs CPU. system_server kept its pid. HOME stayed p50 36-37 ms, but one HOME took 1080 ms during the loop.
+- **Device setup now renices every RIL thread to 19** (`for t in /proc/$(pidof libcuttlefish-rild)/task/*: renice -n 19`). The RIL still spins (~33% of a vCPU when the CPU is idle) but yields to the UI. 15-minute soak at 2 vCPU with a HOME + relaunch every minute: system_server pid unchanged, app alive, no phone loop.
+
+| vCPUs | HOME -> first frame p50 / p95 (2 warm-ups, 20 timed) |
+|---|---|
+| 2, start of soak | 34 / 41 ms |
+| 2, after 15 min | 35 / 46 ms |
+| 4, start | 34 / 39 ms |
+| 4, after 1 min | 34 / 38 ms |
+
+2 vCPUs meet p95 < 50 ms on HOME, so the default stays 2.
+- **Pre-existing loop, not from this change:** `com.android.nfc` fails to start every ~45-60 s (`failed to complete startup`, 21 ANRs in 15 min). It began at 08:35:40, before the RIL change, and shows up in `crash_events`. It is a CPU sink on every slim3 Device. Not fixed yet (disabling it needs the same check as Bluetooth, issue 10 trap).

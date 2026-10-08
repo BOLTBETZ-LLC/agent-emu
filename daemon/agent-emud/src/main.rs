@@ -210,7 +210,8 @@ async fn start_device(st: &State, idx: u32, req: &Value) -> R<(Arc<Device>, f64)
     let net = req["net"].as_bool().unwrap_or(true);
     // Other crosvm processes are fine once this daemon runs a Device itself (a fleet).
     let others_ok = !st.devs.lock().unwrap().is_empty();
-    let d = Device::spawn(&st.cfg, idx, req["image"].as_str().unwrap_or(""), mem.as_deref(), net, others_ok).await?;
+    let cpus = req["cpus"].as_u64().map(|c| c.to_string());
+    let d = Device::spawn(&st.cfg, idx, req["image"].as_str().unwrap_or(""), mem.as_deref(), cpus.as_deref(), net, others_ok).await?;
     st.devs.lock().unwrap().insert(id.clone(), Slot { dev: d.clone(), opts: squeeze::Opts::from(req, squeeze::Opts::DEFAULT),
         auto_squeeze: req["auto_squeeze"] == json!(true), lease: None });
     if let Err(e) = d.wait_boot(Duration::from_secs(900), st.cfg.min_avail_mb).await {
