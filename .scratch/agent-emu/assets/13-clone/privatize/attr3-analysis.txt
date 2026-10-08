@@ -1,0 +1,73 @@
+host dumps: ['host-0030.bin', 'host-0060.bin', 'host-0090.bin', 'host-0120.bin', 'host-0150.bin', 'host-0180.bin', 'host-0210.bin', 'host-0240.bin', 'host-0270.bin', 'host-0300.bin', 'host-0330.bin', 'host-0360.bin', 'host-0390.bin', 'host-0420.bin', 'host-0450.bin', 'host-0480.bin', 'host-0510.bin', 'host-0540.bin', 'host-0570.bin', 'host-0600.bin']
+t=  30s privatized 315 MB
+t=  60s privatized 315 MB
+t=  90s privatized 316 MB
+t= 120s privatized 316 MB
+t= 150s privatized 316 MB
+t= 180s privatized 316 MB
+t= 210s privatized 316 MB
+t= 240s privatized 316 MB
+t= 270s privatized 316 MB
+t= 300s privatized 317 MB
+t= 330s privatized 325 MB
+t= 360s privatized 325 MB
+t= 390s privatized 325 MB
+t= 420s privatized 325 MB
+t= 450s privatized 325 MB
+t= 480s privatized 325 MB
+t= 510s privatized 325 MB
+t= 540s privatized 326 MB
+t= 570s privatized 326 MB
+t= 600s privatized 326 MB
+
+guest t=5s vs host dump t=30s: 315 MB privatized; by current guest use (MB privatized / MB total in guest):
+  anon/shmem+mapped                                                        102.3 /   117.5
+  slab                                                                      55.9 /   114.9
+  kernel other (no flags: zsmalloc, vmalloc, stacks, pinned, unref'd free)    55.4 /   147.4
+  other flags                                                               31.9 /   100.6
+  anon/shmem                                                                28.5 /    38.9
+  pagetable                                                                 13.3 /    27.1
+  file cache+mapped                                                         12.7 /    71.2
+  free(buddy)                                                                9.8 /    16.4
+  file cache                                                                 5.3 /     6.0
+
+guest t=60s vs host dump t=60s: 315 MB privatized; by current guest use (MB privatized / MB total in guest):
+  anon/shmem+mapped                                                        114.2 /   129.4
+  slab                                                                      56.2 /   115.0
+  file cache+mapped                                                         48.9 /   107.4
+  kernel other (no flags: zsmalloc, vmalloc, stacks, pinned, unref'd free)    26.5 /   118.4
+  anon/shmem                                                                24.1 /    30.8
+  other flags                                                               15.9 /    84.7
+  pagetable                                                                 13.6 /    27.3
+  free(buddy)                                                                9.7 /    20.0
+  file cache                                                                 6.4 /     7.0
+
+guest t=290s vs host dump t=300s: 317 MB privatized; by current guest use (MB privatized / MB total in guest):
+  anon/shmem+mapped                                                        116.6 /   131.8
+  slab                                                                      57.1 /   115.3
+  file cache+mapped                                                         46.9 /   105.3
+  kernel other (no flags: zsmalloc, vmalloc, stacks, pinned, unref'd free)    32.5 /   124.2
+  anon/shmem                                                                24.1 /    30.8
+  other flags                                                               15.8 /    84.5
+  pagetable                                                                 13.8 /    27.5
+  file cache                                                                 5.3 /     6.0
+  free(buddy)                                                                4.4 /    14.5
+
+guest t=600s vs host dump t=600s: 326 MB privatized; by current guest use (MB privatized / MB total in guest):
+  anon/shmem+mapped                                                        112.5 /   127.5
+  slab                                                                      57.3 /   113.7
+  file cache+mapped                                                         35.3 /    93.3
+  kernel other (no flags: zsmalloc, vmalloc, stacks, pinned, unref'd free)    30.6 /   121.9
+  anon/shmem                                                                24.7 /    31.4
+  file cache                                                                22.9 /    23.5
+  other flags                                                               15.6 /    84.2
+  free(buddy)                                                               13.9 /    17.8
+  pagetable                                                                 12.9 /    26.6
+
+new privatized 30->60s: 0 MB, now: {"kernel other (no flags: zsmalloc, vmalloc, stacks, pinned, unref'd free)": 0.1, 'anon/shmem+mapped': 0.0, 'slab': 0.0, 'file cache+mapped': 0.0, 'free(buddy)': 0.0, 'file cache': 0.0}
+
+new privatized 60->300s: 1 MB, now: {'slab': 0.6, 'free(buddy)': 0.2, 'anon/shmem+mapped': 0.2, 'pagetable': 0.0, "kernel other (no flags: zsmalloc, vmalloc, stacks, pinned, unref'd free)": 0.0, 'other flags': 0.0}
+
+new privatized 300->330s: 9 MB, now: {'free(buddy)': 3.2, 'anon/shmem': 2.3, 'slab': 1.4, 'anon/shmem+mapped': 0.6, "kernel other (no flags: zsmalloc, vmalloc, stacks, pinned, unref'd free)": 0.3, 'file cache': 0.3}
+
+new privatized 330->600s: 1 MB, now: {'slab': 0.4, "kernel other (no flags: zsmalloc, vmalloc, stacks, pinned, unref'd free)": 0.1, 'anon/shmem+mapped': 0.0, 'other flags': 0.0, 'pagetable': 0.0, 'file cache': 0.0}

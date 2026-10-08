@@ -1,0 +1,293 @@
+﻿[
+    {
+        "id":  "15",
+        "private_ws_mb":  324,
+        "ws_mb":  526,
+        "avail_before":  13675,
+        "avail_after":  14117,
+        "freed_mb":  442,
+        "hv_pages_delta":  -1536,
+        "standby_delta_mb":  43,
+        "mod_delta_mb":  -6,
+        "noisy":  false,
+        "before":  [
+                       {
+                           "t":  "04:05:01.697",
+                           "avail":  13681,
+                           "hv":  65757,
+                           "mod":  38,
+                           "standby":  13631,
+                           "free":  50,
+                           "others":  ""
+                       },
+                       {
+                           "t":  "04:05:03.573",
+                           "avail":  13691,
+                           "hv":  65757,
+                           "mod":  33,
+                           "standby":  13630,
+                           "free":  60,
+                           "others":  ""
+                       },
+                       {
+                           "t":  "04:05:05.463",
+                           "avail":  13653,
+                           "hv":  65757,
+                           "mod":  33,
+                           "standby":  13629,
+                           "free":  24,
+                           "others":  ""
+                       }
+                   ],
+        "after":  [
+                      {
+                          "t":  "04:05:08.098",
+                          "avail":  14087,
+                          "hv":  64221,
+                          "mod":  32,
+                          "standby":  13669,
+                          "free":  418,
+                          "others":  ""
+                      },
+                      {
+                          "t":  "04:05:09.972",
+                          "avail":  14096,
+                          "hv":  64221,
+                          "mod":  32,
+                          "standby":  13673,
+                          "free":  423,
+                          "others":  ""
+                      },
+                      {
+                          "t":  "04:05:11.847",
+                          "avail":  14111,
+                          "hv":  64221,
+                          "mod":  27,
+                          "standby":  13671,
+                          "free":  440,
+                          "others":  ""
+                      },
+                      {
+                          "t":  "04:05:13.724",
+                          "avail":  14144,
+                          "hv":  64221,
+                          "mod":  27,
+                          "standby":  13672,
+                          "free":  472,
+                          "others":  ""
+                      },
+                      {
+                          "t":  "04:05:15.585",
+                          "avail":  14146,
+                          "hv":  64221,
+                          "mod":  26,
+                          "standby":  13673,
+                          "free":  473,
+                          "others":  ""
+                      },
+                      {
+                          "t":  "04:05:17.459",
+                          "avail":  14153,
+                          "hv":  64221,
+                          "mod":  26,
+                          "standby":  13674,
+                          "free":  479,
+                          "others":  ""
+                      }
+                  ]
+    },
+    {
+        "id":  "14",
+        "private_ws_mb":  327,
+        "ws_mb":  527,
+        "avail_before":  14127,
+        "avail_after":  14605,
+        "freed_mb":  478,
+        "hv_pages_delta":  -1536,
+        "standby_delta_mb":  46,
+        "mod_delta_mb":  0,
+        "noisy":  false,
+        "before":  [
+                       {
+                           "t":  "04:05:33.226",
+                           "avail":  14124,
+                           "hv":  64221,
+                           "mod":  26,
+                           "standby":  13682,
+                           "free":  442,
+                           "others":  ""
+                       },
+                       {
+                           "t":  "04:05:35.092",
+                           "avail":  14123,
+                           "hv":  64221,
+                           "mod":  26,
+                           "standby":  13683,
+                           "free":  440,
+                           "others":  ""
+                       },
+                       {
+                           "t":  "04:05:36.968",
+                           "avail":  14134,
+                           "hv":  64221,
+                           "mod":  25,
+                           "standby":  13677,
+                           "free":  456,
+                           "others":  ""
+                       }
+                   ],
+        "after":  [
+                      {
+                          "t":  "04:05:39.564",
+                          "avail":  14590,
+                          "hv":  62685,
+                          "mod":  25,
+                          "standby":  13723,
+                          "free":  867,
+                          "others":  ""
+                      },
+                      {
+                          "t":  "04:05:41.423",
+                          "avail":  14591,
+                          "hv":  62685,
+                          "mod":  25,
+                          "standby":  13723,
+                          "free":  868,
+                          "others":  ""
+                      },
+                      {
+                          "t":  "04:05:43.274",
+                          "avail":  14609,
+                          "hv":  62685,
+                          "mod":  25,
+                          "standby":  13723,
+                          "free":  886,
+                          "others":  ""
+                      },
+                      {
+                          "t":  "04:05:45.136",
+                          "avail":  14616,
+                          "hv":  62685,
+                          "mod":  25,
+                          "standby":  13723,
+                          "free":  893,
+                          "others":  ""
+                      },
+                      {
+                          "t":  "04:05:46.985",
+                          "avail":  14613,
+                          "hv":  62685,
+                          "mod":  25,
+                          "standby":  13722,
+                          "free":  891,
+                          "others":  ""
+                      },
+                      {
+                          "t":  "04:05:48.841",
+                          "avail":  14622,
+                          "hv":  62685,
+                          "mod":  25,
+                          "standby":  13724,
+                          "free":  897,
+                          "others":  ""
+                      }
+                  ]
+    },
+    {
+        "id":  "13",
+        "private_ws_mb":  319,
+        "ws_mb":  503,
+        "avail_before":  14615,
+        "avail_after":  15238,
+        "freed_mb":  623,
+        "hv_pages_delta":  -1536,
+        "standby_delta_mb":  197,
+        "mod_delta_mb":  0,
+        "noisy":  false,
+        "before":  [
+                       {
+                           "t":  "04:06:04.525",
+                           "avail":  14604,
+                           "hv":  62685,
+                           "mod":  38,
+                           "standby":  13731,
+                           "free":  873,
+                           "others":  ""
+                       },
+                       {
+                           "t":  "04:06:06.396",
+                           "avail":  14610,
+                           "hv":  62685,
+                           "mod":  34,
+                           "standby":  13731,
+                           "free":  879,
+                           "others":  ""
+                       },
+                       {
+                           "t":  "04:06:08.261",
+                           "avail":  14631,
+                           "hv":  62685,
+                           "mod":  34,
+                           "standby":  13731,
+                           "free":  900,
+                           "others":  ""
+                       }
+                   ],
+        "after":  [
+                      {
+                          "t":  "04:06:10.812",
+                          "avail":  15256,
+                          "hv":  61149,
+                          "mod":  34,
+                          "standby":  13929,
+                          "free":  1328,
+                          "others":  ""
+                      },
+                      {
+                          "t":  "04:06:12.658",
+                          "avail":  15250,
+                          "hv":  61149,
+                          "mod":  34,
+                          "standby":  13929,
+                          "free":  1321,
+                          "others":  ""
+                      },
+                      {
+                          "t":  "04:06:14.492",
+                          "avail":  15238,
+                          "hv":  61149,
+                          "mod":  34,
+                          "standby":  13928,
+                          "free":  1310,
+                          "others":  ""
+                      },
+                      {
+                          "t":  "04:06:16.329",
+                          "avail":  15225,
+                          "hv":  61149,
+                          "mod":  34,
+                          "standby":  13928,
+                          "free":  1297,
+                          "others":  ""
+                      },
+                      {
+                          "t":  "04:06:18.183",
+                          "avail":  15214,
+                          "hv":  61149,
+                          "mod":  34,
+                          "standby":  13928,
+                          "free":  1286,
+                          "others":  ""
+                      },
+                      {
+                          "t":  "04:06:20.030",
+                          "avail":  15194,
+                          "hv":  61149,
+                          "mod":  34,
+                          "standby":  13928,
+                          "free":  1266,
+                          "others":  ""
+                      }
+                  ]
+    }
+]

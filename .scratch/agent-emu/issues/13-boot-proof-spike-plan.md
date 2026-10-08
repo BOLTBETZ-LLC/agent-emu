@@ -521,6 +521,54 @@ Setup: slim5 image (`run-slim5`: HomeStub, tuned lmkd) at `--mem 640`, queue-fix
 - Screens seen by eye (`assets/13-clone/s5-sheet.png`): the template scanout and all 3 clone screencaps show the offline dialog. Final pids 3826 / 3826 / 3827 (lockstep).
 - **Conclusion:** at the same guest size, the slim5 image does not lower per-clone privatized memory. Best clone config stays slim4 640 uncapped: marginal median 416 MB, ~439 MB average at N=10. Reaching 400 needs the guest to privatize less: smaller `--mem` with clones (slim5 at 576), or balloon/free-page reporting that hands guest-free pages back to the template.
 
+### What privatizes a clone's pages (2026-10-08, crosvm-clone `16f9e958e`, data `assets/13-clone/privatize/`)
+
+Method: `AGENT_EMU_COW_DUMP` makes crosvm write each clone page's state (not resident / shared template page / private copy) every 30 s. `attrib_run.py` drives one clone like the steady runs (tap every 20 s, relaunch at 300 s) and pulls guest `/proc/kpageflags`, meminfo, vmstat and zram stats at 5 / 60 / 290 / 600 s. `attrib_analyze.py` joins the two: what each privatized guest frame is used for now.
+
+**Step 1: where the pages go (slim4 640, `snapG`, writable mapping):**
+- **291 MB privatized in the first 30 s after restore**, +1 MB by 60 s, +8 MB by 300 s, **+42 MB at the relaunch**, then flat (342 MB at 600 s).
+- At 30 s, by current guest use:
+
+| Guest use | Privatized / total in guest (MB) |
+|---|---|
+| Mapped anon | 72 / 78 |
+| Slab | 57 / 117 |
+| Kernel other (zsmalloc, vmalloc, stacks) | 47 / 156 |
+| Mapped file cache, mostly read-only code | 31 / 91 |
+| Other flags | 27 / 106 |
+| Unmapped anon / shmem | 21 / 37 |
+| Free (buddy) | 15 / 18 |
+| Page tables | 15 / 30 |
+| Unmapped page cache | 7 / 8 |
+
+- The relaunch's 42 MB is mostly new app anon (16 MB), kernel other (7) and pages freed again (5).
+- **The guest is under constant memory pressure even idle.** Over 10 min: `pswpin` +325k pages and `pswpout` +329k (≈1.3 GB through zram each way), `pgsteal_kswapd` +753k, file refaults +258k, anon refaults +143k, compaction migrated +16k pages. Each swap-in, refault or migration lands in a fresh frame, which is a write. That rotates almost every non-pinned frame within minutes.
+- **Hypothesis "reads privatize": half right.** With `AGENT_EMU_COW_RO=1` (clone RAM mapped read+execute; a page becomes writable on its first write fault), only 149 MB is privatized at 30 s instead of 291. But churn then climbs ~25 MB per 30 s to 340 MB by 240 s, and ends at **349 MB** (vs 342). Read-only mapping only delays the copies. It also slows the clone (console 9 s, relaunch 4.2 s), so it stays off by default.
+
+**Step 2: cuts, one clone each, privatized MB at 600 s (relaunch included):**
+
+| Config | Privatized @30 s | @600 s | App alive | Note |
+|---|---|---|---|---|
+| slim4 640, baseline | 291 | 342 | yes | |
+| slim4 640, read-only RAM | 149 | 349 | yes | slower |
+| (a) slim4 640, `vm.swappiness=0` in the clone | 315 | 326 | **no** (app gone by 600 s) | rejected |
+| (b) slim4 640, `am kill-all` + app standby + deviceidle force-idle | 286 | 338 | yes | no gain |
+| (d) drop_caches before snapshot | already in every template | | | the snapshot step runs `sync; echo 3 > drop_caches` |
+| slim4 **1024**, read-only RAM | 150 | 505 | yes | more RAM = more fresh frames touched |
+| slim4 **1024** | 372 | 567 | yes | relaunch alone +146 MB |
+| **slim5 576**, RIL reniced | 269 | **315** | yes | lowest |
+
+- (c) ART: CMC/uffd GC is selected by the read-only build prop `ro.dalvik.vm.enable_uffd_gc` (image change), not tried.
+- (e) Re-sharing free pages: at 600 s only ~20 MB of privatized frames were free (buddy) in the guest. That is the ceiling of free-page reporting. Doing it also needs per-2 MB placeholder views in crosvm. Not built, since the gain is too small to reach 400 MB.
+- **slim5 576, 3 clones, stop one at a time** (RIL 4/4 threads at nice 19):
+  - plateau private WS 312-314 MB, compression flat, app alive in all 3 at all 20 samples;
+  - stops freed 442 / 478 MB on the two non-last clones, **marginal median 460 MB**; last 623 (shared once ≈ 304);
+  - input HOME→first frame p50/p95 48.8 / 73.8 ms (worse than slim4 640, 36 / 50);
+  - screens seen by eye (`privatize/s576-sheet.png`): all 3 show the offline dialog.
+- **Result: no config got the marginal median ≤ 390 MB**, so there was no 10-clone run. The best stays slim4 640 uncapped (416 marginal median, 10-clone proof).
+- The relaunch at minute 5 costs ~42 MB per clone in every config. Without it, slim4 640 sits at ~300 MB privatized (≈ 375 MB marginal by the same +73 offset). That is a protocol choice, not a fix.
+- The rest is the guest rotating its frames under memory pressure. Under 400 needs a guest that fits its working set without swap churn at a small `--mem`: diet lever C, smaller app heap, or zram tuned to churn less. Host-side mapping tricks can't fix it.
+
 ### Honest RAM of one squeezed Device (2026-10-08, `assets/13-compress/`)
 
 `compress_probe.py`: d0 (896 MB, slim3 pmem), proof app on its first screen, then the daemon `squeeze` with balloon 0 and caps 250/16. Phase A was 6 min with caps only; phase B was 6 min with caps plus `MEMORY_PRIORITY_VERY_LOW` and EcoQoS on all 8 crosvm processes. One tap every 10 s, one sample every 30 s. Host Available stayed between 5.4 and 11.3 GB in the window (no emergency), but other workers' Devices booted and stopped throughout (`other_brokers` in `result.json`), so every global number below carries their noise.
