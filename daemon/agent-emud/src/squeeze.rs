@@ -17,6 +17,73 @@ extern "system" {
     fn CloseHandle(h: isize) -> i32;
     fn SetProcessWorkingSetSizeEx(h: isize, min: usize, max: usize, flags: u32) -> i32;
     fn GetProcessWorkingSetSizeEx(h: isize, min: *mut usize, max: *mut usize, flags: *mut u32) -> i32;
+    fn VirtualQueryEx(h: isize, addr: usize, info: *mut Mbi, len: usize) -> usize;
+    fn K32GetMappedFileNameW(h: isize, addr: usize, name: *mut u16, len: u32) -> u32;
+    fn K32QueryWorkingSetEx(h: isize, pv: *mut WsEx, cb: u32) -> i32;
+}
+
+const PROCESS_VM_READ: u32 = 0x0010;
+const MEM_COMMIT: u32 = 0x1000;
+const MEM_MAPPED: u32 = 0x40000;
+const MEM_IMAGE: u32 = 0x100_0000;
+
+/// MEMORY_BASIC_INFORMATION (64-bit).
+#[repr(C)]
+#[derive(Default)]
+struct Mbi { base: usize, alloc_base: usize, alloc_protect: u32, partition: u16, _p: u16, size: usize, state: u32, protect: u32, typ: u32, _p2: u32 }
+/// PSAPI_WORKING_SET_EX_INFORMATION: bit 0 of `attrs` = page is in the working set.
+#[repr(C)]
+#[derive(Clone, Copy, Default)]
+struct WsEx { addr: usize, attrs: usize }
+
+/// MB of `pid`'s working set that is not this process's own: file-backed mappings (DLLs, the pmem system
+/// image, fb.bin) everywhere, and in helper processes every mapped section too. Guest RAM is a
+/// pagefile-backed section mapped into run-main and the device helpers; it is counted once, in run-main.
+pub fn shared_ws_mb(pid: u32, main: bool) -> u64 {
+    // SAFETY: plain Win32 queries on a handle opened and closed here; buffers are sized by the calls.
+    unsafe {
+        let h = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, 0, pid);
+        if h == 0 {
+            return 0;
+        }
+        let (mut addr, mut pages, mut name) = (0usize, 0u64, [0u16; 260]);
+        let mut info = Mbi::default();
+        while VirtualQueryEx(h, addr, &mut info, std::mem::size_of::<Mbi>()) != 0 {
+            let next = info.base.saturating_add(info.size);
+            let mut file = || K32GetMappedFileNameW(h, info.base, name.as_mut_ptr(), 260) > 0;
+            if info.state == MEM_COMMIT && (info.typ == MEM_IMAGE || (info.typ == MEM_MAPPED && (!main || file()))) {
+                pages += resident_pages(h, info.base, info.size);
+            }
+            if next <= addr {
+                break;
+            }
+            addr = next;
+        }
+        CloseHandle(h);
+        pages * 4096 >> 20
+    }
+}
+
+/// Pages of [base, base+size) in the process working set, asked 64k pages at a time.
+unsafe fn resident_pages(h: isize, base: usize, size: usize) -> u64 {
+    let mut n = 0u64;
+    let mut buf = vec![WsEx::default(); 65536];
+    let mut off = 0;
+    while off < size {
+        let cnt = ((size - off) / 4096).min(buf.len());
+        for (i, e) in buf[..cnt].iter_mut().enumerate() {
+            *e = WsEx { addr: base + off + i * 4096, attrs: 0 };
+        }
+        if K32QueryWorkingSetEx(h, buf.as_mut_ptr(), (cnt * std::mem::size_of::<WsEx>()) as u32) != 0 {
+            n += count_valid(&buf[..cnt]);
+        }
+        off += cnt * 4096;
+    }
+    n
+}
+
+fn count_valid(e: &[WsEx]) -> u64 {
+    e.iter().filter(|e| e.attrs & 1 == 1).count() as u64
 }
 
 /// Squeeze sizes in MB; 0 turns that step off.
@@ -103,9 +170,12 @@ pub async fn memory(boot_pid: u32) -> R<Value> {
     if p.is_empty() {
         return Err("no crosvm processes found for this Device".into());
     }
-    let list: Vec<Value> = p.iter().map(|p| json!({"pid": p.pid, "role": if p.main { "main" } else { "helper" },
-        "ws_mb": p.ws_mb, "cap_mb": cap_of(p.pid)})).collect();
-    Ok(json!({"ok": true, "ws_mb": p.iter().map(|p| p.ws_mb).sum::<u64>(), "processes": list}))
+    let shared: Vec<u64> = p.iter().map(|p| shared_ws_mb(p.pid, p.main).min(p.ws_mb)).collect();
+    let list: Vec<Value> = p.iter().zip(&shared).map(|(p, s)| json!({"pid": p.pid, "role": if p.main { "main" } else { "helper" },
+        "ws_mb": p.ws_mb, "shared_mb": s, "cap_mb": cap_of(p.pid)})).collect();
+    let (ws, sh) = (p.iter().map(|p| p.ws_mb).sum::<u64>(), shared.iter().sum::<u64>());
+    // own: working set only this Device uses (guest RAM, heaps); shared: file-backed pages (system image, DLLs).
+    Ok(json!({"ok": true, "ws_mb": ws, "own_mb": ws - sh, "shared_mb": sh, "processes": list}))
 }
 
 /// `balloon_actual` in bytes from `crosvm balloon_stats` (pretty JSON; the key may be nested).
@@ -217,6 +287,14 @@ pub async fn squeeze(d: &Device, exe: &Path, boot_pid: u32, o: Opts) -> R<Value>
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn shared_counts_resident_pages_of_this_process() {
+        assert_eq!(count_valid(&[WsEx { addr: 0, attrs: 1 }, WsEx { addr: 1, attrs: 0 }, WsEx { addr: 2, attrs: 0x8001 }]), 2);
+        // This test binary maps its own exe and DLLs: some file-backed pages must be resident.
+        let mb = shared_ws_mb(std::process::id(), true);
+        assert!(mb >= 1 && mb < 4096, "{mb}");
+    }
 
     #[test]
     fn tree_keeps_only_this_device() {

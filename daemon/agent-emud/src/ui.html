@@ -26,7 +26,9 @@
   button:disabled { opacity:.45; cursor:default; }
   input, select { font:inherit; padding:4px 6px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--ink); }
   label { display:flex; align-items:center; gap:6px; margin:4px 0; }
-  label > span { width:7em; color:var(--mute); }
+  label > span { width:7em; flex:none; color:var(--mute); }
+  label select, label input:not([type=checkbox]) { min-width:0; max-width:100%; }
+  main > section { min-width:0; }
   table { width:100%; border-collapse:collapse; font-size:.95em; }
   td, th { text-align:left; padding:4px; border-bottom:1px solid var(--line); vertical-align:top; }
   tr.sel { background:color-mix(in srgb, var(--accent) 14%, transparent); }
@@ -41,7 +43,12 @@
   #screenbox { flex:1; min-height:0; width:100%; display:flex; align-items:center; justify-content:center; }
   #screen { max-width:100%; max-height:100%; background:#000; border-radius:6px; touch-action:none; outline:none; cursor:crosshair; }
   #screen:focus { box-shadow:0 0 0 3px var(--accent); }
-  #placeholder { color:var(--mute); }
+  #screenbox { position:relative; }
+  #placeholder { color:var(--mute); font-size:1.15em; text-align:center; max-width:28em; line-height:1.6; }
+  #overlay { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); background:var(--panel); border:1px solid var(--line);
+    border-radius:10px; padding:20px 26px; text-align:center; box-shadow:0 8px 30px rgba(0,0,0,.35); max-width:26em; font-size:1.15em; }
+  #overlay p { margin:0 0 12px; }
+  .ramown { font-weight:600; } .ramshared { color:var(--mute); font-size:.9em; }
   pre { margin:0; font:.9em/1.4 ui-monospace, Consolas, monospace; white-space:pre-wrap; word-break:break-all; }
   #logs { height:330px; overflow:auto; border:1px solid var(--line); border-radius:6px; padding:6px; background:var(--bg); }
   #drop { border:2px dashed var(--line); border-radius:8px; padding:14px; text-align:center; color:var(--mute); }
@@ -60,18 +67,24 @@
 <main>
   <section>
     <h2>Devices</h2>
-    <table><thead><tr><th>id</th><th>state</th><th>image / RAM / vCPU</th><th>up</th><th>RAM use</th><th></th></tr></thead><tbody id="devs"></tbody></table>
+    <table><thead><tr><th>id</th><th>state</th><th>image / RAM / vCPU</th><th>up</th><th title="own: RAM only this Device uses (guest RAM, its process heaps). shared: system image and program files that other Devices reuse.">RAM own / shared</th><th></th></tr></thead><tbody id="devs"></tbody></table>
     <div class="row" style="margin-top:6px"><button id="stopall" class="danger">Stop all</button></div>
     <h2>Start a Device</h2>
     <label><span>Device id</span><input id="s_id" value="d0" size="5"></label>
     <label><span>Image</span><select id="s_image">
-      <option value="phone" selected>Phone (full Android)</option>
-      <optgroup label="Agent (lean)"><option value="">Lean slim3n</option><option value="slim3">Lean slim3</option><option value="slim4">Lean slim4</option><option value="slim5">Lean slim5</option></optgroup>
+      <option value="phone" selected>Phone (full Android, ~2 GB)</option>
+      <optgroup label="Lean agent phones (no home screen)">
+        <option value="slim5">Lean agent phone, no home screen (~640 MB)</option>
+        <option value="slim4">Lean agent phone, no home screen (~700 MB)</option>
+        <option value="">Lean agent phone, no home screen (~900 MB, agents' default)</option>
+        <option value="slim3">Lean agent phone, no home screen (~900 MB, older)</option>
+      </optgroup>
     </select></label>
     <div class="note" id="imgnote">Full phone: status bar, navigation bar, notifications, Settings. 2 GB.</div>
     <label><span>RAM (MB)</span><input id="s_mem" placeholder="image default" size="10"></label>
     <label><span>CPU cores</span><input id="s_cpus" value="2" size="4"></label>
     <label><span>Network</span><input type="checkbox" id="s_net" checked></label>
+    <label><span>Open app</span><input type="checkbox" id="s_openapp"><span class="mute" style="width:auto">open BoltBetz after boot</span></label>
     <label><span>Save RAM</span><input type="checkbox" id="s_squeeze"><span class="mute" style="width:auto">after the first app launch</span></label>
     <button class="primary" id="start">Start</button>
     <div id="progress" class="mute"></div>
@@ -91,7 +104,9 @@
       <button id="shot" title="Download a PNG of the screen">Screenshot</button>
     </div>
     <div class="mute" id="screeninfo">Pick a Device on the left.</div>
-    <div id="screenbox"><span id="placeholder">No Device selected</span><canvas id="screen" tabindex="0" hidden></canvas></div>
+    <div id="screenbox"><span id="placeholder">No Device selected</span><canvas id="screen" tabindex="0" hidden></canvas>
+      <div id="overlay" hidden><p><b>This lean image has no home screen.</b><br>Open an app to see something.</p>
+        <div class="row" style="justify-content:center"><button class="primary" id="ov_open">Open BoltBetz</button><button id="ov_close">Dismiss</button></div></div></div>
     <div class="mute" id="lat">click → frame: no samples yet</div>
   </section>
 
@@ -120,7 +135,7 @@
 <script>
 "use strict";
 const $ = (id) => document.getElementById(id);
-let sel = null, devices = [], mem = {}, stream = null, lastSeq = 0, pending = null, lat = [];
+let sel = null, devices = [], mem = {}, firstFrame = false, appOpened = {}, stream = null, lastSeq = 0, pending = null, lat = [];
 let logGen = 0, logCursor = null, logDev = null, crashAfter = 0, crashDev = null, fps = 0, frameCount = 0;
 
 function showErr(msg) { const e = $("err"); if (!msg) { e.style.display = "none"; return; } e.textContent = msg; e.style.display = "block"; }
@@ -142,22 +157,30 @@ async function refresh() {
     const tr = document.createElement("tr"); tr.className = "dev" + (d.id === sel ? " sel" : "");
     tr.innerHTML = `<td>${d.id}</td><td class="${d.ready ? "ok" : "mute"}">${d.ready ? "running" : "booting…"}</td>
       <td>${d.image || ""}<br><span class="mute">${d.mem || "?"} MB · ${d.cpus || "?"} vCPU${d.net === false ? " · no net" : ""}</span></td>
-      <td>${fmtUp(d.uptime_s || 0)}</td><td>${mem[d.id] != null ? mem[d.id] + " MB" : ""}</td><td><button class="danger">Stop</button></td>`;
+      <td>${fmtUp(d.uptime_s || 0)}</td><td title="own: RAM only this Device uses (guest RAM, its process heaps). shared: system image and program files that other Devices reuse. Total working set ${mem[d.id] ? mem[d.id].ws + " MB" : "?"}.">${mem[d.id] ? `<span class="ramown">${mem[d.id].own} MB</span><br><span class="ramshared">+${mem[d.id].shared} shared</span>` : ""}</td><td><button class="danger">Stop</button></td>`;
     tr.onclick = (ev) => { if (ev.target.tagName !== "BUTTON") select(d.id); };
     tr.querySelector("button").onclick = async () => { busy("stopping " + d.id + "…"); await api("stop", { device: d.id }); busy(); if (sel === d.id) select(null); refresh(); };
     tb.appendChild(tr);
+  }
+  if (sel && !firstFrame) {
+    const d = devices.find(x => x.id === sel);
+    $("placeholder").textContent = !d ? "Starting…" : !d.ready
+      ? `Booting Android… ${d.uptime_s || 0} s — the screen appears when Android draws its first frame.`
+      : "Android is up; waiting for its first frame…";
   }
   if (!sel && devices.length) select(devices[0].id);
   if (sel && !devices.find(d => d.id === sel)) select(null);
 }
 async function refreshMem() {
-  for (const d of devices.filter(d => d.ready)) { const r = await api("memory", { device: d.id }, true); if (r.ok) mem[d.id] = r.ws_mb; }
+  for (const d of devices.filter(d => d.ready)) { const r = await api("memory", { device: d.id }, true); if (r.ok) mem[d.id] = { ws: r.ws_mb, own: r.own_mb, shared: r.shared_mb }; }
 }
 
 function select(id) {
   if (sel === id) return;
-  sel = id; if (stream) stream.abort(); stream = null; lastSeq = 0; pending = null;
-  $("screen").hidden = !id; $("placeholder").hidden = !!id; $("placeholder").textContent = "No Device selected";
+  sel = id; if (stream) stream.abort(); stream = null; lastSeq = 0; pending = null; firstFrame = false;
+  // The canvas shows only once a real frame arrived; until then a plain message says what is happening.
+  $("screen").hidden = true; $("placeholder").hidden = false; $("overlay").hidden = true;
+  $("placeholder").textContent = id ? "Connecting to the screen…" : "No Device selected";
   $("screeninfo").textContent = id ? id + ": waiting for frames…" : "Pick a Device on the left.";
   $("logtext").textContent = ""; logCursor = null; crashAfter = 0; $("crashes").innerHTML = "";
   if (id) startStream(id);
@@ -181,6 +204,7 @@ async function startStream(id) {
         buf = buf.slice(20 + n);
         if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
         g.drawImage(bmp, 0, 0); bmp.close(); frameCount++;
+        if (!firstFrame) { firstFrame = true; cv.hidden = false; $("placeholder").hidden = true; maybeOverlay(); }
         if (pending && seq > pending.seq) {
           lat.push(performance.now() - pending.t0); pending = null; if (lat.length > 200) lat.shift(); showLat();
         }
@@ -197,7 +221,20 @@ function showLat() { $("lat").textContent = `click → frame shown in this page:
 
 // input
 function toFrame(ev) { const cv = $("screen"), r = cv.getBoundingClientRect(); return [Math.round((ev.clientX - r.left) * cv.width / r.width), Math.round((ev.clientY - r.top) * cv.height / r.height)]; }
-async function input(call, args) { pending = { t0: performance.now(), seq: lastSeq }; const r = await api(call, { ...args, screenshot: false, device_px: true }); if (!r.ok) pending = null; }
+function isLean(id) { const d = devices.find(x => x.id === id); return d && d.image_name !== "phone"; }
+// The lean images show a blank (black) screen when no app is in front: say so, instead of a black box.
+function screenBlank() {
+  const cv = $("screen"); if (cv.hidden || !cv.width) return false;
+  const t = document.createElement("canvas"); t.width = 24; t.height = 36; const g = t.getContext("2d");
+  g.drawImage(cv, 0, 0, 24, 36); const px = g.getImageData(0, 0, 24, 36).data;
+  for (let i = 0; i < px.length; i += 4) if (px[i] > 24 || px[i + 1] > 24 || px[i + 2] > 24) return false;
+  return true;
+}
+function maybeOverlay() { $("overlay").hidden = !(sel && firstFrame && isLean(sel) && !appOpened[sel] && screenBlank()); }
+setInterval(maybeOverlay, 2000);
+$("ov_close").onclick = () => { appOpened[sel] = true; maybeOverlay(); };
+$("ov_open").onclick = () => openBoltBetz();
+async function input(call, args) { pending = firstFrame ? { t0: performance.now(), seq: lastSeq } : null; const r = await api(call, { ...args, screenshot: false, device_px: true }); if (!r.ok) pending = null; }
 let down = null;
 $("screen").addEventListener("pointerdown", (ev) => { $("screen").focus(); $("screen").setPointerCapture(ev.pointerId); down = { xy: toFrame(ev), t: performance.now(), cx: ev.clientX, cy: ev.clientY }; });
 $("screen").addEventListener("pointerup", (ev) => {
@@ -222,9 +259,12 @@ document.querySelectorAll("[data-key]").forEach(b => b.onclick = () => sel && in
 $("shot").onclick = () => { if (sel) location.href = "/screenshot.png?device=" + encodeURIComponent(sel); };
 
 // start / stop / fleet / quit
-$("s_image").onchange = () => { $("imgnote").textContent = $("s_image").value === "phone"
-  ? "Full phone: status bar, navigation bar, notifications, Settings. 2 GB."
-  : "Lean image for agents: no status bar, navigation bar or Settings (no system UI). Under 1 GB."; };
+$("s_image").onchange = () => {
+  const phone = $("s_image").value === "phone";
+  $("imgnote").textContent = phone ? "Full phone: home screen, status bar, navigation bar, notifications, Settings. About 2 GB."
+    : "Lean phone for agents: no home screen, status bar or navigation bar. It shows nothing until an app opens.";
+  $("s_openapp").checked = !phone;
+};
 let ticker = null;
 function progress(text, since) {
   clearInterval(ticker); const el = $("progress");
@@ -240,7 +280,10 @@ $("start").onclick = async () => {
   if ($("s_cpus").value.trim()) args.cpus = parseInt($("s_cpus").value);
   showErr(); progress(`Booting ${id} (about 2 minutes)…`); sel = id; setTimeout(refresh, 500);
   const r = await api("start", args); progress();
-  if (r.ok) { $("progress").textContent = `Ready: ${id} booted in ${Math.round(r.ready_s)} s`; sel = null; select(id); } else { $("progress").textContent = "Boot failed (see the message above)."; refresh(); }
+  if (r.ok) {
+    $("progress").textContent = `Ready: ${id} booted in ${Math.round(r.ready_s)} s`; sel = null; select(id);
+    if ($("s_openapp").checked) { await refresh(); await openBoltBetz(); }
+  } else { $("progress").textContent = "Boot failed (see the message above)."; refresh(); }
 };
 $("stopall").onclick = async () => { busy("stopping all…"); await api("fleet_stop", { device: undefined }); busy(); select(null); refresh(); };
 $("fleet").onclick = async () => {
@@ -273,13 +316,21 @@ drop.ondragleave = () => drop.classList.remove("over");
 drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove("over"); const f = e.dataTransfer.files[0]; if (f) upload(f); };
 $("installpath").onclick = async () => { busy("installing…"); const r = await api("app", { install: $("apkpath").value.trim() }); busy(); $("appout").textContent = r.ok ? r.out : ""; };
 $("launch").onclick = async () => { const r = await api("app", { launch: $("pkg").value.trim() }); $("appout").textContent = r.ok ? r.out : ""; };
-$("preset").onclick = async () => {
+async function openBoltBetz() {
   if (!sel) return showErr("Start a Device first.");
+  const id = sel; appOpened[id] = true; maybeOverlay();
+  setTimeout(() => { appOpened[id] = false; }, 15000); // later a blank screen means no app again
   progress("Installing BoltBetz…"); let r = await api("install_bundled");
-  if (r.ok) { progress("Opening BoltBetz…"); r = await api("app", { launch: "com.boltbetz.staging" }); }
-  progress(); $("progress").textContent = r.ok ? "Ready: BoltBetz is open" : "Could not open BoltBetz (see the message above).";
-  $("appout").textContent = r.ok ? "BoltBetz staging installed and opened" : "";
-};
+  if (r.ok) { progress(r.ok && devices.find(d => d.id === id && d.image_name !== "phone") && $("s_squeeze").checked
+      ? "Opening BoltBetz (then saving RAM, about 45 s)…" : "Opening BoltBetz…"); r = await api("app", { launch: "com.boltbetz.staging" }); }
+  progress();
+  let msg = r.ok ? "Ready: BoltBetz is open" : "Could not open BoltBetz (see the message above).";
+  if (r.ok && r.auto_squeeze && r.auto_squeeze.ok !== false)
+    msg += ` · Save RAM: working set ${r.auto_squeeze.ws_before_mb} → ${r.auto_squeeze.ws_after_mb} MB`;
+  $("progress").textContent = msg; $("appout").textContent = r.ok ? "BoltBetz staging installed and opened" : "";
+  if (!r.ok) { appOpened[id] = false; maybeOverlay(); }
+}
+$("preset").onclick = () => openBoltBetz();
 
 // tabs, logs, crashes
 document.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => {
