@@ -123,3 +123,18 @@ Driver: `assets/13-memory/measure.py`. Each run is a fresh boot, then install, o
   - Fix: `insmod /system_dlkm/lib/modules/virtio_balloon.ko` after boot (the driver now does this; the spec needs it in the image's module load list).
   - Result at 2 GB with a 1 GiB inflate requested: the guest inflated 466 MB within about 90 s (it inflates as fast as the guest can reclaim). The host main process went from 2,068 to 1,601 MB WS. The app stayed alive.
   - WHPX unmap + `OfferVirtualMemory` does take pages out of the working set.
+
+### Slim image (2026-10-08)
+
+- **Built by repacking `target_files` from 15581820**, not a full AOSP build (`assets/13-stage2/slim-README.txt`):
+  - 33 APKs removed;
+  - `ro.config.low_ram=true`; dalvik heapgrowthlimit 128m / heapsize 256m;
+  - system, system_ext, product and vendor as uncompressed chunk-based erofs;
+  - system hashtree off, with an AVB hash footer added so vbmeta builds.
+  - `otatools.zip` is on page 2 of the Build API artifact list; the first fetcher missed it.
+- **Boot needed an fstab overlay** (`fstab_overlay.py`):
+  - The first-stage fstab still had `avb=vbmeta_system,avb_keys=/avb` on `/system`, so init died: "Hashtree descriptor not found: system".
+  - The overlay is a cpio carrying the edited `first_stage_ramdisk/system/etc/fstab.cf.{f2fs,ext4}.hctr2`, appended to the initrd.
+  - It must be **legacy-LZ4 framed**. The kernel's LZ4 reader runs to the end of the buffer and ignores a plain cpio appended after an LZ4 ramdisk.
+- **At 1 GB:** boot 30.3 s (stock 48 s); guest used 967 MB (stock 1,180 MB); host ~1.82 GB WS (guest RAM is still fully resident).
+- **The app launched (TotalTime 1,648 ms) but lmkd killed it as TOP:** "low watermark is breached and thrashing (128%)". The aggressive `ro.lmk.*` overrides in the repack caused it. Rebuilding with softer lmkd settings (`ro.lmk.thrashing_limit=100`, PSI stall 200/700 ms). The screenshot shows the launcher after the kill (`assets/13-stage2/slim-1g/`).
