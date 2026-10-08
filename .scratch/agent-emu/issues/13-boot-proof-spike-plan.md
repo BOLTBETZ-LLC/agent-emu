@@ -111,3 +111,11 @@ Driver: `assets/13-memory/measure.py`. Each run is a fresh boot, then install, o
   - a pmem fstab;
   - check `S_DAX` in the guest;
   - measure 2 Devices sharing the image.
+
+### Runtime trim (2026-10-08)
+
+- `pm disable-user` on 45 bloat packages (`assets/13-memory/trim.txt`) at 1 GB: the app still launches (TotalTime 4,099 ms), but guest used RAM stays about 1.2 GB (memory moves into zram). Host ~1.82 GB WS, unchanged.
+- Disabling `com.android.phone` / `com.android.server.telecom` crashes system_server (`Can't find service: activity`). Never trim the telephony core.
+- The trimmed image cold-booted at 768 MB (`--keep-data`) still crawls: guest uptime 48 s after about 10 min of wall time. Runtime trimming is not enough.
+- **Next:** repack a slim, low-RAM image from `target_files`: drop APKs at the image level, set `ro.config.low_ram=true` and smaller dalvik heaps, and switch system to uncompressed chunk erofs (the DAX prep). A worker is running it in WSL. Output: `C:\devgent-emu-work\stage2\slim\`.
+- **Balloon:** `crosvm balloon` over the control pipe returns `os error 126` straight away, with no balloon log line on the device side. Still open.
