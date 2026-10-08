@@ -1,0 +1,176 @@
+{
+ "ready_s": 124.1,
+ "boot_events": [
+  {
+   "seq": 1,
+   "type": "native_crash",
+   "process": "dlkm_loader",
+   "pid": 370,
+   "exception": null,
+   "message": "Fatal signal 6 (SIGABRT), code -1 (SI_QUEUE) in tid 370 (dlkm_loader), pid 370 (dlkm_loader)",
+   "reason": null,
+   "signal": "SIGABRT",
+   "stack_lines": 0
+  },
+  {
+   "seq": 2,
+   "type": "native_crash",
+   "process": "droid.bluetooth",
+   "pid": 2951,
+   "exception": null,
+   "message": "Fatal signal 6 (SIGABRT), code -6 (SI_TKILL) in tid 3256 (droid.bluetooth), pid 2951 (droid.bluetooth)",
+   "reason": null,
+   "signal": "SIGABRT",
+   "stack_lines": 0
+  },
+  {
+   "seq": 3,
+   "type": "crash",
+   "process": "com.android.bluetooth",
+   "pid": 1050,
+   "exception": "Native crash",
+   "message": "Aborted",
+   "reason": null,
+   "signal": null,
+   "stack_lines": 0
+  },
+  {
+   "seq": 4,
+   "type": "native_crash",
+   "process": "droid.bluetooth",
+   "pid": 3407,
+   "exception": null,
+   "message": "Fatal signal 6 (SIGABRT), code -6 (SI_TKILL) in tid 3432 (droid.bluetooth), pid 3407 (droid.bluetooth)",
+   "reason": null,
+   "signal": "SIGABRT",
+   "stack_lines": 0
+  },
+  {
+   "seq": 5,
+   "type": "crash",
+   "process": "com.android.bluetooth",
+   "pid": 1050,
+   "exception": "Native crash",
+   "message": "Aborted",
+   "reason": null,
+   "signal": null,
+   "stack_lines": 0
+  },
+  {
+   "seq": 6,
+   "type": "native_crash",
+   "process": "droid.bluetooth",
+   "pid": 3539,
+   "exception": null,
+   "message": "Fatal signal 6 (SIGABRT), code -6 (SI_TKILL) in tid 3565 (droid.bluetooth), pid 3539 (droid.bluetooth)",
+   "reason": null,
+   "signal": "SIGABRT",
+   "stack_lines": 0
+  },
+  {
+   "seq": 7,
+   "type": "crash",
+   "process": "com.android.bluetooth",
+   "pid": 1050,
+   "exception": "Native crash",
+   "message": "Aborted",
+   "reason": null,
+   "signal": null,
+   "stack_lines": 0
+  }
+ ],
+ "hygiene": {
+  "hide_error_dialogs": "1",
+  "log.tag.RIL": "S"
+ },
+ "install": "Success",
+ "launch": "Status: ok\nTotalTime: 1032",
+ "focus": "  mCurrentFocus=Window{d7cf1cf u0 com.boltbetz.staging/com.boltbetz.MainActivity}",
+ "dialog_windows": "0",
+ "logs_oneshot": {
+  "lines": 20,
+  "ms": 194,
+  "cursor": 79003670,
+  "sample": [
+   "10-08 04:46:20.555  4380  4380 D InsetsController: hide(ime())",
+   "10-08 04:46:20.556  4380  4380 I ImeTracker: com.boltbetz.staging:c9f14ab7: onCancelled at PHASE_CLIENT_ALREADY_HIDDEN",
+   "10-08 04:46:20.565  4380  4380 D WindowOnBackDispatcher: setTopOnBackInvokedCallback (unwrapped): null"
+  ]
+ },
+ "logs_tag": {
+  "lines": 5,
+  "sample": [
+   "10-08 04:46:19.740  1050  1081 I ActivityManager: Start proc 4515:com.android.keychain/1000 for service {com.android.keychain/com.android.keychain.KeyChainService}"
+  ]
+ },
+ "am_crash": "rc=0",
+ "crash_event": {
+  "events": [
+   {
+    "seq": 8,
+    "type": "crash",
+    "process": "com.boltbetz.staging",
+    "pid": 4380,
+    "exception": "android.app.RemoteServiceException$CrashedByAdbException",
+    "message": "shell-induced crash",
+    "reason": null,
+    "signal": null,
+    "stack_lines": 14
+   }
+  ],
+  "stack_head": [
+   "FATAL EXCEPTION: main",
+   "Process: com.boltbetz.staging, PID: 4380",
+   "android.app.RemoteServiceException$CrashedByAdbException: shell-induced crash"
+  ],
+  "after_am_crash_ms": 238
+ },
+ "follow": {
+  "batches": 4,
+  "lines": 18,
+  "crash_lines": 2,
+  "last_more": false
+ },
+ "anr_event": {
+  "events": [
+   {
+    "seq": 9,
+    "type": "anr",
+    "process": "com.boltbetz.staging",
+    "pid": 4574,
+    "exception": null,
+    "message": null,
+    "reason": "Input dispatching timed out (78db43f com.boltbetz.staging/com.boltbetz.MainActivity is not responding. Waited 15002ms for FocusEvent(hasFocus=true)).",
+    "signal": null,
+    "stack_lines": 0
+   }
+  ],
+  "after_sigstop_ms": 14895
+ },
+ "mcp": {
+  "tools": [
+   "screenshot",
+   "tap",
+   "swipe",
+   "type_text",
+   "key",
+   "ui_tree",
+   "logs",
+   "crash_events",
+   "lease",
+   "release"
+  ],
+  "crash_events_types": [
+   "crash",
+   "anr"
+  ],
+  "logs_text_lines": 5,
+  "isError": null
+ },
+ "events_by_process": {
+  "com.android.bluetooth": 3,
+  "droid.bluetooth": 3,
+  "dlkm_loader": 1,
+  "com.boltbetz.staging": 2
+ }
+}
