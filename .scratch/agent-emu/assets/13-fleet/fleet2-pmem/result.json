@@ -1,0 +1,32 @@
+{
+ "tag": "fleet2-pmem",
+ "n": 2,
+ "mem": "1024",
+ "cpus": "2",
+ "pmem": true,
+ "devices": [
+  {
+   "id": 0,
+   "dir": "C:/dev/agent-emu-work/fleet/d0",
+   "ready_s": 34.4,
+   "install": "Success",
+   "launch": "Status: ok\nTotalTime: 1368",
+   "app_pid": "3936",
+   "guest_used": "Used RAM: 1,113,598K (  698,410K used pss +   415,188K kernel)"
+  },
+  {
+   "id": 1,
+   "dir": "C:/dev/agent-emu-work/fleet/d1",
+   "ready_s": 44.3,
+   "install": "Success",
+   "launch": "Status: ok\nTotalTime: 2456",
+   "app_pid": "4004",
+   "guest_used": "Used RAM: 1,167,197K (  755,189K used pss +   412,008K kernel)"
+  }
+ ],
+ "available_before_mb": 14162,
+ "available_after_mb": 12243,
+ "fleet_cost_mb": 1919,
+ "per_device_mb": 960,
+ "crosvm_ws_total_mb": 4377
+}

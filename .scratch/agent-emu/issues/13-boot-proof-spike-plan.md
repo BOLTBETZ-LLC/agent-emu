@@ -154,3 +154,13 @@ Driver: `assets/13-memory/measure.py`. Each run is a fresh boot, then install, o
   - Guest Cached is down to 156 MB (system files no longer go through guest page cache). Guest used 1,110 MB.
   - Host main process 1,461 MB WS = 1 GB private guest RAM + touched pmem file pages (file-backed, should be shared across Devices; **not yet measured with 2 Devices**). Block process 582 MB.
 - **Next:** a multi-Device harness (per-Device run dir with hardlinked read-only images, per-Device pipes and bridge ports). Then measure 2 and then 10 Devices sharing one pmem image, and try a smaller `--mem` now that guest page cache is lower.
+
+## Fleet runs (`assets/13-fleet/fleet.py`)
+
+Each Device gets its own dir with hard-linked read-only images (one disk copy, one Windows file cache), its own small writable disks, console pipe, control pipe and bridge port, 2 vCPUs, 1 GB guest, the DAX kernel and the slim2 image.
+
+**Fleet cost** is the drop in host `\Memory\Available MBytes` from before boot to all apps settled: an honest "how many fit" number. Summed crosvm working sets double-count shared pages.
+
+| Run | Devices | Ready (s) | App alive | Fleet cost | **Per Device** | Summed WS (double-counts) |
+|---|---|---|---|---|---|---|
+| fleet2-pmem | 2 | 34.4 / 44.3 | both, first screens seen by eye | 1,919 MB | **~960 MB** | 4,377 MB |
