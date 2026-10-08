@@ -121,14 +121,17 @@ const DIET_GPU: &str = "audio-device-mode=one-global";
 /// Guest image: (run dir under AE_WORK holding super.img + system-pmem.img, default guest MB or None = AE_MEM).
 pub fn image(name: &str) -> R<(&'static str, Option<&'static str>)> {
     match name {
-        "" | "slim3" => Ok(("run", None)),
+        "slim3" => Ok(("run", None)),
+        // slim3n (default): slim3 minus the Cuttlefish NFC HAL apex. Its panic left com.android.nfc
+        // ANR-restarting every ~45-60 s; 15 min soak on slim3n: 0 ANRs (issue 10).
+        "" | "slim3n" => Ok(("run-slim3n", None)),
         // slim4: the diet floor was 640 MB without the daemon's extra devices (virtio-net for adb, two
         // virtio-input, fb). Through the daemon at 640, lmkd killed the app as TOP 3 of 3 times (low on
         // swap, thrashing); at 704 it stays up. `start {mem}` overrides.
         "slim4" => Ok(("run-slim4", Some("704"))),
         // slim5: slim4 plus a home stub and tuned lmkd. 640 MB until tested through the daemon.
         "slim5" => Ok(("run-slim5", Some("640"))),
-        _ => Err(format!("unknown image `{name}` (slim3, slim4, slim5)")),
+        _ => Err(format!("unknown image `{name}` (slim3, slim3n, slim4, slim5)")),
     }
 }
 
@@ -563,7 +566,8 @@ mod tests {
     #[test]
     fn images() {
         assert_eq!(image("slim4").unwrap(), ("run-slim4", Some("704")));
-        assert_eq!(image("").unwrap(), ("run", None));
+        assert_eq!(image("").unwrap(), ("run-slim3n", None));
+        assert_eq!(image("slim3").unwrap(), ("run", None));
         assert_eq!(image("slim5").unwrap(), ("run-slim5", Some("640")));
         assert!(image("slim9").is_err());
         let cfg = Cfg { work: PathBuf::from("W"), mem: "896".into(), cpus: "2".into(), min_avail_mb: 4000, crosvm_dir: "crosvm-diet".into() };

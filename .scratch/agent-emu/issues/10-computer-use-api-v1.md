@@ -175,3 +175,11 @@ App-gesture-bound inputs (this carousel) stay near 90 ms: for those, p95 < 50 ms
 
 2 vCPUs meet p95 < 50 ms on HOME, so the default stays 2.
 - **Pre-existing loop, not from this change:** `com.android.nfc` fails to start every ~45-60 s (`failed to complete startup`, 21 ANRs in 15 min). It began at 08:35:40, before the RIL change, and shows up in `crash_events`. It is a CPU sink on every slim3 Device. Not fixed yet (disabling it needs the same check as Bluetooth, issue 10 trap).
+
+### slim3n: NFC HAL removed, now the daemon's default image (2026-10-08, `assets/10-soak-slim3n`)
+
+- Cause of the `com.android.nfc` loop: the Cuttlefish NFC HAL (`vendor/apex/com.google.cf.nfc.apex`) panics at boot (`CfNfc: main: panicked at device/google/cuttlefish/guest/hals/nfc/src/nfc.rs:153`, no host NFC simulator), so `INfc/default` never registers and the NFC app's startup waits on it until ActivityManager kills it.
+- Fix, same pattern as the A17 sensors fix: slim3n = slim3 minus that apex (and its `vendor_filesystem_config` line). The NFC app apex (`com.android.nfcservices`) stays: it adds framework jars to BOOTCLASSPATH. Built from `/root/slim/tf` -> `tf3n` in WSL (`agent-emu-work/stage2/slim3n/edits.sh`, `build.sh`, ~1 min), then `wsl --shutdown`. Run dir `agent-emu-work/run-slim3n` (new super, vbmeta, vbmeta_system, system-pmem; the rest hard-linked from `run`).
+- 15 min soak at 2 vCPU (`soak_smoke.py`, HOME + relaunch every minute): **0 ANRs** in the whole logcat (slim3: 21 nfc ANRs in 15 min), system_server pid unchanged, app alive. Only crash events: the known boot-time Bluetooth crashes (dialogs hidden).
+- HOME -> first frame p50/p95: 34/41 ms at the start, 34/38 ms after 15 min.
+- The daemon's default image (`image` empty) is now slim3n; `image: "slim3"` still boots the old one.

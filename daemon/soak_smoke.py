@@ -2,7 +2,7 @@
 # install and open the proof app, check the RIL is stopped, measure HOME -> first frame (2 warm-ups, then 20),
 # then soak for AE_SOAK_S seconds: once a minute a HOME + relaunch, system_server pid, app pid, crash_events
 # by process, host Available. Ends with a second HOME measurement and a screenshot. Stops d0.
-# usage: [AE_SMOKE_CPUS=2] [AE_SOAK_S=900] python soak_smoke.py [out_dir]
+# usage: [AE_SMOKE_IMAGE=slim3n] [AE_SMOKE_CPUS=2] [AE_SOAK_S=900] python soak_smoke.py [out_dir]
 import base64, json, os, socket, subprocess, sys, threading, time
 
 D = os.path.dirname(os.path.abspath(__file__)); EXE = f"{D}/target/release/agent-emud.exe"; W = "C:/dev/agent-emu-work"
@@ -47,7 +47,7 @@ dmn = subprocess.Popen([EXE], env=dict(os.environ, AE_ALLOW_OTHER_CROSVM=os.envi
 res = {"cpus": CPUS, "soak_s": SOAK}
 try:
     time.sleep(1)
-    res["ready_s"] = round(call("start", cpus=CPUS)["ready_s"], 1); log("ready", res["ready_s"], "cpus", CPUS)
+    res["ready_s"] = round(call("start", cpus=CPUS, **({"image": os.environ["AE_SMOKE_IMAGE"]} if os.environ.get("AE_SMOKE_IMAGE") else {}))["ready_s"], 1); log("ready", res["ready_s"], "cpus", CPUS)
     res["install"] = sh(INSTALL, 300)
     sh(f"am start -W -n {ACT}"); time.sleep(20)
     res["ril"] = sh("getprop init.svc.vendor.ril-daemon; p=$(pidof libcuttlefish-rild); echo pid=$p; "
