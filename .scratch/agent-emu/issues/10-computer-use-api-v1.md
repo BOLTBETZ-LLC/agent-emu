@@ -95,3 +95,18 @@ Daemon settle rule now matches the decision: wait for the first frame after the 
 - **The 33 ms rule stops early on cold launches.** Taps 1 and 2 settled at 93 and 80 ms and 12 more frames came within 1 s (the app window draws after a >33 ms gap). Tap 9 had 4 late frames. Warm taps had 0. The app-idle helper is the fix; until then a cold app launch can return a mid-transition frame.
 - p95 < 50 ms for input → first frame: HOME passes (37 ms). Tap misses at n=10 (56 ms, the first cold tap); taps 3-10 were 24-35 ms.
 - Fixed on the way: the scanout seqlock reader gave up after 1000 spins (a few µs) while crosvm's copy takes about 1 ms, so a tap during a launch failed with `scanout mapping: no consistent frame`. It now retries for up to 200 ms and copies the raw pixels before converting.
+
+## Measured: headless display, stale-pixel fix, dialogs (2026-10-08)
+
+- **Headless:** crosvm fork `9ade87258`. With `AGENT_EMU_HEADLESS` set, the Windows GPU uses the stub display instead of `WinApi` and the window thread creates no GUI windows. agent-emud sets it (`3d55d6a`). `EnumWindows` over every crosvm pid: 8 processes, **0 windows** (visible or hidden). The `fb.bin` fast path is unchanged, because frames are published at flush, not by the display.
+- **Stale pixels fixed:** Device setup runs `service call SurfaceFlinger 1008 i32 1` (HW overlays off), so SurfaceFlinger composes every frame on the GPU into a target it clears first, and the guest composer copies the whole target into the scanout (`226c57c`). Check (`daemon/display_smoke.py`, `assets/10-headless/`): open the proof app, HOME, then compare the fast frame with the guest's `screencap`.
+
+| | fast frame vs `screencap` | seen by eye |
+|---|---|---|
+| overlays on (old) | mean diff 128.9, **67% of pixels off** | the whole app stays on screen after HOME (`before-2-home.jpg`) |
+| overlays off (setup default) | mean diff **0.0, 0% off** | clean launcher (`after-2-home.jpg`) |
+
+  Input → first frame stays in range: tap 27-40 ms with overlays off vs 26-44 ms with them on (5 rounds each, 896 MB). A wallpaper can't fix this on slim3: the wallpaper is drawn by SystemUI, which slim3 drops.
+- **Dialogs:** setup sets `hide_error_dialogs 1` and broadcasts `CLOSE_SYSTEM_DIALOGS` (`b6ab7cd`). The proof app's first screen had 0 dialog windows and kept focus (`assets/15-logs/app-first-screen.jpg`). The Bluetooth crash loop goes on (no HCI peer), but its dialogs stay hidden.
+- **Trap: never `pm disable-user com.android.bluetooth`.** On the next airplane-mode change, `BluetoothManagerService.bleTurningOnToOff` unbinds a service that was never bound (`IllegalArgumentException: Service not registered`). system_server dies and then crash-loops every ~5 s with `No service can handle intent ... android.bluetooth.IAdapter`.
+- Setup also sets `log.tag.RIL S`: the RIL logged `Can't connect to port:9600d` (no modem simulator) at about 40 MB a minute.

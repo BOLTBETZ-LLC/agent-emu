@@ -56,3 +56,22 @@ Daemon calls plus MCP tools, each taking `device`: `deep_link`, `set_location`, 
 - Location: `cmd location set-location-enabled true` plus a `gps` test provider works as root on API 36 with no appops step.
 - Clock: `cmd time_detector set_auto_detection_enabled false` then `cmd alarm set-time <ms>`. The target ms is computed on the host: the guest `sh` does 32-bit arithmetic (`$((1791433813 * 1000))` gave 432450568 and set the clock to 1970).
 - Trap: a fresh Device has no proof app (userdata is recreated per boot); `app install` puts it back.
+
+## Measured: layer 1, logs and crash events (2026-10-08)
+
+Daemon calls plus MCP tools, each taking `device` (`daemon/agent-emud/src/logs.rs`, commit `6762684`). Both read the Device's host-side `logcat.log`, where crosvm writes the guest's `logcat -b all -v threadtime` stream from virtio-console 3. No guest shell or adb is involved.
+
+- `logs{device, filter?, since?, cursor?, max_lines?, wait_ms?, follow?}`: threadtime lines, newest last (default 500). `filter` is a package or a tag. Package pids come from `pidof` at call time, plus later `am_proc_start` lines, so a restarted app is still followed. `since` is unix ms (the guest clock is UTC). `cursor` comes back in every reply. `follow:true` streams batches on the binary API (`more:true`, then `more:false` at `duration_ms`); over MCP it becomes a long poll (`wait_ms`, default 10 s). Without a cursor, only the last 32 MB is searched.
+- `crash_events{device, after?, filter?, wait_ms?}`: a long poll over events parsed since boot, each with a `seq`. `crash` comes from `am_crash` (Java or native app crash) and carries the process's `E AndroidRuntime` lines as `stack`. `anr` comes from `am_anr`, and `native_crash` from `F libc: Fatal signal` (system daemons included).
+- Check (`daemon/logs_smoke.py`, `--mem 2048`, `assets/15-logs/result.json`), against `com.boltbetz.staging`:
+
+| Check | Result |
+|---|---|
+| `am crash <pkg>` on API 36 | works (`CrashedByAdbException: shell-induced crash`) |
+| `crash_events` long poll across `am crash` | `crash` event **238 ms** after `am crash`, 14 stack lines |
+| ANR (app `kill -STOP`, then taps) | `anr` event after 14.9 s (`Input dispatching timed out ... Waited 15002ms`; the input timeout here is 15 s) |
+| `logs` one-shot, filter = package | 20 lines in 194 ms |
+| `logs` follow during the crash | 4 batches, 18 lines including the `FATAL EXCEPTION` lines, ends with `more:false` |
+| MCP | `tools/list` has `logs` and `crash_events`; `crash_events` returned `[crash, anr]` |
+
+- Boot noise in `crash_events`: `dlkm_loader` (1 native crash) and the Bluetooth loop (`droid.bluetooth` native, `com.android.bluetooth` crash). Filter by package.

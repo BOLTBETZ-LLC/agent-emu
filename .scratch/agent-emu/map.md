@@ -53,6 +53,10 @@ A build-ready spec for a slim Android emulator built for agents to test apps. Th
 - [Fleet manager](issues/18-fleet-manager.md): recommended default. The Rust daemon `agent-emud` runs one crosvm child per Device inside a Windows Job Object (memory cap, kill on exit). Each Device gets 2 vCPUs, idle Devices run at low priority, and a crashed Device is restarted once.
 - [Viewer](issues/19-viewer.md): recommended default. A local web page served by `agent-emud` shows every Device live (MJPEG) and passes clicks and keys. It's a watcher until a human takes the lease.
 - [Portability seams](issues/20-portability-seams.md): recommended default. crosvm's own hypervisor trait, one memory-trick trait (WHPX now, userfaultfd/KSM on Linux), and a cross-platform daemon.
+- [Headless display](issues/10-computer-use-api-v1.md): done. `AGENT_EMU_HEADLESS` puts the crosvm GPU on the stub display; 0 windows, fast frames unchanged.
+- [Stale-pixel fix](issues/10-computer-use-api-v1.md): done. HW overlays off (SurfaceFlinger 1008) at Device setup; fast frame equals `screencap` (67% of pixels off before).
+- [Dialogs](issues/10-computer-use-api-v1.md): `hide_error_dialogs 1` at Device setup. Bluetooth stays enabled: disabling it crash-loops system_server.
+- [Logs and crash events](issues/15-structured-agent-api-v1.md): `logs` and `crash_events` built from the host-side logcat stream; crash event 238 ms after `am crash`, ANR event seen.
 
 ## Destination reached
 
@@ -69,7 +73,7 @@ A build-ready spec for a slim Android emulator built for agents to test apps. Th
 - **crosvm fixes:** vsock log spam (GB per boot down to ~220 KB); net `start_queue` root cause (`workers.get(idx).is_some()` was always true); slirp TCP hostfwd. **adb works:** `adb connect 127.0.0.1:6520`, `getprop sys.boot_completed` = 1, `adb install` Success (13.3 s).
 - **Trap:** slim3 has no wallpaper or SystemUI, so stale pixels stay in the scanout where no window draws (seen by eye in `assets/10-settle-v2/2-home.jpg`). Needs an opaque base layer or a scanout clear.
 - **6 Devices at 896 MB: all apps alive, ~902 MB per Device** (Available; Committed ~1.1 GB). One screen had a Bluetooth crash dialog over the app.
-- **Open:** headless display; stale-pixel fix; app-idle helper; structured API layers; the `system_dlkm` swap.
+- **Open:** app-idle helper; structured API layers 3-4; the `system_dlkm` swap.
 
 ## Not yet specified
 
