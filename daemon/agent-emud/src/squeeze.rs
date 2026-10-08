@@ -116,11 +116,28 @@ pub struct Proc {
 
 /// The Device's crosvm processes: the broker (child of its boot powershell) and the broker's children.
 pub async fn procs(boot_pid: u32) -> R<Vec<Proc>> {
+    Ok(tree(&rows().await?, boot_pid))
+}
+
+/// Every crosvm.exe as "pid|ppid|ws_bytes|cmdline" rows (one process listing for all Devices).
+pub async fn rows() -> R<String> {
     let o = tokio::process::Command::new("powershell")
         .args(["-NoProfile", "-Command", "Get-CimInstance Win32_Process -Filter \"Name='crosvm.exe'\" | \
             ForEach-Object { '{0}|{1}|{2}|{3}' -f $_.ProcessId,$_.ParentProcessId,$_.WorkingSetSize,$_.CommandLine }"])
         .creation_flags(CREATE_NO_WINDOW).output().await.map_err(|e| format!("process list: {e}"))?;
-    Ok(tree(&String::from_utf8_lossy(&o.stdout), boot_pid))
+    Ok(String::from_utf8_lossy(&o.stdout).into_owned())
+}
+
+/// (ws, own, shared) MB of the Device under `boot_pid`, from `rows()`; None when it has no crosvm.
+/// Walks each process's working set: blocking, call it off the async threads.
+pub fn mem_of(rows: &str, boot_pid: u32) -> Option<(u64, u64, u64)> {
+    let p = tree(rows, boot_pid);
+    if p.is_empty() {
+        return None;
+    }
+    let ws: u64 = p.iter().map(|p| p.ws_mb).sum();
+    let sh: u64 = p.iter().map(|p| shared_ws_mb(p.pid, p.main).min(p.ws_mb)).sum();
+    Some((ws, ws - sh, sh))
 }
 
 /// Parses "pid|ppid|ws_bytes|cmdline" rows and keeps the broker under `boot_pid` plus its children.

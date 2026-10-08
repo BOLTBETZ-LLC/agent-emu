@@ -5,377 +5,1100 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>agent-emu</title>
 <style>
-  :root { --bg:#f6f7f9; --panel:#fff; --ink:#1b1f24; --mute:#667085; --line:#d9dde3; --accent:#1f6feb; --bad:#c62828; --ok:#1a7f37; }
-  @media (prefers-color-scheme: dark) { :root { --bg:#111418; --panel:#1a1f25; --ink:#e6e9ee; --mute:#98a2b3; --line:#2c333b; --accent:#4c8dff; --bad:#ff6b6b; --ok:#3fb950; } }
-  * { box-sizing: border-box; }
-  body { margin:0; font:15px/1.45 system-ui, Segoe UI, sans-serif; background:var(--bg); color:var(--ink); }
-  header { display:flex; align-items:center; gap:12px; padding:10px 16px; border-bottom:1px solid var(--line); background:var(--panel); }
-  header h1 { font-size:26px; font-weight:650; letter-spacing:-.01em; margin:0; }
-  header .grow { flex:1; }
-  main { display:grid; grid-template-columns: clamp(360px, 21vw, 560px) minmax(360px, 1fr) clamp(400px, 24vw, 620px); gap:12px; padding:12px; height:calc(100vh - 64px); }
-  /* Side panels scale with wide windows: 15 px at 2000 px wide, 19 px at 2560. */
-  main > section:not(#screenwrap) { font-size:clamp(15px, .75vw, 20px); }
-  @media (max-width: 1100px) { main { grid-template-columns: 1fr; height:auto; } }
-  section { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:12px; overflow:auto; }
-  h2 { font-size:1.1em; font-weight:600; color:var(--ink); margin:14px 0 6px; }
-  h2:first-child { margin-top:0; }
-  button { font:inherit; padding:5px 10px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--ink); cursor:pointer; }
-  button:hover:not(:disabled) { border-color:var(--accent); }
-  button.primary { background:#1f6feb; border-color:#1f6feb; color:#fff; }
-  button.danger { color:var(--bad); }
-  button:disabled { opacity:.45; cursor:default; }
-  input, select { font:inherit; padding:4px 6px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--ink); }
-  label { display:flex; align-items:center; gap:6px; margin:4px 0; }
-  label > span { width:7em; flex:none; color:var(--mute); }
-  label select, label input:not([type=checkbox]) { min-width:0; max-width:100%; }
-  main > section { min-width:0; }
-  table { width:100%; border-collapse:collapse; font-size:.95em; }
-  td, th { text-align:left; padding:4px; border-bottom:1px solid var(--line); vertical-align:top; }
-  tr.sel { background:color-mix(in srgb, var(--accent) 14%, transparent); }
-  tr.dev { cursor:pointer; }
-  .row { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
-  .mute { color:var(--mute); }
-  #err { display:none; margin:0 16px; padding:8px 12px; border:1px solid var(--bad); color:var(--bad); border-radius:6px; background:var(--panel); white-space:pre-wrap; }
-  #busy { font-weight:600; color:var(--accent); }
-  #progress { font-weight:600; }
-  .note { font-size:.9em; color:var(--mute); margin:2px 0 6px; }
-  #screenwrap { display:flex; flex-direction:column; align-items:center; gap:8px; height:100%; }
-  #screenbox { flex:1; min-height:0; width:100%; display:flex; align-items:center; justify-content:center; }
-  #screen { max-width:100%; max-height:100%; background:#000; border-radius:6px; touch-action:none; outline:none; cursor:crosshair; }
-  #screen:focus { box-shadow:0 0 0 3px var(--accent); }
-  #screenbox { position:relative; }
-  #placeholder { color:var(--mute); font-size:1.15em; text-align:center; max-width:28em; line-height:1.6; }
-  #overlay { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); background:var(--panel); border:1px solid var(--line);
-    border-radius:10px; padding:20px 26px; text-align:center; box-shadow:0 8px 30px rgba(0,0,0,.35); max-width:26em; font-size:1.15em; }
-  #overlay p { margin:0 0 12px; }
-  .ramown { font-weight:600; } .ramshared { color:var(--mute); font-size:.9em; }
-  pre { margin:0; font:.9em/1.4 ui-monospace, Consolas, monospace; white-space:pre-wrap; word-break:break-all; }
-  #logs { height:330px; overflow:auto; border:1px solid var(--line); border-radius:6px; padding:6px; background:var(--bg); }
-  #drop { border:2px dashed var(--line); border-radius:8px; padding:14px; text-align:center; color:var(--mute); }
-  #drop.over { border-color:var(--accent); color:var(--accent); }
-  .tabs button.on { background:#1f6feb; color:#fff; border-color:#1f6feb; }
-  .ok { color:var(--ok); } .bad { color:var(--bad); }
+  /* Bench ramp: every neutral comes from these ten steps (cool, slightly green, like lab epoxy). */
+  :root {
+    --z0:#080b0c; --z1:#0e1314; --z2:#141a1c; --z3:#1b2326; --z4:#243034; --z5:#334247;
+    --z6:#55666c; --z7:#8b9ca1; --z8:#bccacd; --z9:#eaf1f2;
+    /* Reagents: a well's rim says its state. */
+    --amber:#f4b73f; --amber-ink:#2a1d02; --teal:#3fd6b4; --teal-ink:#032a21; --red:#ff6f61; --red-ink:#2e0805;
+    --blue:#7fb2ff;
+    --ui:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
+    --label:Bahnschrift,"DIN Alternate","Segoe UI",system-ui,sans-serif;
+    --mono:"Cascadia Mono",Consolas,ui-monospace,monospace;
+    --top:52px; --pad:14px; --gap:14px; --tape:30px; --acts:36px; --wellpad:8px;
+    /* Phone size in a well: two rows fill the height under the top bar. */
+    --ph:max(250px, calc((100dvh - var(--top) - 2*var(--pad) - var(--gap) - 2*(var(--tape) + var(--acts) + 2*var(--wellpad) + 18px)) / 2));
+    --pw:calc(var(--ph) * 1320 / 2868);
+    --panel:clamp(340px, 17vw, 440px);
+    color-scheme:dark;
+  }
+  @property --p { syntax:"<number>"; inherits:true; initial-value:0; }
+  * { box-sizing:border-box; }
+  html, body { height:100%; }
+  body { margin:0; background:var(--z1); color:var(--z9); font:14px/1.5 var(--ui); }
+  ::selection { background:color-mix(in srgb, var(--teal) 40%, transparent); color:var(--z9); }
+  * { scrollbar-width:thin; scrollbar-color:var(--z5) transparent; }
+  :focus-visible { outline:2px solid var(--z9); outline-offset:2px; }
+  .lbl { font-family:var(--label); font-stretch:semi-condensed; letter-spacing:.02em; }
+  .num { font-variant-numeric:tabular-nums; }
+  svg.i { width:16px; height:16px; flex:none; stroke:currentColor; fill:none; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
+  [hidden] { display:none !important; }
+
+  /* Buttons: one vocabulary everywhere. aria-busy shows inline progress (a moving bar under the label). */
+  button { font:inherit; color:inherit; cursor:pointer; }
+  .btn { position:relative; display:inline-flex; align-items:center; justify-content:center; gap:6px; height:32px; padding:0 12px;
+    border-radius:7px; border:1px solid var(--z5); background:var(--z3); color:var(--z9); font-weight:550; white-space:nowrap; overflow:hidden;
+    transition:background .12s, border-color .12s, transform .06s; }
+  .btn:hover:not(:disabled) { background:var(--z4); border-color:var(--z6); }
+  .btn:active:not(:disabled) { transform:translateY(1px); background:var(--z5); }
+  .btn:disabled { opacity:.42; cursor:not-allowed; }
+  .btn.primary { background:var(--teal); border-color:var(--teal); color:var(--teal-ink); }
+  .btn.primary:hover:not(:disabled) { background:#62e2c5; border-color:#62e2c5; }
+  .btn.danger { color:var(--red); }
+  .btn.danger:hover:not(:disabled) { border-color:var(--red); background:color-mix(in srgb, var(--red) 12%, var(--z3)); }
+  .btn.confirm { background:var(--red); border-color:var(--red); color:var(--red-ink); }
+  .btn.ghost { background:transparent; border-color:transparent; color:var(--z8); }
+  .btn.ghost:hover:not(:disabled) { background:var(--z3); border-color:var(--z4); }
+  .btn.icon { width:32px; padding:0; }
+  .btn.sm { height:28px; padding:0 9px; font-size:13px; }
+  .btn.sm.icon { width:28px; }
+  .btn[aria-busy=true]::after { content:""; position:absolute; left:0; right:0; bottom:0; height:2px; background:currentColor;
+    animation:breathe 1.2s ease-in-out infinite alternate; }
+  @keyframes breathe { from { opacity:.25; } to { opacity:.9; } }
+
+  input, select { font:inherit; color:var(--z9); background:var(--z1); border:1px solid var(--z5); border-radius:7px; height:32px; padding:0 9px; min-width:0; }
+  input:hover, select:hover { border-color:var(--z6); }
+  input:focus-visible, select:focus-visible { outline:2px solid var(--teal); outline-offset:0; border-color:var(--teal); }
+  input::placeholder { color:var(--z7); }
+  input[type=checkbox] { width:16px; height:16px; accent-color:var(--teal); margin:0; }
+
+  /* ---------- top bar ---------- */
+  #top { height:var(--top); display:flex; align-items:center; gap:14px; padding:0 var(--pad); background:var(--z2); border-bottom:1px solid var(--z4); }
+  #brand { font-family:var(--label); font-weight:700; font-size:19px; letter-spacing:.01em; display:flex; align-items:center; gap:9px; }
+  #brand .dot { width:9px; height:9px; border-radius:50%; background:var(--teal); box-shadow:0 0 0 3px color-mix(in srgb, var(--teal) 22%, transparent); }
+  #brand.off .dot { background:var(--red); box-shadow:0 0 0 3px color-mix(in srgb, var(--red) 22%, transparent); }
+  #budget { flex:1; min-width:220px; max-width:760px; display:grid; gap:4px; }
+  #budget .bar { position:relative; height:10px; border-radius:5px; background:var(--z1); border:1px solid var(--z4); display:flex; overflow:hidden; }
+  #budget .seg { height:100%; transition:flex-basis .25s ease-out; }
+  #budget .seg.dev { background:var(--teal); border-right:1px solid var(--z2); }
+  #budget .seg.dev.booting { background:var(--amber); }
+  #budget .seg.shared { background:color-mix(in srgb, var(--teal) 45%, var(--z4)); }
+  #budget .seg.free { background:transparent; }
+  #budget .floor { position:absolute; top:-1px; bottom:-1px; width:2px; background:var(--red); }
+  #budget .cap { display:flex; gap:14px; font-size:12px; color:var(--z7); white-space:nowrap; }
+  #budget .cap b { color:var(--z9); font-weight:600; }
+  #budget .cap .warn { color:var(--amber); }
+  #say { flex:0 1 420px; min-width:0; font-size:13px; color:var(--z7); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:right; }
+  #say.err { color:var(--red); }
+  #top .grp { display:flex; gap:8px; align-items:center; }
+
+  /* ---------- layout ---------- */
+  #main { height:calc(100dvh - var(--top)); display:grid; grid-template-columns:max-content minmax(0,1fr) var(--panel); gap:var(--gap); padding:var(--pad); }
+  body.panel-closed #main { grid-template-columns:max-content minmax(0,1fr) 48px; }
+  body.stage-closed #main { grid-template-columns:max-content 0 var(--panel); }
+  body.stage-closed.panel-closed #main { grid-template-columns:max-content 0 48px; }
+  body.stage-closed #stage { display:none; }
+
+  /* ---------- the plate: 8 wells, 2 rows of 4 ---------- */
+  #plate { display:grid; grid-template-columns:repeat(4, max-content); grid-template-rows:repeat(2, max-content); gap:var(--gap); align-content:start; }
+  .well { position:relative; width:calc(var(--pw) + 8px + 2*var(--wellpad) + 2px); display:grid; grid-template-rows:var(--tape) auto var(--acts); gap:4px; padding:var(--wellpad); border-radius:14px;
+    background:var(--z2); border:1px solid var(--z4); transition:transform .18s cubic-bezier(.2,.7,.2,1), box-shadow .18s, border-color .18s; }
+  .well.sel { border-color:var(--z6); box-shadow:0 10px 28px -10px rgba(0,0,0,.8), 0 0 0 1px var(--z6); transform:translateY(-2px); }
+  .well.drop { border-color:var(--blue); box-shadow:0 0 0 2px var(--blue); }
+  .tape { display:flex; align-items:center; gap:6px; min-width:0; font-size:12.5px; }
+  .tape .id { font-family:var(--label); font-weight:700; font-size:15px; padding:0 8px; height:22px; display:inline-flex; align-items:center; border-radius:4px;
+    background:var(--z8); color:var(--z1); cursor:pointer; border:0; }
+  .well.sel .tape .id { background:var(--z9); }
+  .badge { font-family:var(--label); font-stretch:semi-condensed; font-weight:600; font-size:12px; letter-spacing:.03em; text-transform:uppercase;
+    padding:0 8px; height:20px; display:inline-flex; align-items:center; gap:5px; border-radius:4px; color:var(--z7); background:var(--z3); }
+  .badge::before { content:""; width:6px; height:6px; border-radius:50%; background:currentColor; }
+  [data-state=running] .badge { color:var(--teal); background:color-mix(in srgb, var(--teal) 12%, var(--z2)); }
+  [data-state=booting] .badge, [data-state=queued] .badge, [data-state=stopping] .badge { color:var(--amber); background:color-mix(in srgb, var(--amber) 12%, var(--z2)); }
+  [data-state=failed] .badge { color:var(--red); background:color-mix(in srgb, var(--red) 13%, var(--z2)); }
+  [data-state=empty] .badge { color:var(--z7); }
+  .tape .meta { margin-left:auto; display:flex; gap:9px; color:var(--z7); white-space:nowrap; overflow:hidden; }
+  .tape .meta b { color:var(--z9); font-weight:600; }
+  .tape .crash { border:0; background:none; padding:0; color:var(--red); font:inherit; cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
+
+  /* The recess: a phone at true iPhone 17 Pro Max aspect, inside a dark bezel, ringed by the reagent rim. */
+  .recess { position:relative; width:var(--pw); height:var(--ph); margin:4px; }
+  .glass { position:absolute; inset:0; border-radius:12.5% / 5.75%; background:var(--z0); border:5px solid #030405; overflow:hidden;
+    box-shadow:inset 0 0 0 1px #000, 0 0 0 1px var(--z4); }
+  .glass canvas { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; touch-action:none; cursor:crosshair; display:block; outline:none; }
+  .glass canvas:focus-visible { outline:none; }
+  .well:has(canvas:focus-visible) .rim, #stagephone:has(canvas:focus-visible) .rim { outline:2px solid var(--z9); outline-offset:3px; }
+  /* Signature move: the reagent rises up the rim with boot progress (--p, 0-100), then reacts teal when ready. */
+  .rim { position:absolute; inset:-4px; border-radius:calc(12.5% + 2px) / calc(5.75% + 1px); padding:3px; pointer-events:none;
+    background:linear-gradient(to top, var(--amber) calc(var(--p) * 1%), var(--z4) calc(var(--p) * 1%));
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite:xor;
+    mask:linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); transition:--p .9s linear; }
+  [data-state=running] .rim { background:var(--teal); }
+  [data-state=running].react .rim { animation:react .7s ease-out; }
+  @keyframes react { 0% { box-shadow:0 0 0 0 color-mix(in srgb, var(--teal) 70%, transparent); } 100% { box-shadow:0 0 0 14px transparent; } }
+  [data-state=failed] .rim { background:var(--red); }
+  [data-state=stopping] .rim { background:linear-gradient(to top, var(--amber) 0 100%); opacity:.55; }
+  [data-state=empty] .rim { background:none; border:1.5px dashed var(--z5); padding:0; -webkit-mask:none; mask:none; }
+  [data-state=queued] .rim { background:none; border:1.5px dashed var(--amber); padding:0; -webkit-mask:none; mask:none; }
+  /* Veil: what the well is doing when there is no picture (empty, queued, booting, failed, no app). */
+  .veil { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; padding:14%;
+    text-align:center; font-size:13px; color:var(--z7); border-radius:12.5% / 5.75%; }
+  .veil .big { font-family:var(--label); font-size:17px; font-weight:600; color:var(--z9); }
+  .veil .num { font-family:var(--label); }
+  [data-state=failed] .veil { color:var(--z8); background:color-mix(in srgb, var(--red) 6%, var(--z0)); }
+  [data-state=failed] .veil .big { color:var(--red); }
+  .veil .row { display:flex; gap:6px; flex-wrap:wrap; justify-content:center; }
+  .veil.over { background:color-mix(in srgb, var(--z0) 84%, transparent); }
+  .touch { position:absolute; width:26px; height:26px; margin:-13px 0 0 -13px; border-radius:50%; pointer-events:none;
+    border:2px solid var(--z9); background:color-mix(in srgb, var(--z9) 25%, transparent); animation:touch .45s ease-out forwards; }
+  .touch.swipe { border-color:var(--blue); background:color-mix(in srgb, var(--blue) 25%, transparent); }
+  @keyframes touch { from { transform:scale(.6); opacity:1; } to { transform:scale(1.6); opacity:0; } }
+  .flash { position:absolute; inset:0; background:#fff; pointer-events:none; animation:flash .3s ease-out forwards; }
+  @keyframes flash { from { opacity:.55; } to { opacity:0; } }
+  .acts { display:flex; align-items:center; gap:2px; }
+  .acts .sep { width:1px; height:18px; background:var(--z4); margin:0 3px; }
+  .acts .end { margin-left:auto; display:flex; gap:2px; }
+  .acts .btn { color:var(--z8); width:26px; }
+  .acts { min-width:0; }
+  [data-state=empty] .acts .live, [data-state=queued] .acts .live, [data-state=booting] .acts .live, [data-state=failed] .acts .live, [data-state=stopping] .acts .live { visibility:hidden; }
+  .well .status { position:absolute; left:var(--wellpad); right:var(--wellpad); bottom:calc(var(--acts) + var(--wellpad) + 10px); margin:0 10px;
+    font-size:12px; text-align:center; color:var(--z9); background:color-mix(in srgb, var(--z1) 88%, transparent); border:1px solid var(--z4);
+    border-radius:6px; padding:6px 10px; pointer-events:none; opacity:0; transition:opacity .15s; }
+  .well .status.on { opacity:1; }
+  .well .status.err { color:var(--red); border-color:color-mix(in srgb, var(--red) 50%, var(--z4)); }
+
+  /* ---------- focus stage ---------- */
+  #stage { min-width:0; display:grid; grid-template-columns:minmax(0,1fr) 236px; gap:var(--gap); background:var(--z2); border:1px solid var(--z4);
+    border-radius:14px; padding:var(--pad); }
+  #stagebox { container-type:size; min-height:0; display:flex; align-items:center; justify-content:center; }
+  #stagephone { position:relative; height:min(100cqh - 8px, (100cqw - 8px) * 2868 / 1320); aspect-ratio:1320 / 2868; }
+  #stageside { display:flex; flex-direction:column; gap:14px; min-height:0; overflow:auto; }
+  #stageside h2 { margin:0; font-family:var(--label); font-size:26px; font-weight:700; display:flex; align-items:center; gap:10px; }
+  #stageside .sub { color:var(--z7); font-size:13px; margin-top:-8px; }
+  .keys { display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; }
+  .keys .btn { height:40px; flex-direction:column; gap:1px; font-size:11px; font-weight:500; color:var(--z8); }
+  .stack { display:grid; gap:6px; }
+  .stack .btn { justify-content:flex-start; }
+  dl.facts { margin:0; display:grid; grid-template-columns:auto 1fr; gap:5px 12px; font-size:13px; }
+  dl.facts dt { color:var(--z7); }
+  dl.facts dd { margin:0; text-align:right; font-variant-numeric:tabular-nums; }
+  .hint { font-size:12px; color:var(--z7); line-height:1.5; }
+  kbd { font:11px var(--mono); padding:1px 5px; border-radius:4px; border:1px solid var(--z5); background:var(--z3); color:var(--z8); }
+
+  /* ---------- side panel ---------- */
+  #panel { min-width:0; min-height:0; display:flex; flex-direction:column; background:var(--z2); border:1px solid var(--z4); border-radius:14px; overflow:hidden; }
+  #panelhead { display:flex; align-items:center; gap:8px; padding:8px 8px 8px 14px; border-bottom:1px solid var(--z4); }
+  #panelhead .t { font-family:var(--label); font-weight:700; font-size:15px; }
+  #panelhead .btn { margin-left:auto; }
+  #panelbody { overflow:auto; flex:1; }
+  #rail { display:none; flex-direction:column; align-items:center; gap:6px; padding:8px 0; }
+  body.panel-closed #panelbody, body.panel-closed #panelhead .t { display:none; }
+  body.panel-closed #panelhead { justify-content:center; padding:8px 0; border:0; }
+  body.panel-closed #panelhead .btn { margin:0; }
+  body.panel-closed #rail { display:flex; }
+  details.sec { border-bottom:1px solid var(--z4); }
+  details.sec > summary { list-style:none; display:flex; align-items:center; gap:8px; padding:11px 14px; cursor:pointer; user-select:none;
+    font-family:var(--label); font-weight:600; font-size:15px; }
+  details.sec > summary::-webkit-details-marker { display:none; }
+  details.sec > summary .chev { transition:transform .15s; color:var(--z7); }
+  details.sec[open] > summary .chev { transform:rotate(90deg); }
+  details.sec > summary:hover { background:var(--z3); }
+  details.sec > summary .aside { margin-left:auto; font-family:var(--ui); font-weight:400; font-size:12.5px; color:var(--z7); }
+  .secbody { padding:4px 14px 16px; display:grid; gap:10px; }
+  .field { display:grid; grid-template-columns:96px minmax(0,1fr); align-items:center; gap:10px; }
+  .field > span { color:var(--z7); font-size:13px; }
+  .field.top { align-items:start; }
+  .field.top > span { padding-top:6px; }
+  .note { font-size:12.5px; color:var(--z7); line-height:1.45; }
+  .checks { display:grid; gap:7px; }
+  .checks label { display:flex; align-items:center; gap:9px; font-size:13.5px; cursor:pointer; }
+  .checks label small { color:var(--z7); font-size:12.5px; }
+  .seg2 { display:inline-flex; gap:2px; padding:2px; border:1px solid var(--z5); border-radius:8px; }
+  .seg2 button { height:26px; padding:0 12px; border:0; border-radius:5px; background:transparent; color:var(--z8); font-weight:550; }
+  .seg2 button[aria-pressed=true] { background:var(--z5); color:var(--z9); }
+  .seg2 button:not([aria-pressed=true]):hover { background:var(--z3); }
+  .startrow { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .stepper { display:inline-flex; align-items:center; border:1px solid var(--z5); border-radius:7px; height:32px; }
+  .stepper button { width:28px; height:30px; border:0; background:transparent; color:var(--z8); font-size:16px; }
+  .stepper button:hover { background:var(--z3); }
+  .stepper output { min-width:22px; text-align:center; font-family:var(--label); font-weight:700; }
+  #drop { border:1.5px dashed var(--z5); border-radius:9px; padding:14px; text-align:center; color:var(--z7); font-size:13px; }
+  #drop.over { border-color:var(--blue); color:var(--blue); background:color-mix(in srgb, var(--blue) 7%, transparent); }
+  #drop label { color:var(--z9); text-decoration:underline; text-underline-offset:3px; cursor:pointer; }
+  .out { font:12px/1.45 var(--mono); color:var(--z7); white-space:pre-wrap; word-break:break-word; margin:0; }
+  .out.err { color:var(--red); }
+  #logs { height:340px; overflow:auto; border:1px solid var(--z4); border-radius:8px; background:var(--z0); padding:8px; }
+  #logtext { font:11.5px/1.45 var(--mono); white-space:pre-wrap; word-break:break-all; margin:0; color:var(--z8); }
+  #logtext .E, #logtext .F { color:var(--red); } #logtext .W { color:var(--amber); }
+  table.list { width:100%; border-collapse:collapse; font-size:12.5px; }
+  table.list th { text-align:left; font-weight:600; color:var(--z7); padding:5px 6px; border-bottom:1px solid var(--z4); font-size:12px; }
+  table.list td { padding:6px; border-bottom:1px solid var(--z3); vertical-align:top; word-break:break-word; }
+  table.list td.n { text-align:right; font-variant-numeric:tabular-nums; color:var(--z8); }
+  .side { font-family:var(--label); font-weight:600; font-size:11.5px; text-transform:uppercase; letter-spacing:.04em; }
+  .side.app { color:var(--red); } .side.sys { color:var(--z7); }
+  .empty { color:var(--z7); font-size:13px; padding:8px 0; }
+  .issuesum { display:flex; gap:14px; font-size:13px; color:var(--z7); }
+  .issuesum b { color:var(--z9); }
+
+  /* Narrow windows: the panel floats over the stage instead of taking a column. */
+  @media (max-width: 1500px) {
+    :root { --panel:360px; }
+    #main { grid-template-columns:max-content minmax(0,1fr) 48px; }
+    body.stage-closed #main { grid-template-columns:max-content 0 48px; }
+    body:not(.panel-closed) #panel { position:fixed; right:var(--pad); top:calc(var(--top) + var(--pad)); bottom:var(--pad); width:var(--panel); z-index:5;
+      box-shadow:0 12px 24px -8px rgba(0,0,0,.8); }
+    #stage { grid-template-columns:minmax(0,1fr); } #stageside { display:none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition:none !important; animation:none !important; }
+    .btn[aria-busy=true]::after { opacity:.6; }
+  }
 </style>
 </head>
 <body>
-<header>
-  <h1>agent-emu</h1><span class="mute" id="host"></span><span class="grow"></span>
-  <span id="busy"></span>
-  <button class="danger" id="quit" title="Stop every Device and the daemon">Quit</button>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-back" viewBox="0 0 16 16"><path d="M10.5 3 5.5 8l5 5"/></symbol>
+  <symbol id="i-home" viewBox="0 0 16 16"><circle cx="8" cy="8" r="4.8"/></symbol>
+  <symbol id="i-recents" viewBox="0 0 16 16"><rect x="3.5" y="3.5" width="9" height="9" rx="1.5"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 16 16"><rect x="4" y="4" width="8" height="8" rx="1.2"/></symbol>
+  <symbol id="i-play" viewBox="0 0 16 16"><path d="M5 3.5v9l7-4.5z"/></symbol>
+  <symbol id="i-restart" viewBox="0 0 16 16"><path d="M12.8 8A4.8 4.8 0 1 1 11.4 4.6"/><path d="M12.2 2.2v3h-3"/></symbol>
+  <symbol id="i-shot" viewBox="0 0 16 16"><path d="M2.5 5.5h2.2l1.2-1.8h4.2l1.2 1.8h2.2v7h-11z"/><circle cx="8" cy="8.8" r="2.1"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 16 16"><path d="M9 1.8 3.8 9h3.6L6.8 14.2 12.2 7H8.6z"/></symbol>
+  <symbol id="i-expand" viewBox="0 0 16 16"><path d="M9.5 2.5h4v4M6.5 13.5h-4v-4M13.5 2.5 9 7M2.5 13.5 7 9"/></symbol>
+  <symbol id="i-panel" viewBox="0 0 16 16"><rect x="2" y="2.5" width="12" height="11" rx="1.5"/><path d="M10 2.5v11"/></symbol>
+  <symbol id="i-stage" viewBox="0 0 16 16"><rect x="5" y="1.8" width="6" height="12.4" rx="1.6"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 16 16"><path d="m6 3.5 4.5 4.5L6 12.5"/></symbol>
+  <symbol id="i-up" viewBox="0 0 16 16"><path d="M8 12V3.5M4.5 7 8 3.5 11.5 7M3 13h10"/></symbol>
+  <symbol id="i-logs" viewBox="0 0 16 16"><path d="M3 4h10M3 8h10M3 12h6"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 16 16"><path d="M8 2.5 14 13H2z"/><path d="M8 6.5v3M8 11.3v.2"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></symbol>
+  <symbol id="i-power" viewBox="0 0 16 16"><path d="M8 2v6"/><path d="M4.6 4.4a5 5 0 1 0 6.8 0"/></symbol>
+  <symbol id="i-x" viewBox="0 0 16 16"><path d="m4 4 8 8M12 4l-8 8"/></symbol>
+</svg>
+
+<header id="top">
+  <div id="brand"><span class="dot" aria-hidden="true"></span>agent-emu</div>
+  <div id="budget" aria-label="Host memory">
+    <div class="bar" id="budgetbar"></div>
+    <div class="cap num" id="budgetcap">Connecting to the daemon…</div>
+  </div>
+  <div id="say" role="status" aria-live="polite"></div>
+  <div class="grp">
+    <button class="btn danger" id="stopall" title="Stop every Device"><svg class="i"><use href="#i-stop"/></svg>Stop all</button>
+    <button class="btn ghost icon" id="stagetoggle" title="Show or hide the focus view" aria-pressed="true"><svg class="i"><use href="#i-stage"/></svg></button>
+  </div>
 </header>
-<div id="err"></div>
-<main>
-  <section>
-    <h2>Devices</h2>
-    <table><thead><tr><th>id</th><th>state</th><th>image / RAM / vCPU</th><th>up</th><th title="own: RAM only this Device uses (guest RAM, its process heaps). shared: system image and program files that other Devices reuse.">RAM own / shared</th><th></th></tr></thead><tbody id="devs"></tbody></table>
-    <div class="row" style="margin-top:6px"><button id="stopall" class="danger">Stop all</button></div>
-    <h2>Start a Device</h2>
-    <label><span>Device id</span><input id="s_id" value="d0" size="5"></label>
-    <label><span>Image</span><select id="s_image">
-      <option value="phone" selected>Phone (full Android, ~2 GB)</option>
-      <optgroup label="Lean agent phones (no home screen)">
-        <option value="slim5">Lean agent phone, no home screen (~640 MB)</option>
-        <option value="slim4">Lean agent phone, no home screen (~700 MB)</option>
-        <option value="">Lean agent phone, no home screen (~900 MB, agents' default)</option>
-        <option value="slim3">Lean agent phone, no home screen (~900 MB, older)</option>
-      </optgroup>
-    </select></label>
-    <div class="note" id="imgnote">Full phone: status bar, navigation bar, notifications, Settings. 2 GB.</div>
-    <label><span>RAM (MB)</span><input id="s_mem" placeholder="image default" size="10"></label>
-    <label><span>CPU cores</span><input id="s_cpus" value="2" size="4"></label>
-    <label><span>Network</span><input type="checkbox" id="s_net" checked></label>
-    <label><span>Open app</span><input type="checkbox" id="s_openapp"><span class="mute" style="width:auto">open BoltBetz after boot</span></label>
-    <label><span>Save RAM</span><input type="checkbox" id="s_squeeze"><span class="mute" style="width:auto">after the first app launch</span></label>
-    <button class="primary" id="start">Start</button>
-    <div id="progress" class="mute"></div>
-    <h2>Fleet</h2>
-    <label><span>Devices</span><input id="f_n" value="2" size="4"></label>
-    <label><span>first id</span><input id="f_base" value="0" size="4"></label>
-    <div class="row"><button id="fleet">Start fleet</button><button id="fleetstop">Stop fleet</button></div>
-    <pre id="fleetout" class="mute"></pre>
+
+<main id="main">
+  <section id="plate" aria-label="Devices"></section>
+
+  <section id="stage" aria-label="Focused Device">
+    <div id="stagebox">
+      <div id="stagephone" class="stagewell" data-state="empty">
+        <div class="rim"></div>
+        <div class="glass"><canvas id="stagecv" tabindex="0" aria-label="Focused Device screen"></canvas></div>
+        <div class="veil" id="stageveil"></div>
+      </div>
+    </div>
+    <div id="stageside">
+      <div><h2><span id="st_id">d0</span><span class="badge" id="st_badge">Empty</span></h2></div>
+      <div class="sub" id="st_sub"></div>
+      <div class="keys" id="st_keys">
+        <button class="btn" data-key="back" title="Back (Esc on the screen)"><svg class="i"><use href="#i-back"/></svg>Back</button>
+        <button class="btn" data-key="home" title="Home"><svg class="i"><use href="#i-home"/></svg>Home</button>
+        <button class="btn" data-key="app_switch" title="Recent apps"><svg class="i"><use href="#i-recents"/></svg>Recents</button>
+      </div>
+      <div class="stack" id="st_acts">
+        <button class="btn" data-act="open"><svg class="i"><use href="#i-bolt"/></svg>Open BoltBetz</button>
+        <button class="btn" data-act="shot"><svg class="i"><use href="#i-shot"/></svg>Screenshot</button>
+        <button class="btn" data-act="restart"><svg class="i"><use href="#i-restart"/></svg>Restart</button>
+        <button class="btn danger" data-act="stop"><svg class="i"><use href="#i-stop"/></svg>Stop</button>
+      </div>
+      <dl class="facts" id="st_facts"></dl>
+      <p class="hint">Click the screen to tap, drag to swipe, scroll to scroll. Then type: <kbd>Esc</kbd> back, <kbd>Enter</kbd>, <kbd>⌫</kbd>, arrows.</p>
+    </div>
   </section>
 
-  <section id="screenwrap">
-    <div class="row">
-      <button data-key="back" title="Back">◀ Back</button>
-      <button data-key="home" title="Home">● Home</button>
-      <button data-key="app_switch" title="Recents">■ Recents</button>
-      <button disabled title="Rotation is not supported on this Device">⟳ Rotate</button>
-      <button id="shot" title="Download a PNG of the screen">Screenshot</button>
-    </div>
-    <div class="mute" id="screeninfo">Pick a Device on the left.</div>
-    <div id="screenbox"><span id="placeholder">No Device selected</span><canvas id="screen" tabindex="0" hidden></canvas>
-      <div id="overlay" hidden><p><b>This lean image has no home screen.</b><br>Open an app to see something.</p>
-        <div class="row" style="justify-content:center"><button class="primary" id="ov_open">Open BoltBetz</button><button id="ov_close">Dismiss</button></div></div></div>
-    <div class="mute" id="lat">click → frame: no samples yet</div>
-  </section>
+  <aside id="panel" aria-label="Controls">
+    <div id="panelhead"><span class="t">Controls</span>
+      <button class="btn ghost icon" id="paneltoggle" title="Collapse the side panel" aria-expanded="true"><svg class="i"><use href="#i-panel"/></svg></button></div>
+    <nav id="rail" aria-label="Open a section">
+      <button class="btn ghost icon" data-open="sec_start" title="Start Devices"><svg class="i"><use href="#i-play"/></svg></button>
+      <button class="btn ghost icon" data-open="sec_apps" title="Apps"><svg class="i"><use href="#i-up"/></svg></button>
+      <button class="btn ghost icon" data-open="sec_logs" title="Logs and issues"><svg class="i"><use href="#i-logs"/></svg></button>
+      <button class="btn ghost icon" data-open="sec_crash" title="Crashes"><svg class="i"><use href="#i-warn"/></svg></button>
+    </nav>
+    <div id="panelbody">
+      <details class="sec" id="sec_start" open>
+        <summary><svg class="i chev"><use href="#i-chev"/></svg>Start Devices<span class="aside" id="startaside"></span></summary>
+        <div class="secbody">
+          <div class="field"><span>Image</span><select id="s_image">
+            <option value="phone-n">Full phone (home screen, ~2 GB)</option>
+            <option value="phone">Full phone, stock (NFC and Thread crash-loop)</option>
+            <option value="slim5">Lean phone, ~640 MB</option>
+            <option value="slim4">Lean phone, ~700 MB</option>
+            <option value="">Lean phone, ~900 MB (agents' default)</option>
+            <option value="slim3">Lean phone, ~900 MB (older)</option>
+          </select></div>
+          <div class="note" id="imgnote"></div>
+          <div class="field"><span>Screen</span><select id="s_screen">
+            <option value="">iPhone 17 Pro Max, image default</option>
+            <option value="iphone17promax-native">iPhone 17 Pro Max, full 1320 x 2868</option>
+            <option value="iphone17promax-3q">iPhone 17 Pro Max, 3/4 984 x 2140</option>
+            <option value="iphone17promax-half">iPhone 17 Pro Max, half 656 x 1424</option>
+            <option value="legacy">Legacy 720 x 1080</option>
+          </select></div>
+          <div class="field"><span>RAM (MB)</span><input id="s_mem" inputmode="numeric" placeholder="image default"></div>
+          <div class="field"><span>CPU cores</span><input id="s_cpus" inputmode="numeric" value="2"></div>
+          <div class="checks">
+            <label><input type="checkbox" id="s_net" checked> Network</label>
+            <label><input type="checkbox" id="s_openapp"> Open BoltBetz after boot</label>
+            <label><input type="checkbox" id="s_squeeze"> Save RAM <small>after the first app launch</small></label>
+          </div>
+          <div class="startrow">
+            <div class="stepper" aria-label="How many Devices"><button id="n_minus" aria-label="Fewer">−</button><output id="n_out">1</output><button id="n_plus" aria-label="More">+</button></div>
+            <button class="btn primary" id="startn"><svg class="i"><use href="#i-play"/></svg><span id="startnlbl">Start 1</span></button>
+          </div>
+          <div class="note" id="startnote">Starts the next empty wells, one boot at a time. Each empty well also has its own Start button.</div>
+        </div>
+      </details>
 
-  <section>
-    <div class="row tabs"><button data-tab="apps" class="on">Apps</button><button data-tab="logs">Logs</button><button data-tab="crashes">Crashes</button></div>
-    <div id="tab_apps">
-      <h2>Install</h2>
-      <div id="drop">Drop an APK here, or <input type="file" id="apkfile" accept=".apk"></div>
-      <label><span>host path</span><input id="apkpath" placeholder="C:\path\app.apk" style="flex:1"><button id="installpath">Install</button></label>
-      <div class="row"><button class="primary" id="preset">Open BoltBetz (staging)</button></div>
-      <h2>Launch</h2>
-      <label><span>package</span><input id="pkg" value="com.boltbetz.staging" style="flex:1"><button id="launch">Launch</button></label>
-      <pre id="appout" class="mute"></pre>
+      <details class="sec" id="sec_apps" open>
+        <summary><svg class="i chev"><use href="#i-chev"/></svg>Apps<span class="aside" id="appsaside"></span></summary>
+        <div class="secbody">
+          <div id="drop">Drop an APK here or on any running phone, or <label for="apkfile">choose a file</label>.
+            <input type="file" id="apkfile" accept=".apk" hidden></div>
+          <div class="field"><span>Host path</span><div class="startrow" style="flex-wrap:nowrap"><input id="apkpath" placeholder="C:\path\app.apk" style="flex:1"><button class="btn" id="installpath">Install</button></div></div>
+          <div class="field"><span>Package</span><div class="startrow" style="flex-wrap:nowrap"><input id="pkg" value="com.boltbetz.staging" style="flex:1"><button class="btn" id="launch">Launch</button></div></div>
+          <pre class="out" id="appout"></pre>
+        </div>
+      </details>
+
+      <details class="sec" id="sec_logs">
+        <summary><svg class="i chev"><use href="#i-chev"/></svg>Logs and issues<span class="aside" id="logsaside"></span></summary>
+        <div class="secbody">
+          <div class="startrow"><div class="seg2" role="group" aria-label="View"><button data-view="stream" aria-pressed="true">Stream</button><button data-view="issues" aria-pressed="false">Issues</button></div>
+            <label class="checks" style="margin-left:auto"><label><input type="checkbox" id="follow" checked> Follow</label></label></div>
+          <div class="field"><span>App</span><input id="logfilter" value="com.boltbetz.staging" placeholder="package or tag"></div>
+          <div class="field"><span>Level</span><select id="loglevel"><option value="W">Warnings and errors</option><option value="E">Errors only</option>
+            <option value="I">Info and up</option><option value="">Everything</option></select></div>
+          <div class="checks"><label><input type="checkbox" id="allogs"> All Android logs <small>every app, every level</small></label></div>
+          <div id="streambox"><div id="logs"><pre id="logtext"></pre></div>
+            <div class="startrow" style="margin-top:8px"><button class="btn sm" id="clearlogs">Clear</button></div></div>
+          <div id="issuesbox" hidden>
+            <div class="issuesum" id="issuesum"></div>
+            <p class="note">Errors since boot, grouped; numbers shown as #. App means lines from the app's own processes.</p>
+            <table class="list"><thead><tr><th style="width:42px">#</th><th style="width:64px">Where</th><th>Tag and message</th></tr></thead><tbody id="issues"></tbody></table>
+          </div>
+        </div>
+      </details>
+
+      <details class="sec" id="sec_crash">
+        <summary><svg class="i chev"><use href="#i-chev"/></svg>Crashes<span class="aside" id="crashaside"></span></summary>
+        <div class="secbody">
+          <p class="note">Crashes, ANRs and native crashes on the focused Device since boot. Hover a row for its stack.</p>
+          <table class="list"><thead><tr><th style="width:36px">#</th><th style="width:70px">Type</th><th>Process and reason</th></tr></thead><tbody id="crashes"></tbody></table>
+        </div>
+      </details>
+
+      <details class="sec" id="sec_daemon">
+        <summary><svg class="i chev"><use href="#i-chev"/></svg>Daemon</summary>
+        <div class="secbody">
+          <p class="note">Quit stops every Device and the agent-emu daemon. Closing this tab leaves them running.</p>
+          <div><button class="btn danger" id="quit"><svg class="i"><use href="#i-power"/></svg>Quit agent-emu</button></div>
+        </div>
+      </details>
     </div>
-    <div id="tab_logs" hidden>
-      <label><span>filter</span><input id="logfilter" placeholder="package or tag" style="flex:1"></label>
-      <div class="row"><label><input type="checkbox" id="follow" checked> follow</label><button id="clearlogs">Clear</button></div>
-      <div id="logs"><pre id="logtext"></pre></div>
-    </div>
-    <div id="tab_crashes" hidden>
-      <p class="mute">Crashes, ANRs and native crashes on the selected Device since boot.</p>
-      <table><thead><tr><th>#</th><th>type</th><th>process</th><th>what</th></tr></thead><tbody id="crashes"></tbody></table>
-    </div>
-  </section>
+  </aside>
 </main>
+
+<template id="well-t">
+  <article class="well" data-state="empty">
+    <div class="tape">
+      <button class="id" title="Focus this Device"></button>
+      <span class="badge">Empty</span>
+      <span class="meta num"><button class="crash" hidden title="Show crashes"></button><span class="fps"></span><span class="ram"></span></span>
+    </div>
+    <div class="recess">
+      <div class="rim"></div>
+      <div class="glass"><canvas tabindex="0"></canvas></div>
+      <div class="veil"></div>
+    </div>
+    <div class="acts">
+      <button class="btn sm icon ghost live" data-key="back" title="Back"><svg class="i"><use href="#i-back"/></svg></button>
+      <button class="btn sm icon ghost live" data-key="home" title="Home"><svg class="i"><use href="#i-home"/></svg></button>
+      <button class="btn sm icon ghost live" data-key="app_switch" title="Recent apps"><svg class="i"><use href="#i-recents"/></svg></button>
+      <span class="sep live"></span>
+      <button class="btn sm icon ghost live" data-act="open" title="Open BoltBetz"><svg class="i"><use href="#i-bolt"/></svg></button>
+      <button class="btn sm icon ghost live" data-act="shot" title="Screenshot (PNG)"><svg class="i"><use href="#i-shot"/></svg></button>
+      <span class="end">
+        <button class="btn sm icon ghost live" data-act="restart" title="Restart"><svg class="i"><use href="#i-restart"/></svg></button>
+        <button class="btn sm icon ghost" data-act="stop" title="Stop"><svg class="i"><use href="#i-stop"/></svg></button>
+      </span>
+    </div>
+    <div class="status" aria-live="polite"></div>
+  </article>
+</template>
+
 <script>
 "use strict";
 const $ = (id) => document.getElementById(id);
-let sel = null, devices = [], mem = {}, firstFrame = false, appOpened = {}, stream = null, lastSeq = 0, pending = null, lat = [];
-let logGen = 0, logCursor = null, logDev = null, crashAfter = 0, crashDev = null, fps = 0, frameCount = 0;
+const IDS = [0, 1, 2, 3, 4, 5, 6, 7].map(i => "d" + i);
+const APP = "com.boltbetz.staging";
+// ?daemon=http://127.0.0.1:7401 drives that daemon from a page served elsewhere (it sends CORS headers to localhost).
+const BASE = new URLSearchParams(location.search).get("daemon") || "";
+const reduced = matchMedia("(prefers-reduced-motion: reduce)");
 
-function showErr(msg) { const e = $("err"); if (!msg) { e.style.display = "none"; return; } e.textContent = msg; e.style.display = "block"; }
-function plain(e) { return /Available .* MB/.test(e) ? "Host memory too low to boot a Device: " + e : e; }
-async function api(call, args = {}, quiet = false) {
-  const r = await fetch("/api", { method: "POST", body: JSON.stringify({ call, device: sel, ...args }) }).then(r => r.json()).catch(e => ({ ok: false, error: "daemon not reachable: " + e }));
-  if (!r.ok && !quiet) showErr(call + ": " + plain(r.error || "failed"));
-  return r;
-}
-function busy(t) { $("busy").textContent = t || ""; }
-const fmtUp = (s) => s < 60 ? s + " s" : s < 3600 ? Math.floor(s / 60) + " min" : (s / 3600).toFixed(1) + " h";
+// ---------- persisted settings ----------
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("ae." + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("ae." + k, JSON.stringify(v)); } catch {} },
+};
 
-async function refresh() {
-  const r = await api("status", { device: undefined }, true);
-  if (!r.ok) { $("host").textContent = "daemon not reachable"; return; }
-  devices = r.devices; $("host").textContent = "host free RAM " + r.available_mb + " MB";
-  const tb = $("devs"); tb.innerHTML = "";
-  for (const d of devices) {
-    const tr = document.createElement("tr"); tr.className = "dev" + (d.id === sel ? " sel" : "");
-    tr.innerHTML = `<td>${d.id}</td><td class="${d.ready ? "ok" : "mute"}">${d.ready ? "running" : "booting…"}</td>
-      <td>${d.image || ""}<br><span class="mute">${d.mem || "?"} MB · ${d.cpus || "?"} vCPU${d.net === false ? " · no net" : ""}</span></td>
-      <td>${fmtUp(d.uptime_s || 0)}</td><td title="own: RAM only this Device uses (guest RAM, its process heaps). shared: system image and program files that other Devices reuse. Total working set ${mem[d.id] ? mem[d.id].ws + " MB" : "?"}.">${mem[d.id] ? `<span class="ramown">${mem[d.id].own} MB</span><br><span class="ramshared">+${mem[d.id].shared} shared</span>` : ""}</td><td><button class="danger">Stop</button></td>`;
-    tr.onclick = (ev) => { if (ev.target.tagName !== "BUTTON") select(d.id); };
-    tr.querySelector("button").onclick = async () => { busy("stopping " + d.id + "…"); await api("stop", { device: d.id }); busy(); if (sel === d.id) select(null); refresh(); };
-    tb.appendChild(tr);
-  }
-  if (sel && !firstFrame) {
-    const d = devices.find(x => x.id === sel);
-    $("placeholder").textContent = !d ? "Starting…" : !d.ready
-      ? `Booting Android… ${d.uptime_s || 0} s — the screen appears when Android draws its first frame.`
-      : "Android is up; waiting for its first frame…";
-  }
-  if (!sel && devices.length) select(devices[0].id);
-  if (sel && !devices.find(d => d.id === sel)) select(null);
-}
-async function refreshMem() {
-  for (const d of devices.filter(d => d.ready)) { const r = await api("memory", { device: d.id }, true); if (r.ok) mem[d.id] = { ws: r.ws_mb, own: r.own_mb, shared: r.shared_mb }; }
-}
+// ---------- state ----------
+// devs: what the daemon reports. ui: what this page knows ahead of it (queued, starting, stopping, failed, opening).
+// m: metrics per Device from /events (fps, RAM, input p50). crashes: count since this page opened.
+const S = { online: null, avail: null, devs: {}, ui: {}, m: {}, frame: {}, crashes: {}, sel: store.get("sel", "d0"), lat: [] };
+IDS.forEach(id => { S.ui[id] = {}; S.crashes[id] = 0; });
 
-function select(id) {
-  if (sel === id) return;
-  sel = id; if (stream) stream.abort(); stream = null; lastSeq = 0; pending = null; firstFrame = false;
-  // The canvas shows only once a real frame arrived; until then a plain message says what is happening.
-  $("screen").hidden = true; $("placeholder").hidden = false; $("overlay").hidden = true;
-  $("placeholder").textContent = id ? "Connecting to the screen…" : "No Device selected";
-  $("screeninfo").textContent = id ? id + ": waiting for frames…" : "Pick a Device on the left.";
-  $("logtext").textContent = ""; logCursor = null; crashAfter = 0; $("crashes").innerHTML = "";
-  if (id) startStream(id);
-  refresh();
+function stateOf(id) {
+  const u = S.ui[id], d = S.devs[id];
+  if (u.stopping) return "stopping";
+  if (u.failed) return "failed";
+  if (d) return d.ready ? "running" : "booting";
+  if (u.starting) return "booting";
+  if (u.queued) return "queued";
+  return "empty";
 }
+const LABEL = { empty: "Empty", queued: "Queued", booting: "Booting", running: "Running", stopping: "Stopping", failed: "Failed" };
+// Boot phases from the daemon, as words and as a share of the rim (from, to) with a typical length in s.
+const PHASE = { spawning: ["Starting the VM", 0, 6, 3], booting: ["Booting the kernel", 6, 35, 12], android: ["Starting Android", 35, 85, 35],
+  setup: ["Applying settings", 85, 97, 8], ready: ["Ready", 100, 100, 1] };
 
-async function startStream(id) {
-  const ctl = new AbortController(); stream = ctl;
+// ---------- daemon calls ----------
+async function api(call, args = {}) {
   try {
-    const res = await fetch("/frames?device=" + encodeURIComponent(id), { signal: ctl.signal });
-    const reader = res.body.getReader(); let buf = new Uint8Array(0);
-    const cv = $("screen"), g = cv.getContext("2d");
-    while (true) {
-      const { value, done } = await reader.read(); if (done) break;
+    const r = await fetch(BASE + "/api", { method: "POST", body: JSON.stringify({ call, ...args }) });
+    return await r.json();
+  } catch (e) { return { ok: false, error: "daemon not reachable" }; }
+}
+// Long calls run as jobs: the POST returns at once and the result arrives on /events.
+const jobs = {}, early = {};
+async function job(call, args = {}) {
+  const r = await api(call, { ...args, async: true });
+  if (!r.ok || !r.job) return r;
+  if (early[r.job]) { const e = early[r.job]; delete early[r.job]; return e; }
+  return new Promise(res => { jobs[r.job] = res; });
+}
+function jobDone(e) {
+  const out = e.state === "done" ? { ok: true, ...(e.result || {}) } : { ok: false, error: e.error || (e.result && e.result.error) || "failed" };
+  if (jobs[e.job]) { jobs[e.job](out); delete jobs[e.job]; } else early[e.job] = out;
+}
+// Daemon messages -> what happened and what to do next.
+function plain(e, id) {
+  e = String(e || "failed");
+  let m;
+  if ((m = e.match(/Available (\d+) MB < (\d+) MB/))) return `Not enough free RAM: ${m[1]} MB free, ${m[2]} MB needed to boot. Stop a Device, then retry.`;
+  if (/daemon not reachable/.test(e)) return "The agent-emu daemon is not answering. Start it with agent-emu.cmd; this page reconnects by itself.";
+  if (/already running/.test(e)) return `${id} is already running.`;
+  if (/still booting/.test(e)) return `${id} is still booting. Try again when it shows Running.`;
+  if (/crosvm\.exe is already running/.test(e)) return "Another emulator runs outside agent-emu. Start the daemon with agent-emu.cmd (it allows that).";
+  if (/busy: Device is leased/.test(e)) return `An agent holds ${id} right now (leased). Wait for it to release, or stop it.`;
+  return e;
+}
+
+// ---------- top line: the latest action and its result ----------
+let sayTimer = null;
+function say(text, err = false) {
+  const el = $("say"); el.textContent = text; el.classList.toggle("err", err); el.title = text;
+  clearTimeout(sayTimer); if (!err) sayTimer = setTimeout(() => { el.textContent = ""; }, 8000);
+}
+// Per-well status pill: acknowledges an action on that well at once, then says how it ended.
+function wellSay(id, text, err = false, ms = 2600) {
+  const w = W[id]; if (!w) return; const s = w.status;
+  s.textContent = text; s.classList.add("on"); s.classList.toggle("err", err);
+  clearTimeout(w.sayT); if (ms) w.sayT = setTimeout(() => s.classList.remove("on"), ms);
+}
+// Button pressed: busy bar until the promise settles.
+async function busy(btn, p) {
+  if (btn) btn.setAttribute("aria-busy", "true");
+  try { return await p; } finally { if (btn) btn.removeAttribute("aria-busy"); }
+}
+
+// ---------- the plate ----------
+const W = {};
+function buildPlate() {
+  const t = $("well-t");
+  for (const id of IDS) {
+    const el = t.content.firstElementChild.cloneNode(true);
+    el.dataset.id = id; el.setAttribute("aria-label", "Device " + id);
+    const w = W[id] = { el, id, cv: el.querySelector("canvas"), veil: el.querySelector(".veil"), badge: el.querySelector(".badge"),
+      fps: el.querySelector(".fps"), ram: el.querySelector(".ram"), crash: el.querySelector(".crash"), status: el.querySelector(".status"), recess: el.querySelector(".recess") };
+    el.querySelector(".id").textContent = id;
+    el.querySelector(".id").onclick = () => select(id);
+    w.crash.onclick = () => { select(id); setPanel(true); $("sec_crash").open = true; $("sec_crash").scrollIntoView({ block: "start" }); };
+    w.cv.setAttribute("aria-label", id + " screen. Click to tap, drag to swipe; keys go to the phone.");
+    bindScreen(w.cv, () => id, w.recess);
+    el.querySelectorAll("[data-key]").forEach(b => b.onclick = () => key(id, b.dataset.key, b));
+    el.querySelectorAll("[data-act]").forEach(b => b.onclick = (ev) => act(id, b.dataset.act, b, ev));
+    bindDrop(el, () => id);
+    $("plate").appendChild(el);
+  }
+}
+
+function veilFor(id, st) {
+  const d = S.devs[id], u = S.ui[id];
+  if (st === "empty") return `<div class="big">${id} is empty</div><div class="row"><button class="btn primary sm" data-v="start"><svg class="i"><use href="#i-play"/></svg>Start ${id}</button></div><div>${startSummary()}</div>`;
+  if (st === "queued") return `<div class="big">Queued</div><div>Boots after the Device ahead of it.</div><div class="row"><button class="btn sm" data-v="cancel">Cancel</button></div>`;
+  if (st === "booting") {
+    const ph = PHASE[(d && d.phase) || "spawning"] || PHASE.spawning, up = d ? Math.round(d.t_s ?? d.uptime_s ?? 0) : u.t0 ? Math.round((Date.now() - u.t0) / 1000) : 0;
+    return `<div class="big">${ph[0]}</div><div class="num">${up} s · usually about ${bootEstimate(d ? d.image_name : startArgs().image || "")} s</div><div>The screen appears when Android draws its first frame.</div>`;
+  }
+  if (st === "stopping") return `<div class="big">Stopping</div>`;
+  if (st === "failed") return `<div class="big">Could not start ${id}</div><div>${esc(u.failed)}</div><div class="row"><button class="btn sm" data-v="retry">Retry</button><button class="btn sm ghost" data-v="dismiss">Dismiss</button></div>`;
+  if (st === "running" && !S.frame[id]) return `<div class="big">Android is up</div><div>Waiting for the first frame…</div>`;
+  return "";
+}
+function startSummary() {
+  const a = startArgs(), img = $("s_image").selectedOptions[0];
+  return esc((img ? img.textContent.replace(/\s*\(.*\)/, "") : "") + (a.mem ? ` · ${a.mem} MB` : "") + ` · ${a.cpus || 2} CPU` + (a.net ? "" : " · no network"));
+}
+const esc = (t) => String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+function progress(id, st) {
+  if (st !== "booting") return 0;
+  const d = S.devs[id], ph = PHASE[(d && d.phase) || "spawning"] || PHASE.spawning;
+  const t = d && d.phaseAt ? d.phaseAt : S.ui[id].t0, inPh = t ? (Date.now() - t) / 1000 : 0;
+  return ph[1] + (ph[2] - ph[1]) * Math.min(0.92, inPh / ph[3]);
+}
+function bootEstimate(img) { return Math.round(store.get("boot." + (img || "default"), (img || "").startsWith("phone") ? 120 : 95)); }
+
+// Lean images show black until an app opens: say so on the glass, with the fix.
+function noApp(id) {
+  const d = S.devs[id], f = S.frame[id];
+  return d && d.ready && !(d.image_name || "").startsWith("phone") && f && f.blank && !S.ui[id].opening && !S.ui[id].noAppDismissed;
+}
+
+function renderWell(id) {
+  const w = W[id], st = stateOf(id), d = S.devs[id], u = S.ui[id], prev = w.el.dataset.state;
+  if (prev !== st) {
+    w.el.dataset.state = st;
+    if (st === "running" && (prev === "booting" || prev === "queued") && !reduced.matches) {
+      w.el.classList.add("react"); setTimeout(() => w.el.classList.remove("react"), 800);
+    }
+  }
+  w.badge.textContent = u.opening ? "Opening app" : LABEL[st];
+  w.el.classList.toggle("sel", S.sel === id);
+  w.el.style.setProperty("--p", progress(id, st).toFixed(1));
+  const live = st === "running", m = S.m[id] || {};
+  w.fps.innerHTML = live ? `<b>${Math.round(m.scanout_fps || 0)}</b> fps` : "";
+  w.fps.title = "Frames the phone drew in the last second (0 while the screen is still)";
+  w.ram.innerHTML = (live || st === "booting") && m.own_mb != null ? `<b>${m.own_mb}</b> MB <span>+${m.shared_mb}</span>` : "";
+  w.ram.title = m.own_mb != null ? `own ${m.own_mb} MB: RAM only this Device uses. +${m.shared_mb} MB shared: system image and program files other Devices reuse.` : "";
+  w.crash.hidden = !S.crashes[id]; w.crash.textContent = S.crashes[id] === 1 ? "1 crash" : S.crashes[id] + " crashes";
+  const html = noApp(id)
+    ? `<div class="big">No app open</div><div>This lean image has no home screen.</div><div class="row"><button class="btn primary sm" data-v="open"><svg class="i"><use href="#i-bolt"/></svg>Open BoltBetz</button><button class="btn sm ghost" data-v="noapp">Dismiss</button></div>`
+    : veilFor(id, st);
+  setVeil(w.veil, html, live && S.frame[id], id);
+  w.cv.style.visibility = live && S.frame[id] ? "visible" : "hidden";
+}
+function setVeil(veil, html, over, id) {
+  if (veil._html !== html) {
+    veil._html = html; veil.innerHTML = html;
+    veil.querySelectorAll("[data-v]").forEach(b => b.onclick = (ev) => veilAct(id, b.dataset.v, b, ev));
+  }
+  veil.hidden = !html; veil.classList.toggle("over", !!over);
+}
+function veilAct(id, v, btn) {
+  if (v === "start" || v === "retry") { S.ui[id] = {}; start([id]); }
+  else if (v === "cancel") { dequeue(id); }
+  else if (v === "dismiss") { S.ui[id] = {}; render(); }
+  else if (v === "open") openApp(id, btn);
+  else if (v === "noapp") { S.ui[id].noAppDismissed = true; render(); }
+}
+
+function render() {
+  IDS.forEach(renderWell);
+  renderStage(); renderBudget(); renderStartBtn();
+}
+
+// ---------- host memory budget ----------
+function renderBudget() {
+  const bar = $("budgetbar"), cap = $("budgetcap");
+  if (S.avail == null) { cap.textContent = S.online === false ? "Daemon offline: retrying every 2 s" : "Connecting to the daemon…"; bar.innerHTML = ""; return; }
+  const running = IDS.filter(id => S.devs[id]);
+  const mem = (id) => S.m[id] && S.m[id].own_mb != null ? S.m[id] : null;
+  const own = running.reduce((a, id) => a + (mem(id) ? mem(id).own_mb : 0), 0);
+  const shared = Math.max(0, ...running.map(id => mem(id) ? mem(id).shared_mb : 0));
+  const total = own + shared + S.avail, floor = 4000;
+  const per = own ? own / running.filter(mem).length : 650;
+  const room = Math.max(0, Math.floor((S.avail - floor) / Math.max(400, per)));
+  bar.innerHTML = running.map(id => mem(id) ? `<div class="seg dev ${S.devs[id].ready ? "" : "booting"}" style="flex-basis:${100 * mem(id).own_mb / total}%" title="${id}: ${mem(id).own_mb} MB own"></div>` : "").join("")
+    + (shared ? `<div class="seg shared" style="flex-basis:${100 * shared / total}%" title="shared by all Devices: ${shared} MB"></div>` : "")
+    + `<div class="seg free" style="flex-basis:${100 * S.avail / total}%"></div>`
+    + `<div class="floor" style="right:${100 * floor / total}%" title="Boot floor: a Device starts only with more than ${floor} MB free"></div>`;
+  cap.innerHTML = `<span>Devices <b>${(own / 1024).toFixed(1)} GB</b> own + <b>${(shared / 1024).toFixed(1)}</b> shared</span>`
+    + `<span>Host free <b>${(S.avail / 1024).toFixed(1)} GB</b></span>`
+    + `<span class="${room ? "" : "warn"}">${room ? `room for about <b>${room}</b> more` : "at the 4 GB boot floor: no room for another Device"}</span>`;
+}
+
+// ---------- live state: one /events stream (snapshot, phases, jobs, metrics each second, crashes, errors) ----------
+// status() also runs after a start or stop reply, so the plate never waits for the next metrics tick.
+function applyStatus(r) {
+  S.avail = r.available_mb; const now = {};
+  for (const d of r.devices) now[d.id] = { ...(S.devs[d.id] || {}), ...d, phaseAt: (S.devs[d.id] && S.devs[d.id].phase === d.phase) ? S.devs[d.id].phaseAt : Date.now() };
+  for (const id of IDS) if (S.devs[id] && !now[id]) gone(id);
+  S.devs = now; render();
+}
+async function status() { const r = await api("status"); if (r.ok) applyStatus(r); }
+function gone(id) { delete S.frame[id]; delete S.m[id]; clearCanvas(id); }
+function online(on) {
+  if (on === S.online) return;
+  if (on === false) { say("The agent-emu daemon is not answering. Start it with agent-emu.cmd; this page reconnects by itself.", true); S.avail = null; }
+  else if (S.online === false) say("Daemon back online.");
+  S.online = on; $("brand").classList.toggle("off", !on); render();
+}
+function onEvent(e) {
+  if (e.type === "snapshot") { online(true); applyStatus(e); return; }
+  if (e.type === "job") { if (e.state !== "running") jobDone(e); return; }
+  if (e.type === "metrics") {
+    S.avail = e.available_mb;
+    for (const m of e.devices) {
+      S.m[m.id] = { ...(S.m[m.id] || {}), ...m };
+      const d = S.devs[m.id];
+      if (d) { d.uptime_s = m.uptime_s; d.ready = m.ready; if (m.phase && m.phase !== d.phase) { d.phase = m.phase; d.phaseAt = Date.now(); } }
+      else if (m.phase && m.phase !== "stopped") status();
+    }
+    render(); return;
+  }
+  if (e.type === "device") {
+    const id = e.device; if (!W[id]) return;
+    if (e.phase === "stopped") { if (S.devs[id]) { delete S.devs[id]; gone(id); } render(); return; }
+    const d = S.devs[id] || (S.devs[id] = { id, uptime_s: 0 });
+    if (e.info) Object.assign(d, e.info);
+    d.phase = e.phase; d.phaseAt = Date.now(); d.t_s = e.t_s; d.ready = e.phase === "ready";
+    if (d.ready) status();
+    render(); return;
+  }
+  if (e.type === "crash") {
+    S.crashes[e.device] = (S.crashes[e.device] || 0) + 1;
+    if (e.device === S.sel) addCrash(e.event);
+    render(); return;
+  }
+  if (e.type === "error" && W[e.device]) { wellSay(e.device, plain(e.error, e.device), true, 7000); return; }
+}
+function openEvents() {
+  const es = new EventSource(BASE + "/events");
+  es.onopen = () => online(true);
+  es.onmessage = (m) => { try { onEvent(JSON.parse(m.data)); } catch (err) { console.error(err); } };
+  es.onerror = () => { if (es.readyState !== EventSource.OPEN) online(false); };
+}
+
+// ---------- frames: every Device on one connection ----------
+// /mux sends [u32 len][u64 seq][u32 w][u32 h][u32 n][jpeg]; w x h is the device size. The focused one comes unscaled.
+let mux = null, muxKey = "";
+function tileWidth() { return Math.ceil(W.d0.recess.clientWidth * (devicePixelRatio || 1) / 40) * 40; }
+function openMux() {
+  const key = `${S.sel}|${tileWidth()}`;
+  if (mux && key === muxKey) return;
+  if (mux) mux.abort();
+  const ctl = new AbortController(); mux = ctl; muxKey = key;
+  readMux(ctl, `${BASE}/mux?devices=${IDS.join(",")}&max_width=${tileWidth()}&full=${S.sel || ""}`);
+}
+async function readMux(ctl, url) {
+  try {
+    const res = await fetch(url, { signal: ctl.signal });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const rd = res.body.getReader(); let buf = new Uint8Array(0);
+    for (;;) {
+      const { value, done } = await rd.read(); if (done) break;
       const nb = new Uint8Array(buf.length + value.length); nb.set(buf); nb.set(value, buf.length); buf = nb;
-      while (buf.length >= 20) {
-        const dv = new DataView(buf.buffer, buf.byteOffset, 20), n = dv.getUint32(0, true);
-        if (buf.length < 20 + n) break;
-        const seq = Number(dv.getBigUint64(4, true)), w = dv.getUint32(12, true), h = dv.getUint32(16, true);
-        const bmp = await createImageBitmap(new Blob([buf.slice(20, 20 + n)], { type: "image/jpeg" }));
-        buf = buf.slice(20 + n);
-        if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
-        g.drawImage(bmp, 0, 0); bmp.close(); frameCount++;
-        if (!firstFrame) { firstFrame = true; cv.hidden = false; $("placeholder").hidden = true; maybeOverlay(); }
-        if (pending && seq > pending.seq) {
-          lat.push(performance.now() - pending.t0); pending = null; if (lat.length > 200) lat.shift(); showLat();
-        }
-        lastSeq = seq;
-        $("screeninfo").textContent = `${id} · ${w}×${h} · ${fps} fps · frame ${seq}`;
+      while (buf.length >= 24) {
+        const dv = new DataView(buf.buffer, buf.byteOffset, 24), n = dv.getUint32(0, true);
+        if (buf.length < 24 + n) break;
+        const seq = Number(dv.getBigUint64(4, true)), w = dv.getUint32(12, true), h = dv.getUint32(16, true), id = "d" + dv.getUint32(20, true);
+        const blob = new Blob([buf.slice(24, 24 + n)], { type: "image/jpeg" }); buf = buf.slice(24 + n);
+        onFrame(id, seq, w, h, await createImageBitmap(blob));
       }
     }
-  } catch (e) { if (e.name !== "AbortError") showErr("screen stream: " + e); }
-  if (stream === ctl && sel === id) setTimeout(() => { if (sel === id && stream === ctl) startStream(id); }, 1000);
+  } catch (e) { if (e.name === "AbortError") return; }
+  if (mux === ctl) setTimeout(() => { if (mux === ctl) { mux = null; openMux(); } }, 1000);
 }
-setInterval(() => { fps = frameCount; frameCount = 0; }, 1000);
-function pct(a, p) { const s = [...a].sort((x, y) => x - y); return s.length ? Math.round(s[Math.min(s.length - 1, Math.floor(s.length * p))]) : null; }
-function showLat() { $("lat").textContent = `click → frame shown in this page: p50 ${pct(lat, .5)} ms · p95 ${pct(lat, .95)} ms (n=${lat.length})`; window.__lat = lat; }
-
-// input
-function toFrame(ev) { const cv = $("screen"), r = cv.getBoundingClientRect(); return [Math.round((ev.clientX - r.left) * cv.width / r.width), Math.round((ev.clientY - r.top) * cv.height / r.height)]; }
-function isLean(id) { const d = devices.find(x => x.id === id); return d && d.image_name !== "phone"; }
-// The lean images show a blank (black) screen when no app is in front: say so, instead of a black box.
-function screenBlank() {
-  const cv = $("screen"); if (cv.hidden || !cv.width) return false;
-  const t = document.createElement("canvas"); t.width = 24; t.height = 36; const g = t.getContext("2d");
-  g.drawImage(cv, 0, 0, 24, 36); const px = g.getImageData(0, 0, 24, 36).data;
+function onFrame(id, seq, w, h, bmp) {
+  if (!W[id]) { bmp.close(); return; }
+  const f = S.frame[id] || (S.frame[id] = {}), first = !f.bmp;
+  if (f.bmp) f.bmp.close();
+  Object.assign(f, { bmp, seq, w, h });
+  draw(W[id].cv, bmp);
+  if (id === S.sel) draw($("stagecv"), bmp);
+  if (pending && pending.id === id && seq > pending.seq) {
+    const ms = Math.round(performance.now() - pending.t0); S.lat.push(ms); if (S.lat.length > 100) S.lat.shift();
+    say(`${id}: ${pending.what} → screen changed in ${ms} ms`); pending = null;
+  }
+  if (first) { f.blank = isBlank(bmp); renderWell(id); if (id === S.sel) renderStage(); }
+}
+function draw(cv, bmp) {
+  if (cv.width !== bmp.width || cv.height !== bmp.height) { cv.width = bmp.width; cv.height = bmp.height; }
+  cv.getContext("2d").drawImage(bmp, 0, 0);
+}
+function clearCanvas(id) { const c = W[id].cv; c.getContext("2d").clearRect(0, 0, c.width, c.height); }
+const probe = document.createElement("canvas"); probe.width = 24; probe.height = 36;
+function isBlank(bmp) {
+  const g = probe.getContext("2d", { willReadFrequently: true }); g.drawImage(bmp, 0, 0, 24, 36);
+  const px = g.getImageData(0, 0, 24, 36).data;
   for (let i = 0; i < px.length; i += 4) if (px[i] > 24 || px[i + 1] > 24 || px[i + 2] > 24) return false;
   return true;
 }
-function maybeOverlay() { $("overlay").hidden = !(sel && firstFrame && isLean(sel) && !appOpened[sel] && screenBlank()); }
-setInterval(maybeOverlay, 2000);
-$("ov_close").onclick = () => { appOpened[sel] = true; maybeOverlay(); };
-$("ov_open").onclick = () => openBoltBetz();
-async function input(call, args) { pending = firstFrame ? { t0: performance.now(), seq: lastSeq } : null; const r = await api(call, { ...args, screenshot: false, device_px: true }); if (!r.ok) pending = null; }
-let down = null;
-$("screen").addEventListener("pointerdown", (ev) => { $("screen").focus(); $("screen").setPointerCapture(ev.pointerId); down = { xy: toFrame(ev), t: performance.now(), cx: ev.clientX, cy: ev.clientY }; });
-$("screen").addEventListener("pointerup", (ev) => {
-  if (!down || !sel) return; const [x, y] = toFrame(ev), moved = Math.hypot(ev.clientX - down.cx, ev.clientY - down.cy);
-  const ms = Math.max(50, Math.min(1000, Math.round(performance.now() - down.t)));
-  if (moved < 8) input("tap", { x: down.xy[0], y: down.xy[1] }); else input("swipe", { x1: down.xy[0], y1: down.xy[1], x2: x, y2: y, ms });
-  down = null;
-});
-$("screen").addEventListener("wheel", (ev) => {
-  ev.preventDefault(); if (!sel) return; const [x, y] = toFrame(ev), d = Math.sign(ev.deltaY) * Math.round($("screen").height * 0.25);
-  input("swipe", { x1: x, y1: y, x2: x, y2: Math.max(1, Math.min($("screen").height - 1, y - d)), ms: 120 });
-}, { passive: false });
-let typed = "", typeTimer = null;
-const KEYS = { Enter: "enter", Backspace: "del", Escape: "back", Tab: "tab", ArrowUp: "dpad_up", ArrowDown: "dpad_down", ArrowLeft: "dpad_left", ArrowRight: "dpad_right", Home: "home", Delete: "forward_del" };
-$("screen").addEventListener("keydown", (ev) => {
-  if (!sel || ev.ctrlKey || ev.metaKey || ev.altKey) return;
-  if (ev.key.length === 1) { ev.preventDefault(); typed += ev.key; clearTimeout(typeTimer); typeTimer = setTimeout(flushTyped, 150); return; }
-  if (KEYS[ev.key]) { ev.preventDefault(); flushTyped(); input("key", { name: KEYS[ev.key] }); }
-});
-function flushTyped() { if (typed) { const t = typed; typed = ""; input("type_text", { text: t }); } }
-document.querySelectorAll("[data-key]").forEach(b => b.onclick = () => sel && input("key", { name: b.dataset.key }));
-$("shot").onclick = () => { if (sel) location.href = "/screenshot.png?device=" + encodeURIComponent(sel); };
+setInterval(() => {
+  for (const id of IDS) { const f = S.frame[id]; if (f && f.bmp) f.blank = isBlank(f.bmp); }
+  render();
+}, 1000);
 
-// start / stop / fleet / quit
-$("s_image").onchange = () => {
-  const phone = $("s_image").value === "phone";
-  $("imgnote").textContent = phone ? "Full phone: home screen, status bar, navigation bar, notifications, Settings. About 2 GB."
-    : "Lean phone for agents: no home screen, status bar or navigation bar. It shows nothing until an app opens.";
-  $("s_openapp").checked = !phone;
-};
-let ticker = null;
-function progress(text, since) {
-  clearInterval(ticker); const el = $("progress");
-  if (!text) { el.textContent = ""; return; }
-  const t0 = since || performance.now();
-  const draw = () => { el.textContent = `${text} ${Math.round((performance.now() - t0) / 1000)} s`; };
-  draw(); ticker = setInterval(draw, 1000);
+// ---------- input: click = tap, drag = swipe, wheel = scroll, keys to the focused phone ----------
+let pending = null;
+async function input(id, call, args, what) {
+  const f = S.frame[id]; pending = f ? { id, seq: f.seq, t0: performance.now(), what } : null;
+  const r = await api(call, { device: id, ...args, screenshot: false, device_px: true });
+  if (!r.ok) { pending = null; wellSay(id, plain(r.error, id), true, 5000); say(`${id}: ${plain(r.error, id)}`, true); }
 }
-$("start").onclick = async () => {
-  const id = $("s_id").value.trim(), args = { device: id, net: $("s_net").checked, auto_squeeze: $("s_squeeze").checked };
-  if ($("s_image").value) args.image = $("s_image").value;
-  if ($("s_mem").value.trim()) args.mem = parseInt($("s_mem").value);
-  if ($("s_cpus").value.trim()) args.cpus = parseInt($("s_cpus").value);
-  showErr(); progress(`Booting ${id} (about 2 minutes)…`); sel = id; setTimeout(refresh, 500);
-  const r = await api("start", args); progress();
+// Device px under the pointer: the canvas is letterboxed (object-fit: contain) inside its glass.
+function toDev(ev, cv, id) {
+  const f = S.frame[id]; if (!f) return null;
+  const r = cv.getBoundingClientRect(), s = Math.min(r.width / f.w, r.height / f.h);
+  const ox = (r.width - f.w * s) / 2, oy = (r.height - f.h * s) / 2, cl = (v, m) => Math.max(0, Math.min(m - 1, Math.round(v)));
+  return [cl((ev.clientX - r.left - ox) / s, f.w), cl((ev.clientY - r.top - oy) / s, f.h)];
+}
+function touchMark(host, ev, swipe) {
+  const r = host.getBoundingClientRect(), m = document.createElement("span");
+  m.className = "touch" + (swipe ? " swipe" : ""); m.style.left = (ev.clientX - r.left) + "px"; m.style.top = (ev.clientY - r.top) + "px";
+  host.appendChild(m); setTimeout(() => m.remove(), 500);
+}
+function bindScreen(cv, getId, host) {
+  let down = null;
+  cv.addEventListener("pointerdown", (ev) => {
+    const id = getId(); if (!id || stateOf(id) !== "running") return;
+    cv.focus({ preventScroll: true }); cv.setPointerCapture(ev.pointerId);
+    down = { xy: toDev(ev, cv, id), t: performance.now(), cx: ev.clientX, cy: ev.clientY };
+    touchMark(host, ev, false);
+    if (S.sel !== id) select(id);
+  });
+  cv.addEventListener("pointerup", (ev) => {
+    const id = getId(); if (!down || !down.xy) { down = null; return; }
+    const xy = toDev(ev, cv, id), moved = Math.hypot(ev.clientX - down.cx, ev.clientY - down.cy);
+    const ms = Math.max(60, Math.min(1000, Math.round(performance.now() - down.t)));
+    if (moved < 8) input(id, "tap", { x: down.xy[0], y: down.xy[1] }, `tap ${down.xy[0]},${down.xy[1]}`);
+    else { touchMark(host, ev, true); input(id, "swipe", { x1: down.xy[0], y1: down.xy[1], x2: xy[0], y2: xy[1], ms }, "swipe"); }
+    down = null;
+  });
+  cv.addEventListener("pointercancel", () => { down = null; });
+  cv.addEventListener("wheel", (ev) => {
+    const id = getId(); if (!id || stateOf(id) !== "running") return;
+    ev.preventDefault(); const f = S.frame[id], xy = toDev(ev, cv, id); if (!xy) return;
+    const now = performance.now(); if (cv._wheel && now - cv._wheel < 140) return; cv._wheel = now;
+    const dy = Math.sign(ev.deltaY) * Math.round(f.h * 0.25);
+    input(id, "swipe", { x1: xy[0], y1: xy[1], x2: xy[0], y2: Math.max(1, Math.min(f.h - 1, xy[1] - dy)), ms: 120 }, ev.deltaY > 0 ? "scroll down" : "scroll up");
+  }, { passive: false });
+  let typed = "", typeT = null;
+  const flush = () => { if (typed) { const t = typed, id = getId(); typed = ""; input(id, "type_text", { text: t }, `type "${t}"`); } };
+  cv.addEventListener("keydown", (ev) => {
+    const id = getId(); if (!id || stateOf(id) !== "running" || ev.ctrlKey || ev.metaKey || ev.altKey) return;
+    if (ev.key.length === 1) { ev.preventDefault(); typed += ev.key; clearTimeout(typeT); typeT = setTimeout(flush, 150); return; }
+    const k = KEYS[ev.key]; if (k) { ev.preventDefault(); flush(); input(id, "key", { name: k }, ev.key); }
+  });
+}
+const KEYS = { Enter: "enter", Backspace: "del", Escape: "back", Tab: "tab", ArrowUp: "dpad_up", ArrowDown: "dpad_down",
+  ArrowLeft: "dpad_left", ArrowRight: "dpad_right", Home: "home", Delete: "forward_del" };
+function key(id, name, btn) {
+  if (stateOf(id) !== "running") return;
+  btn && btn.animate && !reduced.matches && btn.animate([{ background: "var(--z5)" }, { background: "transparent" }], 250);
+  input(id, "key", { name }, name.replace("app_switch", "recents"));
+}
+
+// ---------- focus ----------
+function select(id) {
+  if (S.sel === id) { render(); return; }
+  S.sel = id; store.set("sel", id);
+  const f = S.frame[id]; const cv = $("stagecv");
+  if (f && f.bmp) draw(cv, f.bmp); else cv.getContext("2d").clearRect(0, 0, cv.width, cv.height);
+  openMux(); render(); resetLogs(); crashReset();
+}
+function renderStage() {
+  const id = S.sel, st = stateOf(id), d = S.devs[id], u = S.ui[id], m = S.m[id] || {}, f = S.frame[id];
+  const ph = $("stagephone");
+  ph.dataset.state = st;
+  ph.style.setProperty("--p", W[id].el.style.getPropertyValue("--p"));
+  $("st_id").textContent = id; $("st_badge").textContent = u.opening ? "Opening app" : LABEL[st];
+  $("st_badge").parentElement.parentElement.parentElement.dataset.state = st;
+  $("stageside").dataset.state = st;
+  $("st_sub").textContent = d ? `${d.image || ""} · ${d.mem || "?"} MB · ${d.cpus || "?"} CPU${d.net === false ? " · no network" : ""}` : "Not running";
+  const live = st === "running";
+  $("stagecv").style.visibility = live && f ? "visible" : "hidden";
+  document.querySelectorAll("#st_keys .btn, #st_acts [data-act=open], #st_acts [data-act=shot], #st_acts [data-act=restart]").forEach(b => b.disabled = !live);
+  document.querySelector("#st_acts [data-act=stop]").disabled = st === "empty" || st === "stopping";
+  const html = noApp(id)
+    ? `<div class="big">No app open</div><div>This lean image has no home screen.</div><div class="row"><button class="btn primary sm" data-v="open"><svg class="i"><use href="#i-bolt"/></svg>Open BoltBetz</button><button class="btn sm ghost" data-v="noapp">Dismiss</button></div>`
+    : veilFor(id, st);
+  setVeil($("stageveil"), html, live && f, id);
+  const pct = (a, p) => { const s = [...a].sort((x, y) => x - y); return s.length ? s[Math.min(s.length - 1, Math.floor(s.length * p))] : null; };
+  const rows = [
+    ["Frames drawn", live ? `${Math.round(m.scanout_fps || 0)} fps` : "—"], ["Frames sent", live ? `${Math.round(m.sent_fps || 0)} fps` : "—"],
+    ["Screen", f ? `${f.w} × ${f.h}` : d && d.screen ? `${d.screen.width} × ${d.screen.height}` : "—"],
+    ["RAM own", m.own_mb != null ? `${m.own_mb} MB` : "—"], ["RAM shared", m.shared_mb != null ? `${m.shared_mb} MB` : "—"],
+    ["Up", d ? fmtUp(d.uptime_s || 0) : "—"],
+    ["Input → frame", m.input_n ? `${m.input_p50_ms} ms p50 (n ${m.input_n})` : "no input yet"],
+    ["Click → screen", S.lat.length ? `${pct(S.lat, .5)} ms p50 · ${pct(S.lat, .95)} p95` : "no clicks yet"],
+  ];
+  $("st_facts").innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
+  $("appsaside").textContent = $("logsaside").textContent = $("crashaside").textContent = id;
+}
+const fmtUp = (s) => s < 60 ? s + " s" : s < 3600 ? Math.floor(s / 60) + " min" : (s / 3600).toFixed(1) + " h";
+bindScreen($("stagecv"), () => S.sel, $("stagephone"));
+document.querySelectorAll("#st_keys [data-key]").forEach(b => b.onclick = () => key(S.sel, b.dataset.key, b));
+document.querySelectorAll("#st_acts [data-act]").forEach(b => b.onclick = (ev) => act(S.sel, b.dataset.act, b, ev));
+
+// ---------- start / stop ----------
+function startArgs() {
+  const a = { net: $("s_net").checked, auto_squeeze: $("s_squeeze").checked };
+  if ($("s_image").value) a.image = $("s_image").value;
+  if ($("s_screen").value) a.screen = $("s_screen").value;
+  const mem = parseInt($("s_mem").value), cpus = parseInt($("s_cpus").value);
+  if (mem > 0) a.mem = mem; if (cpus > 0) a.cpus = cpus;
+  return a;
+}
+// Starts run as daemon jobs, at most 4 booting at once (more thrash the host); the rest wait as Queued.
+const queue = []; let booting = 0; const MAXBOOT = 4;
+function start(ids, args = startArgs(), openAfter = $("s_openapp").checked) {
+  for (const id of ids) {
+    if (stateOf(id) !== "empty" && stateOf(id) !== "failed") continue;
+    S.ui[id] = { queued: true }; queue.push({ id, args, openAfter });
+  }
+  if (ids.length && stateOf(S.sel) === "empty") select(ids[0]);
+  render(); pump();
+}
+function dequeue(id) {
+  const i = queue.findIndex(j => j.id === id); if (i >= 0) queue.splice(i, 1);
+  S.ui[id] = {}; render();
+}
+function pump() {
+  while (booting < MAXBOOT && queue.length) boot(queue.shift());
+}
+async function boot(j) {
+  const id = j.id; booting++;
+  S.ui[id] = { starting: true, t0: Date.now() }; render(); say(`Starting ${id}…`);
+  const r = await job("start", { device: id, ...j.args });
+  booting--; pump();
   if (r.ok) {
-    $("progress").textContent = `Ready: ${id} booted in ${Math.round(r.ready_s)} s`; sel = null; select(id);
-    if ($("s_openapp").checked) { await refresh(); await openBoltBetz(); }
-  } else { $("progress").textContent = "Boot failed (see the message above)."; refresh(); }
-};
-$("stopall").onclick = async () => { busy("stopping all…"); await api("fleet_stop", { device: undefined }); busy(); select(null); refresh(); };
-$("fleet").onclick = async () => {
-  const args = { device: undefined, n: parseInt($("f_n").value), base: parseInt($("f_base").value), net: $("s_net").checked,
-    cpus: parseInt($("s_cpus").value) || undefined, auto_squeeze: $("s_squeeze").checked };
-  if ($("s_image").value) args.image = $("s_image").value; if ($("s_mem").value.trim()) args.mem = parseInt($("s_mem").value);
-  showErr(); busy(`fleet: booting ${args.n} Devices one by one…`); $("fleetout").textContent = "";
-  const r = await api("fleet", args); busy();
-  if (r.ok) $("fleetout").textContent = r.devices.map(d => `${d.id}: ${d.error ? "FAILED " + d.error : "ready " + Math.round(d.ready_s) + " s, RAM use " + (d.ws_after_squeeze_mb ?? d.ws_mb) + " MB"}`).join("\n")
-    + `\n${r.total.up}/${r.total.requested} up, ${r.total.ws_mb} MB total` + (r.stopped ? "\nstopped: " + r.stopped : "");
-  refresh();
-};
-$("fleetstop").onclick = () => api("fleet_stop", { device: undefined }).then(refresh);
-$("quit").onclick = async () => {
-  if (!confirm("Stop every Device and the agent-emu daemon?")) return;
-  await api("quit", { device: undefined }, true); document.body.innerHTML = "<p style='padding:24px'>agent-emu stopped. Open agent-emu again to restart it.</p>";
-};
-
-// apps
-async function upload(file) {
-  if (!sel) return showErr("Pick a Device first.");
-  busy(`installing ${file.name}…`); $("appout").textContent = "";
-  const r = await fetch("/upload?device=" + encodeURIComponent(sel), { method: "POST", body: file }).then(r => r.json()).catch(e => ({ ok: false, error: String(e) }));
-  busy(); $("appout").textContent = r.ok ? `installed ${file.name}: ${r.out || "Success"}` : ""; if (!r.ok) showErr("install: " + r.error);
+    const key = "boot." + (j.args.image || "default"), old = store.get(key, null);
+    if (r.ready_s) store.set(key, old ? old * 0.6 + r.ready_s * 0.4 : r.ready_s);
+    S.ui[id] = {}; say(`${id} is running${r.ready_s ? ` (booted in ${Math.round(r.ready_s)} s)` : ""}.`);
+    await status();
+    if (j.openAfter) openApp(id);
+  } else if (!S.ui[id].stopping) {
+    S.ui[id] = { failed: plain(r.error, id) }; say(`${id}: ${plain(r.error, id)}`, true); await status();
+  }
+  render();
 }
-$("apkfile").onchange = (e) => e.target.files[0] && upload(e.target.files[0]);
-const drop = $("drop");
-drop.ondragover = (e) => { e.preventDefault(); drop.classList.add("over"); };
-drop.ondragleave = () => drop.classList.remove("over");
-drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove("over"); const f = e.dataTransfer.files[0]; if (f) upload(f); };
-$("installpath").onclick = async () => { busy("installing…"); const r = await api("app", { install: $("apkpath").value.trim() }); busy(); $("appout").textContent = r.ok ? r.out : ""; };
-$("launch").onclick = async () => { const r = await api("app", { launch: $("pkg").value.trim() }); $("appout").textContent = r.ok ? r.out : ""; };
-async function openBoltBetz() {
-  if (!sel) return showErr("Start a Device first.");
-  const id = sel; appOpened[id] = true; maybeOverlay();
-  setTimeout(() => { appOpened[id] = false; }, 15000); // later a blank screen means no app again
-  progress("Installing BoltBetz…"); let r = await api("install_bundled");
-  if (r.ok) { progress(r.ok && devices.find(d => d.id === id && d.image_name !== "phone") && $("s_squeeze").checked
-      ? "Opening BoltBetz (then saving RAM, about 45 s)…" : "Opening BoltBetz…"); r = await api("app", { launch: "com.boltbetz.staging" }); }
-  progress();
-  let msg = r.ok ? "Ready: BoltBetz is open" : "Could not open BoltBetz (see the message above).";
-  if (r.ok && r.auto_squeeze && r.auto_squeeze.ok !== false)
-    msg += ` · Save RAM: working set ${r.auto_squeeze.ws_before_mb} → ${r.auto_squeeze.ws_after_mb} MB`;
-  $("progress").textContent = msg; $("appout").textContent = r.ok ? "BoltBetz staging installed and opened" : "";
-  if (!r.ok) { appOpened[id] = false; maybeOverlay(); }
+async function stop(id, btn) {
+  const st = stateOf(id);
+  if (st === "queued") return dequeue(id);
+  if (st === "empty" || st === "stopping") return;
+  S.ui[id] = { stopping: true }; render(); wellSay(id, "Stopping…", false, 0);
+  const r = await busy(btn, job("stop", { device: id }));
+  S.ui[id] = {}; await status();
+  if (r.ok || /no Device/.test(r.error)) wellSay(id, "Stopped"); else wellSay(id, plain(r.error, id), true, 6000);
 }
-$("preset").onclick = () => openBoltBetz();
+async function restart(id, btn) {
+  const d = S.devs[id]; if (!d) return;
+  const args = { net: d.net !== false };
+  if (d.image_name) args.image = d.image_name;
+  if (d.mem) args.mem = parseInt(d.mem); if (d.cpus) args.cpus = parseInt(d.cpus);
+  if (d.screen && d.screen.name) args.screen = d.screen.name;
+  await stop(id, btn); start([id], args, !(d.image_name || "").startsWith("phone"));
+}
+function firstEmpty(n) { return IDS.filter(id => stateOf(id) === "empty" || stateOf(id) === "failed").slice(0, n); }
+let nStart = store.get("n", 1);
+function renderStartBtn() {
+  const free = firstEmpty(8).length; nStart = Math.max(1, Math.min(8, nStart));
+  $("n_out").textContent = nStart;
+  const ids = firstEmpty(nStart);
+  $("startnlbl").textContent = ids.length ? (ids.length === 1 ? `Start ${ids[0]}` : `Start ${ids.length}: ${ids[0]}–${ids[ids.length - 1]}`) : "All wells in use";
+  $("startn").disabled = !ids.length;
+  $("startaside").textContent = `${8 - free} of 8 in use`;
+}
+$("n_minus").onclick = () => { nStart--; store.set("n", Math.max(1, nStart)); renderStartBtn(); };
+$("n_plus").onclick = () => { nStart++; store.set("n", Math.min(8, nStart)); renderStartBtn(); };
+$("startn").onclick = () => { const ids = firstEmpty(nStart); if (ids.length) { start(ids); if (!S.devs[S.sel]) select(ids[0]); } };
 
-// tabs, logs, crashes
-document.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => {
-  document.querySelectorAll("[data-tab]").forEach(x => x.classList.toggle("on", x === b));
-  for (const t of ["apps", "logs", "crashes"]) $("tab_" + t).hidden = t !== b.dataset.tab;
+// Two-step confirm in place: the button turns red and asks once; no dialog.
+function confirmStep(btn, label, fn) {
+  if (btn.dataset.arm) { delete btn.dataset.arm; clearTimeout(btn._t); btn.classList.remove("confirm"); btn.innerHTML = btn._html; return fn(); }
+  btn._html = btn.innerHTML; btn.dataset.arm = "1"; btn.classList.add("confirm"); btn.textContent = label;
+  btn._t = setTimeout(() => { delete btn.dataset.arm; btn.classList.remove("confirm"); btn.innerHTML = btn._html; }, 3500);
+}
+$("stopall").onclick = () => {
+  const live = IDS.filter(id => !["empty", "failed"].includes(stateOf(id)));
+  if (!live.length) return say("Nothing is running.");
+  confirmStep($("stopall"), `Stop ${live.length}? Click again`, async () => {
+    queue.length = 0; live.forEach(id => { S.ui[id] = S.devs[id] ? { stopping: true } : {}; }); render(); say(`Stopping ${live.length} Devices…`);
+    const r = await busy($("stopall"), job("stop_many"));
+    IDS.forEach(id => { S.ui[id] = {}; }); await status();
+    say(r.ok ? `Stopped ${live.length === 1 ? live[0] : live.length + " Devices"}.` : plain(r.error), !r.ok);
+  });
+};
+$("quit").onclick = () => confirmStep($("quit"), "Stop all and quit? Click again", async () => {
+  await api("quit"); document.body.innerHTML = "<p style='padding:24px;font:16px system-ui;color:#eaf1f2'>agent-emu stopped. Open agent-emu again to restart it.</p>";
 });
-// A reset bumps logGen so a reply to a request sent before it cannot set the cursor afterwards.
-function resetLogs() { logGen++; logCursor = null; $("logtext").textContent = ""; }
+
+// ---------- per-well actions ----------
+function act(id, a, btn, ev) {
+  if (a === "focus") return select(id);
+  if (a === "stop") return stop(id, btn);
+  if (a === "restart") return restart(id, btn);
+  if (a === "open") return openApp(id, btn);
+  if (a === "shot") return shot(id);
+}
+function shot(id) {
+  if (stateOf(id) !== "running") return;
+  for (const host of [W[id].recess, id === S.sel ? $("stagephone") : null].filter(Boolean)) {
+    if (reduced.matches) continue; const fl = document.createElement("div"); fl.className = "flash"; fl.style.borderRadius = "12.5% / 5.75%";
+    host.appendChild(fl); setTimeout(() => fl.remove(), 320);
+  }
+  const a = document.createElement("a"); a.href = BASE + "/screenshot.png?device=" + encodeURIComponent(id); a.download = ""; a.click();
+  wellSay(id, "Screenshot saved to Downloads");
+}
+async function openApp(id, btn) {
+  if (stateOf(id) !== "running") return;
+  S.ui[id].opening = true; render(); wellSay(id, "Installing BoltBetz…", false, 0);
+  let r = await busy(btn, job("install_bundled", { device: id }));
+  if (r.ok) { wellSay(id, "Opening BoltBetz…", false, 0); r = await busy(btn, job("app", { device: id, launch: APP })); }
+  S.ui[id].opening = false;
+  if (r.ok) {
+    S.ui[id].noAppDismissed = true; setTimeout(() => { if (S.ui[id]) S.ui[id].noAppDismissed = false; }, 20000);
+    let msg = "BoltBetz is open";
+    if (r.auto_squeeze && r.auto_squeeze.ok !== false) msg += ` · Save RAM ${r.auto_squeeze.ws_before_mb} → ${r.auto_squeeze.ws_after_mb} MB`;
+    wellSay(id, msg, false, 4000);
+  } else wellSay(id, plain(r.error, id), true, 7000);
+  render();
+}
+
+// ---------- APK install: drop on a phone, on the panel, or pick a file ----------
+async function upload(id, file) {
+  if (stateOf(id) !== "running") return wellSay(id, `${id} is not running; start it first.`, true, 4000);
+  if (!/\.apk$/i.test(file.name)) return wellSay(id, `${file.name} is not an .apk file.`, true, 4000);
+  wellSay(id, `Installing ${file.name}…`, false, 0); $("appout").className = "out"; $("appout").textContent = `${id}: installing ${file.name}…`;
+  const r = await fetch(BASE + "/upload?device=" + encodeURIComponent(id), { method: "POST", body: file }).then(r => r.json()).catch(e => ({ ok: false, error: "daemon not reachable" }));
+  const msg = r.ok ? `${id}: installed ${file.name}` : `${id}: ${plain(r.error, id)}`;
+  wellSay(id, r.ok ? `Installed ${file.name}` : plain(r.error, id), !r.ok, r.ok ? 3000 : 7000);
+  $("appout").textContent = msg; $("appout").classList.toggle("err", !r.ok);
+}
+function bindDrop(el, getId) {
+  el.addEventListener("dragover", (e) => { if (e.dataTransfer.types.includes("Files")) { e.preventDefault(); el.classList.add(el.id === "drop" ? "over" : "drop"); } });
+  el.addEventListener("dragleave", (e) => { if (!el.contains(e.relatedTarget)) el.classList.remove("over", "drop"); });
+  el.addEventListener("drop", (e) => { e.preventDefault(); el.classList.remove("over", "drop"); const f = e.dataTransfer.files[0]; if (f) upload(getId(), f); });
+}
+bindDrop($("drop"), () => S.sel);
+bindDrop($("stagephone"), () => S.sel);
+window.addEventListener("dragover", (e) => e.preventDefault());
+window.addEventListener("drop", (e) => e.preventDefault());
+$("apkfile").onchange = (e) => { if (e.target.files[0]) upload(S.sel, e.target.files[0]); e.target.value = ""; };
+$("installpath").onclick = async (ev) => {
+  const id = S.sel, p = $("apkpath").value.trim(); if (!p) return $("apkpath").focus();
+  $("appout").className = "out"; $("appout").textContent = `${id}: installing ${p}…`;
+  const r = await busy(ev.currentTarget, job("app", { device: id, install: p }));
+  $("appout").textContent = r.ok ? `${id}: ${r.out || "installed"}` : `${id}: ${plain(r.error, id)}`; $("appout").classList.toggle("err", !r.ok);
+};
+$("launch").onclick = async (ev) => {
+  const id = S.sel, p = $("pkg").value.trim(); if (!p) return $("pkg").focus();
+  const r = await busy(ev.currentTarget, api("app", { device: id, launch: p }));
+  $("appout").textContent = r.ok ? `${id}: launched ${p}` : `${id}: ${plain(r.error, id)}`; $("appout").classList.toggle("err", !r.ok);
+};
+
+// ---------- logs, issues, crashes (focused Device) ----------
+let logGen = 0, logCursor = null, logView = "stream";
+function resetLogs() { logGen++; logCursor = null; $("logtext").textContent = ""; loadIssues(); }
 $("clearlogs").onclick = () => { $("logtext").textContent = ""; };
-$("logfilter").onchange = resetLogs;
+$("logfilter").onchange = resetLogs; $("loglevel").onchange = resetLogs;
+$("allogs").onchange = () => { $("logfilter").disabled = $("loglevel").disabled = $("allogs").checked; resetLogs(); };
+document.querySelectorAll("[data-view]").forEach(b => b.onclick = () => {
+  document.querySelectorAll("[data-view]").forEach(x => x.setAttribute("aria-pressed", x === b));
+  logView = b.dataset.view; $("streambox").hidden = logView !== "stream"; $("issuesbox").hidden = logView !== "issues"; loadIssues();
+});
+function logArgs() { const all = $("allogs").checked; return { filter: all ? undefined : $("logfilter").value.trim() || undefined, level: all ? undefined : $("loglevel").value || undefined }; }
+async function loadIssues() {
+  if (logView !== "issues" || !$("sec_logs").open) return;
+  const id = S.sel; if (stateOf(id) !== "running") { $("issues").innerHTML = `<tr><td colspan="3" class="empty">${id} is not running.</td></tr>`; $("issuesum").innerHTML = ""; return; }
+  const r = await api("issues", { device: id, filter: logArgs().filter, top: 60 });
+  if (!r.ok || id !== S.sel) return;
+  const app = r.issues.filter(i => i.side === "app"), sys = r.issues.filter(i => i.side !== "app");
+  const sum = (a) => a.reduce((n, i) => n + i.count, 0);
+  $("issuesum").innerHTML = `<span>App <b>${sum(app)}</b> in ${app.length} groups</span><span>System <b>${sum(sys)}</b> in ${sys.length}</span>`;
+  $("issues").innerHTML = r.issues.length ? [...app, ...sys].map(i => `<tr><td class="n">${i.count}</td><td><span class="side ${i.side === "app" ? "app" : "sys"}">${i.side === "app" ? "App" : "System"}</span></td>
+    <td title="last ${esc(i.last)}"><b>${esc(i.tag)}</b> ${esc(i.level)} ${esc(i.message.slice(0, 200))}</td></tr>`).join("")
+    : `<tr><td colspan="3" class="empty">No errors since boot.</td></tr>`;
+}
+setInterval(loadIssues, 5000);
+$("sec_logs").addEventListener("toggle", resetLogs);
 async function logLoop() {
-  while (true) {
-    const d = devices.find(x => x.id === sel && x.ready);
-    if (!d || !$("follow").checked || $("tab_logs").hidden) { await new Promise(r => setTimeout(r, 700)); continue; }
-    if (logDev !== sel) { logDev = sel; resetLogs(); }
-    const g = logGen, args = { max_lines: 300, filter: $("logfilter").value.trim() || undefined };
-    if (logCursor != null) { args.cursor = logCursor; args.wait_ms = 1500; }
-    const r = await api("logs", args, true);
-    if (g !== logGen) continue;
-    if (r.ok && logDev === sel) {
-      logCursor = r.cursor;
-      if (r.lines.length) {
-        const box = $("logs"), atEnd = box.scrollTop + box.clientHeight > box.scrollHeight - 20, t = $("logtext");
-        t.textContent = (t.textContent + r.lines.join("\n") + "\n").split("\n").slice(-1500).join("\n");
-        if (atEnd) box.scrollTop = box.scrollHeight;
-      }
-    } else await new Promise(r => setTimeout(r, 1000));
-  }
-}
-async function crashLoop() {
-  while (true) {
-    await new Promise(r => setTimeout(r, 3000));
-    if (!devices.find(x => x.id === sel && x.ready)) continue;
-    if (crashDev !== sel) { crashDev = sel; crashAfter = 0; $("crashes").innerHTML = ""; }
-    const r = await api("crash_events", { after: crashAfter }, true);
-    if (!r.ok || crashDev !== sel) continue;
-    for (const e of r.events) {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${e.seq}</td><td class="bad">${e.type}</td><td>${e.process}</td><td>${(e.exception || e.reason || e.signal || "")} ${(e.message || "").slice(0, 120)}</td>`;
-      tr.title = (e.stack || []).join("\n"); $("crashes").prepend(tr);
+  for (;;) {
+    const id = S.sel;
+    if (stateOf(id) !== "running" || !$("follow").checked || !$("sec_logs").open || logView !== "stream" || $("panel").offsetParent === null || document.body.classList.contains("panel-closed")) {
+      await new Promise(r => setTimeout(r, 700)); continue;
     }
-    crashAfter = r.last;
+    const g = logGen, args = { device: id, max_lines: 300, ...logArgs() };
+    if (logCursor != null) { args.cursor = logCursor; args.wait_ms = 1500; }
+    const r = await api("logs", args);
+    if (g !== logGen || id !== S.sel) continue;
+    if (!r.ok) { await new Promise(r => setTimeout(r, 1000)); continue; }
+    logCursor = r.cursor;
+    if (r.lines.length) {
+      const box = $("logs"), atEnd = box.scrollTop + box.clientHeight > box.scrollHeight - 24, t = $("logtext");
+      const frag = document.createDocumentFragment();
+      for (const l of r.lines) { const s = document.createElement("span"), m = l.match(/\s([VDIWEF])\s/); if (m) s.className = m[1]; s.textContent = l + "\n"; frag.appendChild(s); }
+      t.appendChild(frag); while (t.childNodes.length > 600) t.firstChild.remove();
+      if (atEnd) box.scrollTop = box.scrollHeight;
+    }
   }
 }
-refresh(); setInterval(refresh, 2000); setInterval(refreshMem, 5000); logLoop(); crashLoop();
+// Crashes: the focused Device's history once on focus, then live from /events.
+let crashGen = 0;
+function addCrash(e) {
+  const tb = $("crashes"); if (tb.querySelector(".empty")) tb.innerHTML = "";
+  const tr = document.createElement("tr");
+  tr.innerHTML = `<td class="n">${e.seq}</td><td><span class="side app">${esc(e.type || e.kind || "")}</span></td><td><b>${esc(e.process || "")}</b> ${esc(e.exception || e.reason || e.signal || "")} ${esc((e.message || "").slice(0, 140))}</td>`;
+  tr.title = (e.stack || []).join("\n"); tb.prepend(tr);
+}
+async function crashReset() {
+  const id = S.sel, g = ++crashGen;
+  $("crashes").innerHTML = `<tr><td colspan="3" class="empty">No crashes on ${id}.</td></tr>`;
+  if (stateOf(id) !== "running") return;
+  const r = await api("crash_events", { device: id, after: 0 });
+  if (r.ok && g === crashGen) r.events.forEach(addCrash);
+}
+
+// ---------- panel, stage, sections: collapsible, remembered ----------
+function setPanel(open) {
+  document.body.classList.toggle("panel-closed", !open); store.set("panel", open);
+  $("paneltoggle").setAttribute("aria-expanded", open); $("paneltoggle").title = open ? "Collapse the side panel" : "Expand the side panel";
+  setTimeout(openMux, 50);
+}
+$("paneltoggle").onclick = () => setPanel(document.body.classList.contains("panel-closed"));
+document.querySelectorAll("#rail [data-open]").forEach(b => b.onclick = () => { setPanel(true); const s = $(b.dataset.open); s.open = true; s.scrollIntoView({ block: "start" }); });
+function setStage(open) { document.body.classList.toggle("stage-closed", !open); store.set("stage", open); $("stagetoggle").setAttribute("aria-pressed", open); }
+$("stagetoggle").onclick = () => setStage(document.body.classList.contains("stage-closed"));
+for (const s of document.querySelectorAll("details.sec")) {
+  const v = store.get("sec." + s.id, null); if (v != null) s.open = v;
+  s.addEventListener("toggle", () => store.set("sec." + s.id, s.open));
+}
+// Start settings persist per field.
+const FIELDS = ["s_image", "s_screen", "s_mem", "s_cpus", "s_net", "s_openapp", "s_squeeze", "logfilter", "loglevel", "pkg", "apkpath"];
+for (const f of FIELDS) {
+  const el = $(f), v = store.get("f." + f, null);
+  if (v != null) { if (el.type === "checkbox") el.checked = v; else el.value = v; }
+  el.addEventListener("change", () => { store.set("f." + f, el.type === "checkbox" ? el.checked : el.value); render(); });
+}
+function imgNote() {
+  const phone = $("s_image").value.startsWith("phone");
+  $("imgnote").textContent = phone ? "Home screen, status bar, navigation bar, notifications and Settings. About 2 GB per Device."
+    : "No home screen or bars: the screen stays black until an app opens. Good for agents.";
+}
+$("s_image").addEventListener("change", () => { $("s_openapp").checked = !$("s_image").value.startsWith("phone"); store.set("f.s_openapp", $("s_openapp").checked); imgNote(); });
+imgNote();
+if (!IDS.includes(S.sel)) S.sel = "d0";
+setPanel(store.get("panel", true)); setStage(store.get("stage", true));
+addEventListener("resize", () => { clearTimeout(window._rz); window._rz = setTimeout(openMux, 300); });
+
+buildPlate(); render(); openEvents(); openMux(); logLoop(); crashReset();
+setInterval(render, 1000);
 </script>
 </body>
 </html>

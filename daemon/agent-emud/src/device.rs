@@ -71,7 +71,11 @@ impl Cfg {
             crosvm_dir: e("AE_CROSVM_DIR", "crosvm-pmem"),
         }
     }
+    /// AE_CROSVM (full path, set by the installed launcher) or the release build under `work/crosvm_dir`.
     pub fn crosvm(&self) -> PathBuf {
+        if let Some(p) = std::env::var_os("AE_CROSVM") {
+            return PathBuf::from(p);
+        }
         self.work.join(&self.crosvm_dir).join("target/release/crosvm.exe")
     }
 }
@@ -125,7 +129,7 @@ const DIET_GPU: &str = "audio-device-mode=one-global";
 
 /// The stock phone image boots like stage 1 (stock kernel and initrd, system in super) and keeps the network.
 pub fn is_phone(name: &str) -> bool {
-    name == "phone"
+    name == "phone" || name == "phone-n"
 }
 
 /// Guest image: (run dir under AE_WORK holding super.img + system-pmem.img, default guest MB or None = AE_MEM).
@@ -138,13 +142,37 @@ pub fn image(name: &str) -> R<(&'static str, Option<&'static str>)> {
         // phone: the stock Cuttlefish 15581820 image (SystemUI, Launcher3, Settings, wallpaper) for people.
         // Stock kernel and initrd, system on the super block device (no pmem), 2 GB.
         "phone" => Ok(("run-full", Some("2048"))),
+        // phone-n: the phone minus the Cuttlefish NFC and Thread network HAL apexes, which crash-loop with
+        // no host simulator (com.android.nfc ANR every ~45 s, vendor.threadnetwork_hal restarts).
+        // Built by agent-emu-work/stage2/phone-n/build.sh; run-phone-n = run-full with its super and vbmeta.
+        // 10-minute soak 2026-10-08: no crash, ANR or init restart loop (with Bluetooth off, see wait_boot).
+        "phone-n" => Ok(("run-phone-n", Some("2048"))),
         // slim4: the diet floor was 640 MB without the daemon's extra devices (virtio-net for adb, two
         // virtio-input, fb). Through the daemon at 640, lmkd killed the app as TOP 3 of 3 times (low on
         // swap, thrashing); at 704 it stays up. `start {mem}` overrides.
         "slim4" => Ok(("run-slim4", Some("704"))),
         // slim5: slim4 plus a home stub and tuned lmkd. 640 MB until tested through the daemon.
         "slim5" => Ok(("run-slim5", Some("640"))),
-        _ => Err(format!("unknown image `{name}` (phone, slim3, slim3n, slim4, slim5)")),
+        _ => Err(format!("unknown image `{name}` (phone, phone-n, slim3, slim3n, slim4, slim5)")),
+    }
+}
+
+/// Guest display (width px, height px, density dpi) for screen profile `name`.
+/// "" | "iphone17promax" (default): Apple's iPhone 17 Pro Max, 6.9", "2868-by-1320-pixel resolution at 460 ppi"
+/// (support.apple.com/en-us/125091, read 2026-10-08), so 440 x 956 points at 3x. Density makes the Android layout the same
+/// 440 dp wide: the full phone at native pixels (1320 / 480 dpi * 160 = 440 dp); the lean images at half,
+/// 656 x 1424 at 238 dpi = 441 x 957 dp (crosvm rounds the width down to a multiple of 8, so not 660).
+/// "legacy" (or "small"): the old 720 x 1080 at 320 dpi (360 dp wide).
+/// "-native" / "-3q" / "-half" pick 1, 3/4 or 1/2 of the native pixels, all at the same 440 dp layout.
+pub fn screen(name: &str, phone: bool) -> R<(u32, u32, u32)> {
+    match (name, phone) {
+        ("" | "iphone17promax", true) => screen("iphone17promax-native", true),
+        ("" | "iphone17promax", false) => screen("iphone17promax-half", false),
+        ("iphone17promax-native", _) => Ok((1320, 2868, 480)),
+        ("iphone17promax-3q", _) => Ok((984, 2140, 358)),
+        ("iphone17promax-half", _) => Ok((656, 1424, 238)),
+        ("legacy" | "small", _) => Ok((720, 1080, 320)),
+        _ => Err(format!("unknown screen `{name}` (iphone17promax[-native|-3q|-half], legacy)")),
     }
 }
 
@@ -275,6 +303,11 @@ pub struct Frame {
 
 /// JPEG q75, optionally fitted inside `size` (aspect kept). Returns (jpeg, w, h, device_w, device_h, scale).
 pub fn encode(rgb: &image::RgbImage, size: Option<(u32, u32)>) -> R<(Vec<u8>, u32, u32, u32, u32, f64)> {
+    encode_q(rgb, size, 75)
+}
+
+/// `encode` at JPEG quality `q` (1-100).
+pub fn encode_q(rgb: &image::RgbImage, size: Option<(u32, u32)>, q: u8) -> R<(Vec<u8>, u32, u32, u32, u32, f64)> {
     let (dw, dh) = rgb.dimensions();
     let scaled;
     let img = match size {
@@ -286,7 +319,7 @@ pub fn encode(rgb: &image::RgbImage, size: Option<(u32, u32)>) -> R<(Vec<u8>, u3
     };
     let mut out = Vec::new();
     // jpeg-encoder with AVX2: about 3x faster than image's encoder on this PC.
-    jpeg_encoder::Encoder::new(&mut out, 75)
+    jpeg_encoder::Encoder::new(&mut out, q.clamp(1, 100))
         .encode(img.as_raw(), img.width() as u16, img.height() as u16, jpeg_encoder::ColorType::Rgb)
         .map_err(|e| e.to_string())?;
     Ok((out, img.width(), img.height(), dw, dh, dw as f64 / img.width() as f64))
@@ -329,6 +362,8 @@ pub struct Device {
     pub net: bool,
     /// The full phone image: setup leaves airplane mode off.
     pub phone: bool,
+    /// Android density (dpi) for the screen profile, set by `wm density` after boot.
+    pub density: u32,
 }
 
 impl Device {
@@ -336,8 +371,9 @@ impl Device {
     /// `net: false` boots without virtio-net (so without adb); only the console, fast input and frame
     /// paths remain. Untested.
     /// `others_ok`: skip the "no other crosvm running" check (the caller already runs Devices).
-    pub async fn spawn(cfg: &Cfg, idx: u32, image_name: &str, mem: Option<&str>, cpus: Option<&str>, net: bool, others_ok: bool) -> R<Arc<Device>> {
+    pub async fn spawn(cfg: &Cfg, idx: u32, image_name: &str, screen_name: &str, mem: Option<&str>, cpus: Option<&str>, net: bool, others_ok: bool) -> R<Arc<Device>> {
         let (run, image_mem) = image(image_name)?;
+        let (sw, sh, dpi) = screen(screen_name, is_phone(image_name))?;
         let mem = mem.or(image_mem).unwrap_or(&cfg.mem).to_string();
         let avail = available_mb();
         if avail < cfg.min_avail_mb {
@@ -360,6 +396,7 @@ impl Device {
             .args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-File"]).arg(boot_script())
             .env("AE_PARAMS", DIET_PARAMS).env("AE_SINKS", DIET_SINKS).env("AE_GPU_EXTRA", DIET_GPU)
             .env("AE_DIR", win(&dir)).env("AE_ID", idx.to_string()).env("AE_MEM", &mem).env("AE_CPUS", cpus.unwrap_or(&cfg.cpus))
+            .env("AE_DISPLAY", format!("{sw},{sh}")).env("AE_DPI", dpi.to_string())
             .env("AE_EXTRA", format!("--socket PIPE:ae-vm-{idx}{} --input multi-touch[path={}] --input keyboard[path={}]",
                 if is_phone(image_name) { String::new() } else { format!(" --pmem path={},ro=true", pmem.to_string_lossy().replace('\\', "/")) },
                 fast::touch_pipe(idx), fast::kbd_pipe(idx)))
@@ -380,13 +417,15 @@ impl Device {
         Ok(Arc::new(Device {
             id: format!("d{idx}"), dir: dir.clone(), boot: Mutex::new(Some(child)), con, ready: AtomicBool::new(false),
             last: StdMutex::new(None), gen: AtomicU64::new(0), scale: StdMutex::new(1.0),
-            idx, input: OnceLock::new(), fb: OnceLock::new(), events: crate::logs::Events::spawn(dir.join("logcat.log")), net, phone: is_phone(image_name),
+            idx, input: OnceLock::new(), fb: OnceLock::new(), events: crate::logs::Events::spawn(dir.join("logcat.log")), net, phone: is_phone(image_name), density: dpi,
         }))
     }
 
     /// Poll until sys.boot_completed and dev.bootcomplete, then apply the v1 Device settings.
     /// Aborts when host Available memory falls under `min_avail_mb` while booting.
-    pub async fn wait_boot(&self, limit: Duration, min_avail_mb: u64) -> R<()> {
+    /// `phase` hears "android" (the guest shell answers), "setup" (boot completed) and nothing else.
+    pub async fn wait_boot(&self, limit: Duration, min_avail_mb: u64, phase: &(dyn Fn(&'static str) + Sync)) -> R<()> {
+        let mut shell = false;
         let end = Instant::now() + limit;
         loop {
             let avail = available_mb();
@@ -394,6 +433,10 @@ impl Device {
                 return Err(format!("host Available {avail} MB < {min_avail_mb} MB during boot; stopped"));
             }
             if let Ok((o, _)) = self.con.exec("getprop sys.boot_completed; getprop dev.bootcomplete", Duration::from_secs(20)).await {
+                if !shell {
+                    shell = true;
+                    phase("android");
+                }
                 if o.split_whitespace().collect::<Vec<_>>() == ["1", "1"] {
                     break;
                 }
@@ -410,11 +453,16 @@ impl Device {
         // Cuttlefish hides its ethernet ("buried_eth0") and expects Wi-Fi from a host simulator that is not
         // here, so Android had no default network. Renamed eth0, Android's Ethernet service takes it and
         // gets DHCP from slirp; 10.0.2.15 stays on it because slirp forwards adb to that address.
+        // Bluetooth has no host peer (no rootcanal): AdapterService aborts at StartEverything about once a
+        // minute while Bluetooth is on. Airplane mode keeps it off on the lean images; the phone turns it off.
         let setup = if self.phone {
-            SETUP.replace("cmd connectivity airplane-mode enable; ", "").replace(PHONE_NET_FROM, PHONE_NET_TO)
+            SETUP.replace("cmd connectivity airplane-mode enable; ", "cmd bluetooth_manager disable; ").replace(PHONE_NET_FROM, PHONE_NET_TO)
         } else {
             SETUP.to_string()
         };
+        // The image's bootconfig fixes androidboot.lcd_density=320; the screen profile's density wins here.
+        let setup = format!("wm density {}; {setup}", self.density);
+        phase("setup");
         self.con.exec(&setup, Duration::from_secs(60)).await?;
         match Input::open(self.idx) {
             Ok(i) => { let _ = self.input.set(i); }
@@ -592,6 +640,18 @@ mod tests {
     }
 
     #[test]
+    fn screens_lay_out_440_dp_wide() {
+        for (name, phone) in [("", true), ("", false), ("iphone17promax-3q", true), ("iphone17promax-half", true)] {
+            let (w, h, dpi) = screen(name, phone).unwrap();
+            assert_eq!(w % 8, 0, "crosvm rounds the width down to a multiple of 8");
+            assert!((w * 160 / dpi).abs_diff(440) <= 1 && (h * 160 / dpi).abs_diff(956) <= 1, "{w}x{h}@{dpi}");
+        }
+        assert_eq!(screen("small", true).unwrap(), (720, 1080, 320));
+        assert_eq!(screen("legacy", false).unwrap(), (720, 1080, 320));
+        assert!(screen("tablet", true).is_err());
+    }
+
+    #[test]
     fn images() {
         assert_eq!(image("slim4").unwrap(), ("run-slim4", Some("704")));
         assert_eq!(image("").unwrap(), ("run-slim3n", None));
@@ -599,7 +659,8 @@ mod tests {
         assert_eq!(image("slim5").unwrap(), ("run-slim5", Some("640")));
         assert!(image("slim9").is_err());
         assert_eq!(image("phone").unwrap(), ("run-full", Some("2048")));
-        assert!(is_phone("phone") && !is_phone("") && SETUP.contains("cmd connectivity airplane-mode enable; "));
+        assert_eq!(image("phone-n").unwrap(), ("run-phone-n", Some("2048")));
+        assert!(is_phone("phone") && is_phone("phone-n") && !is_phone("") && SETUP.contains("cmd connectivity airplane-mode enable; "));
         assert!(SETUP.contains(PHONE_NET_FROM), "the phone network swap must match SETUP");
         let cfg = Cfg { work: PathBuf::from("W"), mem: "896".into(), cpus: "2".into(), min_avail_mb: 4000, crosvm_dir: "crosvm-diet".into() };
         assert_eq!(cfg.crosvm(), PathBuf::from("W/crosvm-diet/target/release/crosvm.exe"));

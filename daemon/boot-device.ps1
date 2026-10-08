@@ -3,7 +3,7 @@
 # Boot one Device: crosvm on WHPX, Cuttlefish-based guest, direct kernel boot.
 # Env: AE_DIR (Device dir, default run), AE_ID (pipe suffix), AE_MEM, AE_CPUS, AE_EXTRA,
 #      AE_KERNEL, AE_INITRD (file names inside AE_DIR), AE_CROSVM (binary path).
-$W = "C:\dev\agent-emu-work"
+$W = if ($env:AE_WORK) { $env:AE_WORK } else { "C:\dev\agent-emu-work" }
 $R = if ($env:AE_DIR) { $env:AE_DIR } else { "$W\run" }
 Set-Location $R
 # Network (slirp) only when an adb host port is asked for.
@@ -15,6 +15,9 @@ $last = if ($env:AE_SINKS) { [int]$env:AE_SINKS } else { 20 }
 foreach ($n in @(4..$last | Where-Object { $last -ge 4 })) { $sinks += "--serial"; $sinks += "hardware=virtio-console,num=$n,type=sink" }
 $mem = if ($env:AE_MEM) { $env:AE_MEM } else { "4096" }
 $cpus = if ($env:AE_CPUS) { $env:AE_CPUS } else { "4" }
+# AE_DISPLAY "w,h" and AE_DPI: the guest display (default the old 720x1280 at 320 dpi).
+$disp = if ($env:AE_DISPLAY) { $env:AE_DISPLAY } else { "720,1280" }
+$dpi = if ($env:AE_DPI) { $env:AE_DPI } else { "320" }
 $extra = if ($env:AE_EXTRA) { $env:AE_EXTRA -split " " } else { @() }
 # PIPE:<name> expands to a Windows named pipe path, so callers never escape backslashes.
 $extra = $extra | ForEach-Object { if ($_ -like "PIPE:*") { "\\.\pipe\" + $_.Substring(5) } else { $_ } }
@@ -33,7 +36,7 @@ $args = @(
   "--serial", "hardware=virtio-console,num=2,type=namedpipe,path=$pipe",
   "--serial", "hardware=virtio-console,num=3,type=file,path=$R\logcat.log"
 ) + $extra + $sinks + @(
-  "--gpu", ("backend=2D,displays=[[mode=windowed[720,1280],dpi=[320,320],refresh-rate=60]]" + $(if ($env:AE_GPU_EXTRA) { "," + $env:AE_GPU_EXTRA } else { "" })),
+  "--gpu", ("backend=2D,displays=[[mode=windowed[$disp],dpi=[$dpi,$dpi],refresh-rate=60]]" + $(if ($env:AE_GPU_EXTRA) { "," + $env:AE_GPU_EXTRA } else { "" })),
   "--initrd", $initrd,
   "--params", $cmdline,
   $kernel

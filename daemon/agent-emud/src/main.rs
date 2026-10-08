@@ -34,6 +34,13 @@ struct Slot {
     /// What `start` asked for, for `status` (image name, guest MB, vCPUs, net) and when.
     info: Value,
     started: Instant,
+    /// "spawning" | "booting" | "android" | "setup" | "ready" (pushed as `device` events).
+    phase: &'static str,
+    /// Recent input -> first new frame times (ms), for the metrics p50.
+    lat: std::collections::VecDeque<u64>,
+    /// Frames sent on all /frames streams of this Device, and how many streams are open.
+    sent: u64,
+    streams: u32,
 }
 
 struct State {
@@ -42,6 +49,20 @@ struct State {
     lifecycle: Mutex<()>, // serializes starts and stops
     /// Set by `fleet_stop`; a running `fleet` checks it before each next boot.
     fleet_stop: std::sync::atomic::AtomicBool,
+    /// Event bus for GET /events (ui.rs): device phases, jobs, metrics, crashes, errors.
+    events: tokio::sync::broadcast::Sender<Value>,
+    jobs: AtomicU64,
+}
+
+/// Push one event to every /events subscriber (dropped when nobody listens).
+fn emit(st: &State, mut v: Value) {
+    v["ts"] = json!(device::now_ms());
+    let _ = st.events.send(v);
+}
+
+fn new_state(cfg: Cfg) -> State {
+    State { cfg, devs: StdMutex::new(BTreeMap::new()), lifecycle: Mutex::new(()), fleet_stop: Default::default(),
+        events: tokio::sync::broadcast::channel(1024).0, jobs: AtomicU64::new(1) }
 }
 
 impl State {
@@ -64,7 +85,8 @@ fn main() {
 }
 
 async fn serve(addr: String) {
-    let st = Arc::new(State { cfg: Cfg::from_env(), devs: StdMutex::new(BTreeMap::new()), lifecycle: Mutex::new(()), fleet_stop: Default::default() });
+    let st = Arc::new(new_state(Cfg::from_env()));
+    tokio::spawn(metrics(st.clone()));
     let ui_addr = std::env::var("AE_UI_ADDR").unwrap_or_else(|_| "127.0.0.1:7401".into());
     tokio::spawn(ui::serve(st.clone(), ui_addr));
     let l = TcpListener::bind(&addr).await.expect("bind");
@@ -163,7 +185,8 @@ async fn log_filter(d: &Device, req: &Value) -> logs::Filter {
             pids.extend(o.split_whitespace().filter_map(|p| p.parse::<u32>().ok()));
         }
     }
-    logs::Filter { name, pids, since_ms: req["since"].as_u64(), year: logs::this_year() }
+    let min_level = req["level"].as_str().filter(|l| !l.is_empty()).map(logs::rank);
+    logs::Filter { name, pids, since_ms: req["since"].as_u64(), year: logs::this_year(), min_level }
 }
 
 /// After the app's launch: hide system dialogs again, let the app settle for `o.settle_s` (the cold
@@ -204,32 +227,155 @@ fn ready_device(st: &State, devid: &str) -> R<Arc<Device>> {
 }
 
 /// Boots Device `idx` with the `start` options in `req` and waits for boot + setup. The Device is
-/// listed (as booting) while it boots, and removed again if the boot fails.
+/// listed (as booting) while it boots, and removed again if the boot fails. Only the spawn is serialized,
+/// so several Devices can boot at once; RAM of Devices still booting counts as taken for the floor check.
 async fn start_device(st: &State, idx: u32, req: &Value) -> R<(Arc<Device>, f64)> {
-    let _g = st.lifecycle.lock().await;
     let id = format!("d{idx}");
-    if st.devs.lock().unwrap().contains_key(&id) {
-        return Err(format!("Device `{id}` is already running"));
-    }
     let t0 = Instant::now();
+    let fail = |e: String| { emit(st, json!({"type": "error", "device": id, "call": "start", "error": e})); e };
     let mem = req["mem"].as_u64().map(|m| m.to_string());
     let net = req["net"].as_bool().unwrap_or(true);
-    // Other crosvm processes are fine once this daemon runs a Device itself (a fleet).
-    let others_ok = !st.devs.lock().unwrap().is_empty();
     let cpus = req["cpus"].as_u64().map(|c| c.to_string());
     let image_name = req["image"].as_str().unwrap_or("");
-    let shown_mem = mem.clone().or(device::image(image_name)?.1.map(str::to_string)).unwrap_or(st.cfg.mem.clone());
+    let shown_mem = mem.clone().or(device::image(image_name).map_err(fail)?.1.map(str::to_string)).unwrap_or(st.cfg.mem.clone());
+    let screen = req["screen"].as_str().unwrap_or("");
+    let (sw, sh, dpi) = device::screen(screen, device::is_phone(image_name)).map_err(fail)?;
     let info = json!({"image": if image_name.is_empty() { "slim3n (default)" } else { image_name }, "mem": shown_mem,
-        "cpus": cpus.clone().unwrap_or(st.cfg.cpus.clone()), "net": net, "image_name": image_name});
-    let d = Device::spawn(&st.cfg, idx, req["image"].as_str().unwrap_or(""), mem.as_deref(), cpus.as_deref(), net, others_ok).await?;
-    st.devs.lock().unwrap().insert(id.clone(), Slot { dev: d.clone(), opts: squeeze::Opts::from(req, squeeze::Opts::DEFAULT),
-        auto_squeeze: req["auto_squeeze"] == json!(true), lease: None, info, started: Instant::now() });
-    if let Err(e) = d.wait_boot(Duration::from_secs(900), st.cfg.min_avail_mb).await {
+        "cpus": cpus.clone().unwrap_or(st.cfg.cpus.clone()), "net": net, "image_name": image_name,
+        "screen": {"name": if screen.is_empty() { "iphone17promax" } else { screen }, "width": sw, "height": sh, "dpi": dpi}});
+    let d = {
+        let _g = st.lifecycle.lock().await;
+        let booting: u64 = {
+            let devs = st.devs.lock().unwrap();
+            if devs.contains_key(&id) {
+                return Err(fail(format!("Device `{id}` is already running")));
+            }
+            devs.values().filter(|s| !s.dev.ready.load(Ordering::SeqCst)).filter_map(|s| s.info["mem"].as_str()?.parse::<u64>().ok()).sum()
+        };
+        let avail = device::available_mb();
+        if avail.saturating_sub(booting) < st.cfg.min_avail_mb {
+            return Err(fail(format!("host Available {avail} MB minus {booting} MB for Devices still booting < {} MB; not booting {id}", st.cfg.min_avail_mb)));
+        }
+        // Other crosvm processes are fine once this daemon runs a Device itself (a fleet).
+        let others_ok = !st.devs.lock().unwrap().is_empty();
+        emit(st, json!({"type": "device", "device": id, "phase": "spawning", "t_s": 0.0, "info": info}));
+        let d = Device::spawn(&st.cfg, idx, image_name, screen, mem.as_deref(), cpus.as_deref(), net, others_ok).await.map_err(fail)?;
+        st.devs.lock().unwrap().insert(id.clone(), Slot { dev: d.clone(), opts: squeeze::Opts::from(req, squeeze::Opts::DEFAULT),
+            auto_squeeze: req["auto_squeeze"] == json!(true), lease: None, info, started: Instant::now(), phase: "booting",
+            lat: Default::default(), sent: 0, streams: 0 });
+        d
+    };
+    let phase = |p: &'static str| {
+        if let Some(s) = st.devs.lock().unwrap().get_mut(&id) { s.phase = p; }
+        emit(st, json!({"type": "device", "device": id, "phase": p, "t_s": t0.elapsed().as_secs_f64()}));
+    };
+    phase("booting");
+    if let Err(e) = d.wait_boot(Duration::from_secs(900), st.cfg.min_avail_mb, &phase).await {
         d.stop().await;
         st.devs.lock().unwrap().remove(&id);
-        return Err(e);
+        emit(st, json!({"type": "device", "device": id, "phase": "stopped"}));
+        return Err(fail(e));
     }
+    phase("ready");
     Ok((d, t0.elapsed().as_secs_f64()))
+}
+
+fn idx_of(id: &str) -> R<u32> {
+    id.strip_prefix('d').and_then(|s| s.parse().ok()).ok_or(format!("device id must be d<N>, not `{id}`"))
+}
+
+/// `devices: ["d0", ...]` of a batch call; None when absent.
+fn ids(req: &Value) -> R<Option<Vec<String>>> {
+    let Some(a) = req["devices"].as_array() else { return Ok(None) };
+    a.iter().map(|v| v.as_str().map(str::to_string).ok_or("`devices` must be a list of ids".to_string())).collect::<R<Vec<_>>>().map(Some)
+}
+
+/// `start_many`: boots `devices` with the same start options, at most `parallel` (default 4) at once.
+async fn start_many(st: &Arc<State>, req: &Value) -> R<Value> {
+    let list = ids(req)?.ok_or("missing `devices`")?;
+    for id in &list {
+        idx_of(id)?;
+    }
+    let sem = Arc::new(tokio::sync::Semaphore::new(req["parallel"].as_u64().unwrap_or(4).clamp(1, 8) as usize));
+    let hs: Vec<_> = list.into_iter().map(|id| {
+        let (st, req, sem) = (st.clone(), req.clone(), sem.clone());
+        (id.clone(), tokio::spawn(async move {
+            let _p = sem.acquire().await;
+            start_device(&st, idx_of(&id)?, &req).await.map(|(_, s)| s)
+        }))
+    }).collect();
+    let mut out = vec![];
+    for (id, h) in hs {
+        out.push(match h.await.map_err(|e| e.to_string()).and_then(|r| r) {
+            Ok(s) => json!({"device": id, "ok": true, "ready_s": s}),
+            Err(e) => json!({"device": id, "ok": false, "error": e}),
+        });
+    }
+    Ok(json!({"ok": out.iter().all(|r| r["ok"] == json!(true)), "devices": out}))
+}
+
+async fn stop_one(st: &State, id: &str) -> R<()> {
+    let d = st.dev(id).ok_or(format!("no Device `{id}`"))?;
+    d.stop().await;
+    st.devs.lock().unwrap().remove(id);
+    emit(st, json!({"type": "device", "device": id, "phase": "stopped"}));
+    Ok(())
+}
+
+fn p50(v: &std::collections::VecDeque<u64>) -> Option<u64> {
+    let mut s: Vec<u64> = v.iter().copied().collect();
+    s.sort_unstable();
+    s.get(s.len() / 2).copied()
+}
+
+/// While anyone listens on /events: one `metrics` event a second (phase, scanout and sent fps, input p50,
+/// RAM own/shared refreshed every 5 s), plus a `crash` event per new crash/ANR.
+async fn metrics(st: Arc<State>) {
+    let mut prev: std::collections::HashMap<String, (u64, u64, u64)> = Default::default();
+    let mut mem: std::collections::HashMap<String, (u64, u64, u64)> = Default::default();
+    let (mut iv, mut t, mut tick) = (tokio::time::interval(Duration::from_secs(1)), Instant::now(), 0u64);
+    loop {
+        iv.tick().await;
+        let dt = t.elapsed().as_secs_f64().max(0.001);
+        t = Instant::now();
+        if st.events.receiver_count() == 0 {
+            prev.clear();
+            continue;
+        }
+        tick += 1;
+        let devs: Vec<(String, Arc<Device>)> = st.devs.lock().unwrap().iter().map(|(k, s)| (k.clone(), s.dev.clone())).collect();
+        if tick % 5 == 1 {
+            let mut pids = vec![];
+            for (id, d) in &devs {
+                if let Some(p) = d.boot_pid().await {
+                    pids.push((id.clone(), p));
+                }
+            }
+            if let Ok(rows) = squeeze::rows().await {
+                mem = tokio::task::spawn_blocking(move || pids.into_iter()
+                    .filter_map(|(id, p)| Some((id, squeeze::mem_of(&rows, p)?))).collect()).await.unwrap_or_default();
+            }
+        }
+        let mut rows = vec![];
+        for (id, d) in &devs {
+            let seq = d.frame_seq();
+            // First sight of a Device: start after its current events (`crash_events` has the history).
+            let after = match prev.get(id) { Some(p) => p.2, None => d.events.after(u64::MAX, None).1 };
+            let (ev, ev_last) = d.events.after(after, None);
+            let Some(s) = st.devs.lock().unwrap().get(id).map(|s| (s.phase, s.sent, s.streams, p50(&s.lat), s.lat.len(), s.started.elapsed().as_secs())) else { continue };
+            let (sc, se) = prev.get(id).map_or((0.0, 0.0), |p| (seq.saturating_sub(p.0) as f64 / dt, s.1.saturating_sub(p.1) as f64 / dt));
+            for e in ev {
+                emit(&st, json!({"type": "crash", "device": id, "event": e}));
+            }
+            prev.insert(id.clone(), (seq, s.1, ev_last));
+            let m = mem.get(id);
+            rows.push(json!({"id": id, "phase": s.0, "ready": s.0 == "ready", "uptime_s": s.5, "scanout_fps": (sc * 10.0).round() / 10.0,
+                "sent_fps": (se * 10.0).round() / 10.0, "streams": s.2, "input_p50_ms": s.3, "input_n": s.4,
+                "ws_mb": m.map(|m| m.0), "own_mb": m.map(|m| m.1), "shared_mb": m.map(|m| m.2)}));
+        }
+        prev.retain(|k, _| devs.iter().any(|(id, _)| id == k));
+        emit(&st, json!({"type": "metrics", "available_mb": device::available_mb(), "devices": rows}));
+    }
 }
 
 async fn stop_all(st: &State) -> Vec<String> {
@@ -345,12 +491,30 @@ async fn follow_logs(st: &State, req: &Value, w: &mut (impl AsyncWriteExt + Unpi
     }
 }
 
-async fn handle(st: &State, conn: u64, req: &Value) -> R<Value> {
+async fn handle(st: &Arc<State>, conn: u64, req: &Value) -> R<Value> {
     let call = req["call"].as_str().ok_or("missing `call`")?;
     let devid = req["device"].as_str().unwrap_or("d0");
     match call {
+        "start_many" => return start_many(st, req).await,
+        "stop_many" => {
+            // `devices` (default: every Device), stopped at once.
+            let list = ids(req)?.unwrap_or_else(|| st.devs.lock().unwrap().keys().cloned().collect());
+            let mut out = vec![];
+            for id in list {
+                let st = st.clone();
+                out.push((id.clone(), tokio::spawn(async move { stop_one(&st, &id).await })));
+            }
+            let mut rows = vec![];
+            for (id, h) in out {
+                rows.push(match h.await.map_err(|e| e.to_string()).and_then(|r| r) {
+                    Ok(()) => json!({"device": id, "ok": true}),
+                    Err(e) => json!({"device": id, "ok": false, "error": e}),
+                });
+            }
+            return Ok(json!({"ok": rows.iter().all(|r| r["ok"] == json!(true)), "devices": rows}));
+        }
         "start" => {
-            let idx: u32 = devid.strip_prefix('d').and_then(|s| s.parse().ok()).ok_or("device id must be d<N>")?;
+            let idx = idx_of(devid)?;
             let avail = device::available_mb();
             let (d, ready_s) = start_device(st, idx, req).await?;
             return Ok(json!({"ok": true, "device": d.id, "ready_s": ready_s, "available_mb_before": avail, "dir": d.dir}));
@@ -363,7 +527,7 @@ async fn handle(st: &State, conn: u64, req: &Value) -> R<Value> {
         }
         "status" => {
             let devs: Vec<Value> = st.devs.lock().unwrap().values().map(|s| {
-                let mut v = json!({"id": s.dev.id, "ready": s.dev.ready.load(Ordering::SeqCst), "frames_via": s.dev.transport().0,
+                let mut v = json!({"id": s.dev.id, "ready": s.dev.ready.load(Ordering::SeqCst), "phase": s.phase, "streams": s.streams, "frames_via": s.dev.transport().0,
                     "input_via": s.dev.transport().1, "lease": s.lease == Some(conn), "uptime_s": s.started.elapsed().as_secs()});
                 for (k, x) in s.info.as_object().into_iter().flatten() { v[k] = x.clone(); }
                 v
@@ -374,9 +538,8 @@ async fn handle(st: &State, conn: u64, req: &Value) -> R<Value> {
     }
     let d = st.dev(devid).ok_or(format!("no Device `{devid}`"))?;
     if call == "stop" {
-        let _g = st.lifecycle.lock().await;
-        d.stop().await;
-        st.devs.lock().unwrap().remove(devid);
+        drop(d);
+        stop_one(st, devid).await?;
         return Ok(json!({"ok": true}));
     }
     if !d.ready.load(Ordering::SeqCst) {
@@ -432,6 +595,12 @@ async fn handle(st: &State, conn: u64, req: &Value) -> R<Value> {
                 cursor = Some(cur);
                 tokio::time::sleep(Duration::from_millis(100)).await;
             }
+        }
+        "issues" => {
+            // E/F lines grouped and counted, split into the `filter` package's ("app") and the rest ("system").
+            let mut f = log_filter(&d, req).await;
+            let top = req["top"].as_u64().unwrap_or(40) as usize;
+            return Ok(json!({"ok": true, "issues": logs::issues(&d.dir.join("logcat.log"), &mut f, top)?}));
         }
         "squeeze" | "memory" => {
             let pid = d.boot_pid().await.ok_or("Device has no boot process")?;
@@ -516,6 +685,12 @@ async fn handle(st: &State, conn: u64, req: &Value) -> R<Value> {
         // settled() starts looking only after the input is fully sent; the watcher saw frames sooner.
         first = w.await.map_err(|e| e.to_string())?.or(first);
     }
+    if let Some(ms) = first {
+        if let Some(s) = st.devs.lock().unwrap().get_mut(devid) {
+            s.lat.push_back(ms);
+            if s.lat.len() > 50 { s.lat.pop_front(); }
+        }
+    }
     let size = req["size"].as_str().and_then(device::parse_size);
     let mut rep = json!({"ok": true, "input_ms": input_ms, "input_via": via, "settled": settled, "frames": frames,
         "first_frame_ms": first, "settled_ms": t.elapsed().as_millis() as u64, "frame": frame_json(&f, size)?});
@@ -529,9 +704,23 @@ async fn handle(st: &State, conn: u64, req: &Value) -> R<Value> {
 mod tests {
     use super::*;
 
-    fn state() -> State {
-        let cfg = Cfg { work: "W".into(), mem: "896".into(), cpus: "2".into(), min_avail_mb: 4000, crosvm_dir: "crosvm-pmem".into() };
-        State { cfg, devs: StdMutex::new(BTreeMap::new()), lifecycle: Mutex::new(()), fleet_stop: Default::default() }
+    fn state() -> Arc<State> {
+        Arc::new(new_state(Cfg { work: "W".into(), mem: "896".into(), cpus: "2".into(), min_avail_mb: 4000, crosvm_dir: "crosvm-pmem".into() }))
+    }
+
+    #[tokio::test]
+    async fn batch_calls_check_ids_and_emit() {
+        let st = state();
+        let mut rx = st.events.subscribe();
+        assert!(handle(&st, 1, &json!({"call": "start_many"})).await.unwrap_err().contains("`devices`"));
+        assert!(handle(&st, 1, &json!({"call": "start_many", "devices": ["d0", "x1"]})).await.unwrap_err().contains("d<N>"));
+        let r = handle(&st, 1, &json!({"call": "start_many", "devices": ["d3"], "image": "slim9"})).await.unwrap();
+        assert_eq!((r["ok"].clone(), r["devices"][0]["error"].as_str().map(|e| e.contains("unknown image"))), (json!(false), Some(true)));
+        let e = rx.recv().await.unwrap();
+        assert_eq!((e["type"].as_str(), e["device"].as_str()), (Some("error"), Some("d3")));
+        assert_eq!(handle(&st, 1, &json!({"call": "stop_many"})).await.unwrap()["devices"], json!([]));
+        assert_eq!(handle(&st, 1, &json!({"call": "stop_many", "devices": ["d5"]})).await.unwrap()["devices"][0]["ok"], json!(false));
+        assert_eq!(p50(&[30, 10, 20].into_iter().collect()), Some(20));
     }
 
     #[tokio::test]

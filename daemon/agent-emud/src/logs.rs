@@ -95,6 +95,13 @@ pub struct Filter {
     pub pids: HashSet<u32>,
     pub since_ms: Option<u64>,
     pub year: i64,
+    /// Lowest level kept ("W" keeps W, E, F); None keeps all.
+    pub min_level: Option<u8>,
+}
+
+/// Logcat level rank: V 0 .. F 5 (unknown letters rank as V).
+pub fn rank(level: &str) -> u8 {
+    "VDIWEF".find(level).unwrap_or(0) as u8
 }
 
 impl Filter {
@@ -105,6 +112,9 @@ impl Filter {
             if is_pkg(&p, name) {
                 self.pids.insert(pid);
             }
+        }
+        if self.min_level.is_some_and(|m| rank(l.level) < m) {
+            return false;
         }
         if let Some(s) = self.since_ms {
             if unix_ms(l.time, self.year).is_some_and(|t| t < s) {
@@ -146,6 +156,50 @@ pub fn read(path: &Path, from: Option<u64>, f: &mut Filter, max: usize) -> Resul
         }
     }
     Ok((out.into(), start + complete as u64))
+}
+
+/// The message with numbers and hex runs replaced by `#`, so repeats of one problem group together.
+pub fn normalize(msg: &str) -> String {
+    let mut out = String::with_capacity(msg.len());
+    let mut in_num = false;
+    for w in msg.split_inclusive(|c: char| !c.is_ascii_alphanumeric()) {
+        let (word, sep) = w.split_at(w.trim_end_matches(|c: char| !c.is_ascii_alphanumeric()).len());
+        let num = !word.is_empty() && (word.chars().all(|c| c.is_ascii_digit())
+            || (word.len() >= 6 && word.chars().all(|c| c.is_ascii_hexdigit()) && word.chars().any(|c| c.is_ascii_digit()))
+            || (word.starts_with("0x") && word.len() > 2));
+        if num {
+            if !in_num { out.push('#'); }
+        } else {
+            out.push_str(word);
+        }
+        in_num = num && sep.is_empty();
+        out.push_str(sep);
+    }
+    out
+}
+
+/// E and F lines grouped by (app or system, level, tag, normalized message), most frequent first.
+/// "app" = a pid of the filter's package (learned as `read` does). Scans the last MAX_SCAN bytes.
+pub fn issues(path: &Path, f: &mut Filter, top: usize) -> Result<Vec<serde_json::Value>, String> {
+    // Every line (not just E/F): `am_proc_start` lines teach `f` the app's pids.
+    let mut all = Filter { name: None, pids: HashSet::new(), since_ms: None, year: f.year, min_level: None };
+    let (lines, _) = read(path, None, &mut all, usize::MAX)?;
+    let mut groups: std::collections::HashMap<(bool, String, String, String), (u64, String)> = Default::default();
+    for raw in &lines {
+        let Some(l) = parse(raw) else { continue };
+        f.keep(&l);
+        if rank(l.level) < 4 {
+            continue;
+        }
+        let app = f.pids.contains(&l.pid);
+        let e = groups.entry((app, l.level.to_string(), l.tag.to_string(), normalize(l.msg))).or_insert((0, String::new()));
+        e.0 += 1;
+        e.1 = l.time.to_string();
+    }
+    let mut v: Vec<_> = groups.into_iter().collect();
+    v.sort_by(|a, b| b.1 .0.cmp(&a.1 .0));
+    Ok(v.into_iter().take(top).map(|((app, level, tag, msg), (n, last))| serde_json::json!({
+        "side": if app { "app" } else { "system" }, "count": n, "level": level, "tag": tag, "message": msg, "last": last})).collect())
 }
 
 // ---------- crash and ANR events ----------
@@ -264,6 +318,29 @@ impl Events {
 mod tests {
     use super::*;
 
+    #[test]
+    fn issues_group_repeats_and_split_app_from_system() {
+        assert_eq!(normalize("exited 4 times in 4 minutes"), "exited # times in # minutes");
+        assert_eq!(normalize("pid 7546 addr 0x7f3a2b deadbeef12 ok"), "pid # addr # # ok");
+        assert_eq!(normalize("IThreadChip/chip0 v2"), "IThreadChip/chip0 v2");
+        let p = std::env::temp_dir().join(format!("ae-issues-{}.log", std::process::id()));
+        std::fs::write(&p, "10-08 04:00:00.000  1009  1100 I am_proc_start: [0,6001,10123,com.x,activity,{com.x/com.x.Main}]
+10-08 04:00:01.000  6001  6001 E ReactNativeJS: fetch failed 12
+10-08 04:00:02.000  6001  6001 E ReactNativeJS: fetch failed 13
+10-08 04:00:03.000     1     1 E init    : exited 4 times in 4 minutes
+10-08 04:00:04.000     1     1 W init    : not an issue
+").unwrap();
+        let mut f = Filter { name: Some("com.x".into()), pids: HashSet::new(), since_ms: None, year: 2026, min_level: None };
+        let v = issues(&p, &mut f, 10).unwrap();
+        std::fs::remove_file(&p).ok();
+        assert_eq!(v.len(), 2, "{v:?}");
+        assert_eq!((v[0]["side"].as_str(), v[0]["count"].as_u64(), v[0]["message"].as_str()), (Some("app"), Some(2), Some("fetch failed #")));
+        assert_eq!(v[1]["side"], "system");
+        let mut w = Filter { name: None, pids: HashSet::new(), since_ms: None, year: 2026, min_level: Some(rank("W")) };
+        assert!(!w.keep(&parse("10-08 04:00:04.000     1     1 I init    : x").unwrap()));
+        assert!(w.keep(&parse("10-08 04:00:04.000     1     1 W init    : x").unwrap()));
+    }
+
     const CRASH: &str = "10-08 04:12:59.814  5742  5742 E AndroidRuntime: FATAL EXCEPTION: main
 10-08 04:12:59.814  5742  5742 E AndroidRuntime: Process: com.boltbetz.staging, PID: 5742
 10-08 04:12:59.814  5742  5742 E AndroidRuntime: android.app.RemoteServiceException$CrashedByAdbException: shell-induced crash
@@ -294,7 +371,7 @@ mod tests {
 
     #[test]
     fn filter_follows_package_pids_and_time() {
-        let mut f = Filter { name: Some("com.x".into()), pids: HashSet::new(), since_ms: None, year: 2026 };
+        let mut f = Filter { name: Some("com.x".into()), pids: HashSet::new(), since_ms: None, year: 2026, min_level: None };
         let start = "10-08 04:00:00.000  1009  1039 I am_proc_start: [0,77,10052,com.x:remote,top-activity,{com.x/.A}]";
         assert!(!f.keep(&parse("10-08 04:00:00.001    77    77 I Foo: before start").unwrap()));
         f.keep(&parse(start).unwrap());
@@ -313,7 +390,7 @@ mod tests {
     fn read_keeps_complete_lines_and_cursor() {
         let p = std::env::temp_dir().join(format!("ae-logs-{}.log", std::process::id()));
         std::fs::write(&p, format!("{CRASH}\n10-08 04:13:00.000     1     1 I Tail: partial")).unwrap();
-        let mut f = Filter { name: None, pids: HashSet::new(), since_ms: None, year: 2026 };
+        let mut f = Filter { name: None, pids: HashSet::new(), since_ms: None, year: 2026, min_level: None };
         let (lines, cur) = read(&p, Some(0), &mut f, 2).unwrap();
         assert_eq!(lines.len(), 2, "the newest 2 of 4 complete lines");
         assert!(lines[1].contains("am_crash"));
