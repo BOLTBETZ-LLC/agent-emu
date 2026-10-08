@@ -9,81 +9,81 @@
   "cap_helper_mb": 16,
   "mem": 576
  },
- "available_before_mb": 9300,
- "compression_before_mb": 1870,
+ "available_before_mb": 7613,
+ "compression_before_mb": 2146,
  "mcp_has_fleet": true,
  "fleet": {
   "devices": [
    {
-    "app_pid": "3504",
-    "available_mb_before": 9333,
+    "app_pid": "3517",
+    "available_mb_before": 7701,
     "balloon": {
      "actual_mb": 0,
      "final_mb": 0,
-     "guest_available_mb": 14,
+     "guest_available_mb": 11,
      "requested_mb": 150,
      "steps": [
       {
        "balloon_mb": 0,
-       "guest_available_mb": 14
+       "guest_available_mb": 11
       }
      ],
-     "wait_ms": 293
+     "wait_ms": 170
     },
     "id": "d0",
-    "launch": "Starting: Intent { cmp=com.boltbetz.staging/com.boltbetz.MainActivity }\nStatus: ok\nLaunchState: COLD\nActivity: com.boltbetz.staging/com.boltbetz.MainActivity\nTotalTime: 8747\nWaitTime: 8781\nComplete",
-    "ready_s": 123.3719619,
-    "ws_after_squeeze_mb": 281,
-    "ws_before_squeeze_mb": 1466
+    "launch": "Starting: Intent { cmp=com.boltbetz.staging/com.boltbetz.MainActivity }\nStatus: ok\nLaunchState: COLD\nActivity: com.boltbetz.staging/com.boltbetz.MainActivity\nTotalTime: 5027\nWaitTime: 5051\nComplete",
+    "ready_s": 127.7080384,
+    "ws_after_squeeze_mb": 283,
+    "ws_before_squeeze_mb": 1526
    },
    {
-    "app_pid": "3568",
-    "available_mb_before": 9761,
+    "app_pid": "3484",
+    "available_mb_before": 10759,
     "balloon": {
      "actual_mb": 0,
      "final_mb": 0,
-     "guest_available_mb": 15,
+     "guest_available_mb": 20,
      "requested_mb": 150,
      "steps": [
       {
        "balloon_mb": 0,
-       "guest_available_mb": 15
+       "guest_available_mb": 20
       }
      ],
-     "wait_ms": 144
+     "wait_ms": 106
     },
     "id": "d1",
-    "launch": "Starting: Intent { cmp=com.boltbetz.staging/com.boltbetz.MainActivity }\nStatus: ok\nLaunchState: COLD\nActivity: com.boltbetz.staging/com.boltbetz.MainActivity\nTotalTime: 4416\nWaitTime: 4441\nComplete",
-    "ready_s": 126.301948,
-    "ws_after_squeeze_mb": 287,
-    "ws_before_squeeze_mb": 1510
+    "launch": "Starting: Intent { cmp=com.boltbetz.staging/com.boltbetz.MainActivity }\nStatus: ok\nLaunchState: COLD\nActivity: com.boltbetz.staging/com.boltbetz.MainActivity\nTotalTime: 2862\nWaitTime: 2905\nComplete",
+    "ready_s": 130.2394463,
+    "ws_after_squeeze_mb": 289,
+    "ws_before_squeeze_mb": 1502
    }
   ],
   "id": 1,
-  "ms": 317175,
+  "ms": 424177,
   "ok": true,
   "stopped": null,
   "total": {
-   "available_mb_after": 10790,
-   "available_mb_before": 9333,
-   "elapsed_s": 317.1753944,
+   "available_mb_after": 13969,
+   "available_mb_before": 7701,
+   "elapsed_s": 424.1763403,
    "requested": 2,
    "up": 2,
-   "ws_mb": 568
+   "ws_mb": 572
   }
  },
- "compression_after_60s_mb": 2016,
+ "compression_after_60s_mb": 2074,
  "per_device": {
   "d0": {
    "ws_mb": 282,
-   "app_pid": "3504"
+   "app_pid": "3517"
   },
   "d1": {
-   "ws_mb": 287,
-   "app_pid": ""
+   "ws_mb": 289,
+   "app_pid": "3484"
   }
  },
- "ws_total_mb": 569,
- "compression_growth_mb": 146,
- "available_after_mb": 13373
+ "ws_total_mb": 571,
+ "compression_growth_mb": -72,
+ "available_after_mb": 15006
 }

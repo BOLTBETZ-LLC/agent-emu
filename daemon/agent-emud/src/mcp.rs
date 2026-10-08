@@ -50,6 +50,7 @@ fn tools() -> Value {
                 "image": {"type": "string", "description": "slim3 | slim4 | slim5"}, "mem": num,
                 "net": {"type": "boolean", "description": "false = no virtio-net and no adb (untested)"},
                 "auto_squeeze": {"type": "boolean", "description": "default true"},
+                "squeeze_settle_s": {"type": "number", "description": "wait after launch before squeezing, default 45"},
                 "app": {"type": "string", "description": "package to launch, default com.boltbetz.staging"},
                 "balloon_mb": num, "cap_main_mb": num, "cap_helper_mb": num}}}),
         json!({"name": "fleet_stop", "description": "Stop every Device this daemon runs.", "inputSchema": {"type": "object", "properties": {}}}),

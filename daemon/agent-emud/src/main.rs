@@ -160,12 +160,13 @@ async fn log_filter(d: &Device, req: &Value) -> logs::Filter {
     logs::Filter { name, pids, since_ms: req["since"].as_u64(), year: logs::this_year() }
 }
 
-/// After the app's first screen: hide system dialogs again, wait until no frame for 2 s (30 s at most),
-/// then squeeze with the Device's start options.
+/// After the app's launch: hide system dialogs again, let the app settle for `o.settle_s` (the cold
+/// start keeps paging in for tens of seconds), then squeeze with the Device's start options.
 async fn auto_squeeze(cfg: &Cfg, d: &Device, o: squeeze::Opts) -> R<Value> {
     d.con.exec("settings put global hide_error_dialogs 1; am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS >/dev/null",
         Duration::from_secs(20)).await?;
-    let quiet = quiet_for(|| d.frame_seq(), Duration::from_secs(2), Duration::from_secs(30)).await;
+    tokio::time::sleep(Duration::from_secs(o.settle_s)).await;
+    let quiet = quiet_for(|| d.frame_seq(), Duration::from_secs(2), Duration::from_secs(10)).await;
     let pid = d.boot_pid().await.ok_or("Device has no boot process")?;
     let mut r = squeeze::squeeze(d, &cfg.crosvm(), pid, o).await?;
     r["screen_quiet"] = json!(quiet);
@@ -474,14 +475,19 @@ async fn handle(st: &State, conn: u64, req: &Value) -> R<Value> {
     }
     let s0 = d.frame_seq();
     let t = Instant::now();
+    let deadline = Duration::from_millis(req["deadline_ms"].as_u64().unwrap_or(3000));
+    let watch = if req["screenshot"] == json!(false) { None } else { d.first_frame_watch(s0, t, deadline) };
     let via = inject(&d, input).await?;
     let input_ms = t.elapsed().as_millis() as u64;
     if req["screenshot"] == json!(false) {
         return Ok(json!({"ok": true, "input_ms": input_ms, "input_via": via}));
     }
-    let deadline = Duration::from_millis(req["deadline_ms"].as_u64().unwrap_or(3000));
     let quiet = Duration::from_millis(req["settle_ms"].as_u64().unwrap_or(33));
-    let (f, settled, frames, first) = d.settled(s0, t, quiet, deadline).await?;
+    let (f, settled, frames, mut first) = d.settled(s0, t, quiet, deadline).await?;
+    if let Some(w) = watch {
+        // settled() starts looking only after the input is fully sent; the watcher saw frames sooner.
+        first = w.await.map_err(|e| e.to_string())?.or(first);
+    }
     let size = req["size"].as_str().and_then(device::parse_size);
     let mut rep = json!({"ok": true, "input_ms": input_ms, "input_via": via, "settled": settled, "frames": frames,
         "first_frame_ms": first, "settled_ms": t.elapsed().as_millis() as u64, "frame": frame_json(&f, size)?});

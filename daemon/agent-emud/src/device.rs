@@ -402,6 +402,14 @@ impl Device {
     }
 
     /// Scanout frames posted so far (0 without the fast path).
+    /// Starts timing the first frame after `s0` before the input is sent, so a frame drawn while a long
+    /// input (a swipe) is still being written counts from the input's start, not its end. None without
+    /// the scanout mapping.
+    pub fn first_frame_watch(&self, s0: u64, t_in: Instant, deadline: Duration) -> Option<tokio::task::JoinHandle<Option<u64>>> {
+        let fb = self.fb.get()?.clone();
+        Some(tokio::task::spawn_blocking(move || first_change(&|| fb.seq(), s0, t_in, deadline)))
+    }
+
     pub fn frame_seq(&self) -> u64 {
         self.fb.get().map_or(0, |f| f.seq())
     }
@@ -487,6 +495,19 @@ impl Device {
 /// Settle rule (issue 10, 2026-10-08): the first frame after `s0`, then `quiet` with no new frame.
 /// Polls `seq` every ~1 ms. No frame by the deadline is settled=false.
 /// Returns (settled, ms from `t_in` to the first frame after `s0`).
+/// ms from `t_in` to the first frame after `s0`, polling every ~0.5 ms; None by the deadline.
+fn first_change(seq: &dyn Fn() -> u64, s0: u64, t_in: Instant, deadline: Duration) -> Option<u64> {
+    loop {
+        if seq() != s0 {
+            return Some(t_in.elapsed().as_millis() as u64);
+        }
+        if t_in.elapsed() >= deadline {
+            return None;
+        }
+        std::thread::sleep(Duration::from_micros(500));
+    }
+}
+
 fn wait_quiet(seq: &dyn Fn() -> u64, s0: u64, t_in: Instant, quiet: Duration, deadline: Duration) -> (bool, Option<u64>) {
     let (mut last, mut changed) = (s0, None);
     let mut first = None;
@@ -560,6 +581,15 @@ mod tests {
         assert_eq!(input_text_cmd("a b'c"), r"input text 'a%sb'\''c'");
         assert_eq!(parse_size("706x1568"), Some((706, 1568)));
         assert_eq!(parse_size("706"), None);
+    }
+
+    #[test]
+    fn first_change_times_from_the_input() {
+        let t = Instant::now();
+        let seq = || if t.elapsed() < Duration::from_millis(40) { 9 } else { 10 };
+        let ms = first_change(&seq, 9, t, Duration::from_millis(500)).unwrap();
+        assert!((40..55).contains(&ms), "{ms}");
+        assert_eq!(first_change(&|| 9, 9, Instant::now(), Duration::from_millis(30)), None);
     }
 
     #[test]

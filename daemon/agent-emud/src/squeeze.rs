@@ -25,16 +25,19 @@ pub struct Opts {
     pub balloon_mb: u64,
     pub cap_main_mb: u64,
     pub cap_helper_mb: u64,
+    /// auto_squeeze waits this long after the app launch before squeezing (`squeeze_settle_s`). The
+    /// 10-Device proof used 45 s; squeezing 2 s after launch let lmkd kill a 576 MB guest's app.
+    pub settle_s: u64,
 }
 
 impl Opts {
-    pub const DEFAULT: Opts = Opts { balloon_mb: 150, cap_main_mb: 250, cap_helper_mb: 16 };
+    pub const DEFAULT: Opts = Opts { balloon_mb: 150, cap_main_mb: 250, cap_helper_mb: 16, settle_s: 45 };
 
     /// Fields present in `req` override `base`.
     pub fn from(req: &Value, base: Opts) -> Opts {
         let g = |k: &str, d: u64| req[k].as_u64().unwrap_or(d);
         Opts { balloon_mb: g("balloon_mb", base.balloon_mb), cap_main_mb: g("cap_main_mb", base.cap_main_mb),
-            cap_helper_mb: g("cap_helper_mb", base.cap_helper_mb) }
+            cap_helper_mb: g("cap_helper_mb", base.cap_helper_mb), settle_s: g("squeeze_settle_s", base.settle_s) }
     }
 }
 
@@ -230,7 +233,8 @@ mod tests {
     #[test]
     fn opts_and_balloon_stats() {
         let o = Opts::from(&json!({"balloon_mb": 0, "cap_main_mb": 300}), Opts::DEFAULT);
-        assert_eq!(o, Opts { balloon_mb: 0, cap_main_mb: 300, cap_helper_mb: 16 });
+        assert_eq!(o, Opts { balloon_mb: 0, cap_main_mb: 300, cap_helper_mb: 16, settle_s: 45 });
+        assert_eq!(Opts::from(&json!({"squeeze_settle_s": 5}), Opts::DEFAULT).settle_s, 5);
         let s = r#"{"BalloonStats": {"stats": {"free_memory": 1}, "balloon_actual": 367001600}}"#;
         assert_eq!(balloon_actual(s), Some(367001600));
         assert_eq!(balloon_actual("not json"), None);
