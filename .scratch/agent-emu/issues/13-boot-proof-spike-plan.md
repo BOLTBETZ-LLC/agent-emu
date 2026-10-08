@@ -573,3 +573,9 @@ All 10 were stopped at the end by their own `ae-vm-<id>` pipes. 0 crosvm process
 - `fleet10_diet.py` itself never stopped anything during this run (no abort), and its caps only touch its own Devices' processes.
 - **Fix:** `kill_mine()` in `fleet_diet.py`, and `stop()`/`device_procs()` in `fleet10_diet.py`, now match only a `run-mp` broker whose command line has `pipe?ae-vm-<id> ` for this run's ids. They stop only that broker's crosvm children, its parent powershell and the bridge `console_bridge.ps1 -Id <id> -Port <7100+id>`. A read-only check matched only the right broker for ids 16 and 19, and nothing for 13 or 1.
 - A second bug was in `fleet_diet.py`: the pattern `'*\ae-vm-{i} *'` contained `\a`, which Python reads as a BEL character, so it would never have matched. It now uses the `?` wildcard.
+
+### Coordinator check of the 10-Device proof (2026-10-08)
+
+- All 10 end screenshots are byte-identical (md5 `b1cb85e5...`), and identical to the single-Device `squeeze-576/end-d16.png`. Each was captured over its own console port (7100+id), and the last sample shows 10 different app pids (3382-3514). So these are 10 separate live guests. Software rendering of the same static screen gives the same bytes every time.
+- **Goal met (target ≤600 MB, raised from 400 on 2026-10-08):** 10 Android 16 Devices at once, proof app on its first screen, **~445 MB unique host RAM per Device** (worst case, all compression growth charged to them). The Available-recovery figure (496 MB) is also under 600.
+- Not met: the original 400 MB target.
