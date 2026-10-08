@@ -29,7 +29,9 @@ const PARTS: &str = "misc:misc.img:writable frp:frp.img:writable boot_a:boot.img
 const SETUP: &str = "cmd connectivity airplane-mode enable; settings put global window_animation_scale 0; \
     settings put global transition_animation_scale 0; settings put global animator_duration_scale 0; \
     svc power stayon true; input keyevent KEYCODE_WAKEUP; wm dismiss-keyguard; \
-    settings put secure immersive_mode_confirmations confirmed";
+    settings put secure immersive_mode_confirmations confirmed; \
+    ip link set buried_eth0 up; ip addr add 10.0.2.15/24 dev buried_eth0; \
+    ip route add 10.0.2.0/24 dev buried_eth0 table legacy_system";
 
 pub fn now_ms() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64
@@ -268,6 +270,8 @@ impl Device {
             .env("AE_EXTRA", format!("--socket PIPE:ae-vm-{idx} --pmem path={},ro=true --input multi-touch[path={}] --input keyboard[path={}]",
                 pmem.to_string_lossy().replace('\\', "/"), fast::touch_pipe(idx), fast::kbd_pipe(idx)))
             .env("AGENT_EMU_FB", win(&dir.join("fb.bin"))).env("AGENT_EMU_FB_PIPE", fast::fb_pipe(idx))
+            // slirp forwards 127.0.0.1:6520+N to adbd at 10.0.2.15:5555 (SETUP gives the guest NIC that address).
+            .env("AGENT_EMU_ADB_PORT", (6520 + idx).to_string())
             .env("AE_KERNEL", "kernel-dax").env("AE_INITRD", "initrd-dax-pmem.img").env("AE_CROSVM", win(&cfg.crosvm()))
             .stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null())
             .creation_flags(CREATE_NO_WINDOW).spawn().map_err(|e| format!("spawn boot: {e}"))?;

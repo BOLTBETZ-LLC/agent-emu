@@ -1,0 +1,16 @@
+$ adb connect 127.0.0.1:6520
+connected to 127.0.0.1:6520
+(exit 0, 0.1 s)
+
+$ adb -s 127.0.0.1:6520 shell getprop sys.boot_completed
+1
+(exit 0, 0.0 s)
+
+$ adb -s 127.0.0.1:6520 install -r C:/dev/agent-emu-work/results/adb/proof.apk
+Performing Streamed Install
+Success
+(exit 0, 13.3 s)
+
+$ adb -s 127.0.0.1:6520 shell pm list packages com.boltbetz
+package:com.boltbetz.staging
+(exit 0, 0.1 s)

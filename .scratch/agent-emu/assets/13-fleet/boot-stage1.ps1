@@ -4,7 +4,8 @@
 $W = "C:\dev\agent-emu-work"
 $R = if ($env:AE_DIR) { $env:AE_DIR } else { "$W\run" }
 Set-Location $R
-if ($env:AGENT_EMU_NO_NET -eq $null) { $env:AGENT_EMU_NO_NET = "1" }
+# Network (slirp) only when an adb host port is asked for.
+if ($env:AGENT_EMU_NO_NET -eq $null -and -not $env:AGENT_EMU_ADB_PORT) { $env:AGENT_EMU_NO_NET = "1" }
 $cmdline = (Select-String -Path "$W\stage1\unpack\vendor_boot.txt" -Pattern '^vendor command line args: (.*)$').Matches[0].Groups[1].Value
 $sinks = @()
 foreach ($n in 4..20) { $sinks += "--serial"; $sinks += "hardware=virtio-console,num=$n,type=sink" }
