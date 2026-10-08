@@ -169,6 +169,11 @@ Each Device gets its own dir with hard-linked read-only images (one disk copy, o
 
 - At 4 Devices the Available delta and the Committed delta agree within 1.5%, so **~1.2 GB per Device at `--mem 1024`** is the reliable number. The cost is guest RAM (1 GB, fully resident) plus about 200 MB of VMM, GPU and device processes. The 2-Device numbers were noise.
 - **fleet8-pmem (8 Devices × 1 GB): stopped by the memory guard.** Available fell to 1,133 MB during boot (48 crosvm processes). The cause was not the Devices alone: the WSL VM (`vmmemWSL`) held **10.9 GB** from the kernel build and the repacks. Rerun after `wsl --shutdown`. Rule for the spec: the Fleet host must not run the image-build VM at the same time.
+- **slim3 (slim2 minus SystemUI and its RRO; `config.disable_systemui=true`) + pmem at `--mem 768`: OOM at boot.**
+  - At 25 s the kernel OOM killer took system_server; the kernel panicked at 28 s.
+  - Memory at OOM: anon about 280 MB, **slab_unreclaimable 177 MB**, pagetables 24 MB, free 22 MB.
+  - Android 16 boot needs more than 768 MB even without SystemUI, with DAX system and low_ram.
+  - Getting lower needs kernel and userspace diet work (slab users, zram sizing, fewer boot services), not just APK removal.
 - **pmem + slim2 at `--mem 768`: boot timeout.** The guest was only 26 s into boot after 10 min of wall time. This image (with SystemUI and the launcher) needs about 1 GB even with DAX. Next cut: slim3 without SystemUI (252 MB RSS), like the ATD images.
 - **The next lever is guest RAM size.** DAX took system files out of the guest page cache, so try `--mem 768` and 640 with pmem. Then add a balloon per Device.
 
