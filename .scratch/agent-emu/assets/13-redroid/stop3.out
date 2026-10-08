@@ -1,0 +1,8 @@
+all3 12:20:03 avail=6818 vmmemWSL_ws=4789 vmmemWSL_priv=4900 crosvm=8 memcomp=1255
+  in: 2703 1897 1580 ksm 853 728 {'1': (659, 576), '2': (650, 602), '3': (661, 565)}
+down3 12:21:23 avail=8008 vmmemWSL_ws=3316 vmmemWSL_priv=3985 crosvm=8 memcomp=1377
+  in: 3504 1350 1340 ksm 542 458 {'1': (675, 581), '2': (636, 606)}
+down2 12:22:42 avail=8768 vmmemWSL_ws=2581 vmmemWSL_priv=3132 crosvm=8 memcomp=1359
+  in: 4291 802 1084 ksm 241 198 {'1': (950, 585)}
+down1 12:24:01 avail=9735 vmmemWSL_ws=1589 vmmemWSL_priv=2024 crosvm=8 memcomp=1309
+  in: 5211 139 842 ksm 2 1 {}

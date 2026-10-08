@@ -1150,3 +1150,53 @@ Goal: fewer guest page rewrites (clone cost tracks them). Base: slim4dax2, 640 M
 - Run dir `run-slim4dax3` (slim4dax2 files plus the new `vendor-pmem.img`). `run-slim4dax3/READY` = `640`.
 
 Not tried: `watermark_scale_factor` 1 (10 already moved reclaim into direct reclaim), a smaller zram disksize, a zram writeback device.
+
+## Container lever (redroid) (2026-10-08): no gain, ~800 MB per instance
+
+Question: do Android containers on one shared Linux kernel (redroid in WSL2) cost less unique RAM per Device than our crosvm clones (416 MB marginal, 445 MB per Device in the 10-Device proof)? **No. About 800 MB per instance with KSM on, about 950 without.** Data and scripts: `assets/13-redroid/`.
+
+**Setup:**
+- Image `redroid/redroid:16.0.0_64only-latest` (Android 16, `BP2A.250605.031.A3`, x86_64 only), Docker 29.1.3 in WSL Ubuntu, `--privileged`, `androidboot.redroid_gpu_mode=guest` (SwiftShader/ANGLE). 720x1280.
+- WSL kernel `linux-msft-wsl-6.18.33.2` (the running version) plus `ANDROID_BINDER_IPC=y`, `ANDROID_BINDERFS=y`, `ANDROID_BINDER_DEVICES=""`, KSM already on (`build-wslk.sh`). Modules built and installed (`build-mods.sh`), because Docker needs `xt_addrtype` etc.
+- Android 16 needs **ashmem** even with `androidboot.use_memfd=true`: without it surfaceflinger aborts in a loop with `output buffer not gpu writeable` (redroid-doc #934). Mainline dropped ashmem, so `ashmem_linux` comes from redroid-modules PR #23 (`skunpoj/redroid-modules@fix/modern-kernel-6.17-compat`).
+- That module **crashed the WSL VM** on first mmap: `kernel BUG at arch/x86/kernel/cet.c:133` in `shmem_zero_setup` from `ashmem_mmap` (kernel IBT, `dmesg-ibt-crash.txt`). The crash also zeroed recently written ext4 files in the distro. Fix: `kernelCommandLine=ibt=off` in `.wslconfig`.
+- KSM: `ksmwrap` sets `PR_SET_MEMORY_MERGE` on containerd, which every container process inherits (`ksm_merge_any: yes` checked in system_server and the app). Toggle with `/sys/kernel/mm/ksm/run`, scan 5000 pages / 20 ms.
+- No `-p` port maps (no DNAT module loaded), so adb goes to the container IP directly. WSL `memory=6GB` unchanged.
+- Protocol as in the clone runs: proof APK (`results/adb/proof.apk`, same bytes as `run/apk.img`) installed per container, launched, tap every 20 s, relaunch at the half-way point, sample every 30 s. Host guard every 30 s (`hostguard.ps1`) never fired.
+
+**Boot and app:** container to `sys.boot_completed` 9.7-11.9 s. Install + launch + 45 s settle ≈ 57 s. `am start -W` TotalTime 266-432 ms. Containers have network, so the app shows the real Welcome screen (carousel, Log In, Create Account), not the offline dialog the VMs show. That makes it a little heavier. All screens looked at: `up-rr1.png`, `up-rr2.png`, `up-rr3.png`, `end-rr4-lowram.png`. App alive in every sample of every run. adb taps p50 18-20 ms, p95 30-159 ms.
+
+**Per-container memory at plateau** (cgroup tree, `smaps_rollup` summed over ~85 processes):
+
+| Run | anon | USS | PSS | KSM saved total |
+|---|---|---|---|---|
+| 1 instance, KSM off, 10 min (`hold1`) | 745 | 1,063 | 1,357 | 0 |
+| 3 instances, KSM off, 10 min (`hold3`) | 730-767 | 848-873 | 1,100-1,121 | 0 |
+| same 3, KSM on, 6 min (`hold3ksm`) | 562-599 | 646-658 | 932-948 | 846 MB |
+| 2 instances, `ro.config.low_ram=true` + `heapgrowthlimit=128m`, KSM on, 6 min (`hold-lowram`) | 542-598 | 652-654 | — | 486 MB |
+
+**Marginal cost per instance:**
+
+| Measure | KSM off | KSM on |
+|---|---|---|
+| WSL `MemAvailable` drop, 3 instances / 3 | (5,211 − 2,344) / 3 = **956 MB** | (5,211 − 2,703) / 3 = **836 MB** |
+| WSL `MemAvailable` freed, stop one (3→2, 2→1) | — | **801, 787 MB** |
+| same, low_ram (2→1) | — | **799 MB** |
+| vmmemWSL working-set growth, add one (1→2, 2→3) | +2,002, +1,243 MB (the second one hit the 6 GB WSL cap) | — |
+| Host Available freed, stop one (3→2, 2→1) | — | 1,190, 760 MB |
+
+- KSM saves about 300 MB per added instance (saved 241 → 542 → 853 MB at 1/2/3 instances) and ~240 MB inside a single instance. That is real, but it lands at ~800 MB, not under 416.
+- `ro.config.low_ram=true` was accepted (`getprop` true) and changed almost nothing (799 MB stop-one).
+- The first instance also costs ~2.5 GB of vmmemWSL for image page cache, shared by the rest.
+- No 10-instance run: 3 did not look good, and 10 × ~800 MB does not fit the 6 GB WSL cap or the 3,000 MB host floor next to the 8 other crosvm processes.
+
+**Why it loses:** the VM clone shares the whole booted guest (zygote heap, system_server, every service) copy-on-write from one snapshot, so a clone only pays for pages it writes (~340 MB). A container shares the kernel and the read-only image files, but every container boots its own Android userspace: its own zygote, system_server, SystemUI, launcher and ~85 processes, each with private anon heap (~730-770 MB per container). KSM finds only part of that as identical. Also, this redroid image is a full Android 16, not our slim4/slim5 diet.
+
+**Downsides for the product, even if RAM were equal:**
+- Needs a custom WSL kernel (binder, binderfs), an out-of-tree ashmem module, `ibt=off`, and `--privileged` containers. One bad module mmap takes down the whole WSL VM, and with it every Device and every other WSL user (Docker Desktop, image builds).
+- No WHPX: it runs inside the single WSL VM, so the 6 GB `.wslconfig` cap (shared with Docker Desktop and builds) bounds the whole fleet, and per-Device host accounting is only possible from inside Linux.
+- Screen and input go through adb/scrcpy (`screencap`, `input tap`), not our virtio-gpu scanout and virtio-input path (36 ms p50 input to frame).
+- Android runs on the host Linux kernel (6.18 WSL), not a GKI Android kernel. Kernel-side Android features (ashmem, binder variants, SELinux policy, vendor modules) depend on what WSL's kernel supports.
+- GPU: guest mode is SwiftShader in software. Android 16 surfaceflinger already depends on the ashmem workaround; host GPU mode needs `/dev/dri`, which WSL exposes only as `dxg`.
+
+**State left:** `.wslconfig` restored from `.wslconfig.bak-redroid-2026-10-08` (stock kernel back, `uname -r` = `6.18.33.2-microsoft-standard-WSL2`). Docker and containerd in Ubuntu are disabled (installed, not started). The redroid kernel, modules and ashmem build stay at `C:/dev/agent-emu-work/redroid/` and `/root/wslk`, `/lib/modules/6.18.33.2-redroid+` in Ubuntu, if anyone wants to rerun this. No follow-up needs them.

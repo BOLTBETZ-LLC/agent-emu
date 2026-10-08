@@ -1,0 +1,8 @@
+2443:[   15.406244] Missing ENDBR: shmem_zero_setup+0x4/0x70
+2445:[   15.406598] kernel BUG at arch/x86/kernel/cet.c:133!
+2449:[   15.407701] RIP: 0010:exc_control_protection+0x1a6/0x1b0
+2463:[   15.411829] RIP: 0010:shmem_zero_setup+0x4/0x70
+2474:[   15.415561]  ? shmem_zero_setup+0x4/0x70
+2475:[   15.415771]  ? shmem_zero_setup+0x45/0x47 [ashmem_linux]
+2476:[   15.416000]  ashmem_mmap+0x180/0x210 [ashmem_linux]
+2507:[   15.421613] RIP: 0033:0x7821ac9bd95a

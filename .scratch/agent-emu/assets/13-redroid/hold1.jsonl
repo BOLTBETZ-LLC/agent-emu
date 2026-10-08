@@ -1,0 +1,51 @@
+{"tap": "1", "ms": 185}
+{"t": "11:50:35", "mem": {"MemTotal": 5925, "MemFree": 1720, "MemAvailable": 4386, "Cached": 2770, "AnonPages": 857, "Shmem": 29, "SwapTotal": 8192, "SwapFree": 8192}, "ksm": {"run": 0, "pages_shared": 0, "pages_sharing": 0, "saved_mb": 0, "general_profit_mb": 0}, "c": {"1": {"cur": 2457, "anon": 719, "file": 1570, "shmem": 25, "pss": 1360, "uss": 1065, "rss": 6230, "nproc": 85, "app": "1773"}}, "el": 0}
+{"tap": "1", "ms": 18}
+{"t": "11:51:05", "mem": {"MemTotal": 5925, "MemFree": 1709, "MemAvailable": 4374, "Cached": 2770, "AnonPages": 857, "Shmem": 29, "SwapTotal": 8192, "SwapFree": 8192}, "ksm": {"run": 0, "pages_shared": 0, "pages_sharing": 0, "saved_mb": 0, "general_profit_mb": 0}, "c": {"1": {"cur": 2459, "anon": 721, "file": 1570, "shmem": 25, "pss": 1362, "uss": 1068, "rss": 6231, "nproc": 85, "app": "1773"}}, "el": 30}
+{"tap": "1", "ms": 19}
+{"tap": "1", "ms": 17}
+{"t": "11:51:35", "mem": {"MemTotal": 5925, "MemFree": 1713, "MemAvailable": 4378, "Cached": 2770, "AnonPages": 859, "Shmem": 29, "SwapTotal": 8192, "SwapFree": 8192}, "ksm": {"run": 0, "pages_shared": 0, "pages_sharing": 0, "saved_mb": 0, "general_profit_mb": 0}, "c": {"1": {"cur": 2461, "anon": 723, "file": 1570, "shmem": 25, "pss": 1363, "uss": 1069, "rss": 6233, "nproc": 85, "app": "1773"}}, "el": 60}
+{"tap": "1", "ms": 18}
+{"t": "11:52:05", "mem": {"MemTotal": 5925, "MemFree": 1711, "MemAvailable": 4377, "Cached": 2770, "AnonPages": 862, "Shmem": 29, "SwapTotal": 8192, "SwapFree": 8192}, "ksm": {"run": 0, "pages_shared": 0, "pages_sharing": 0, "saved_mb": 0, "general_profit_mb": 0}, "c": {"1": {"cur": 2463, "anon": 725, "file": 1570, "shmem": 25, "pss": 1366, "uss": 1072, "rss": 6235, "nproc": 85, "app": "1773"}}, "el": 90}
+{"tap": "1", "ms": 18}
+{"tap": "1", "ms": 23}
+{"t": "11:52:35", "mem": {"MemTotal": 5925, "MemFree": 1710, "MemAvailable": 4375, "Cached": 2770, "AnonPages": 865, "Shmem": 29, "SwapTotal": 8192, "SwapFree": 8192}, "ksm": {"run": 0, "pages_shared": 0, "pages_sharing": 0, "saved_mb": 0, "general_profit_mb": 0}, "c": {"1": {"cur": 2466, "anon": 728, "file": 1570, "shmem": 25, "pss": 1369, "uss": 1075, "rss": 6239, "nproc": 85, "app": "1773"}}, "el": 120}
+{"tap": "1", "ms": 18}
+{"t": "11:53:05", "mem": {"MemTotal": 5925, "MemFree": 1710, "MemAvailable": 4376, "Cached": 2770, "AnonPages": 865, "Shmem": 29, "SwapTotal": 8192, "SwapFree": 8192}, "ksm": {"run": 0, "pages_shared": 0, "pages_sharing": 0, "saved_mb": 0, "general_profit_mb": 0}, "c": {"1": {"cur": 2468, "anon": 730, "file": 1570, "shmem": 25, "pss": 1372, "uss": 1078, "rss": 6241, "nproc": 85, "app": "1773"}}, "el": 150}
+{"tap": "1", "ms": 17}
+{"tap": "1", "ms": 18}
+{"t": "11:53:35", "mem": {"MemTotal": 5925, "MemFree": 1703, "MemAvailable": 4369, "Cached": 2770, "AnonPages": 867, "Shmem": 29, "SwapTotal": 8192, "SwapFree": 8192}, "ksm": {"run": 0, "pages_shared": 0, "pages_sharing": 0, "saved_mb": 0, "general_profit_mb": 0}, "c": {"1": {"cur": 2470, "anon": 732, "file": 1570, "shmem": 25, "pss": 1374, "uss": 1080, "rss": 6243, "nproc": 85, "app": "1773"}}, "el": 180}
+{"tap": "1", "ms": 20}
+{"t": "11:54:05", "mem": {"MemTotal": 5925, "MemFree": 1697, "MemAvailable": 4363, "Cached": 2770, "AnonPages": 871, "Shmem": 29, "SwapTotal": 8192, "SwapFree": 8192}, "ksm": {"run": 0, "pages_shared": 0, "pages_sharing": 0, "saved_mb": 0, "general_profit_mb": 0}, "c": {"1": {"cur": 2473, "anon": 735, "file": 1570, "shmem": 25, "pss": 1377, "uss": 1083, "rss": 6246, "nproc": 85, "app": "1773"}}, "el": 210}
+{"tap": "1", "ms": 18}
+{"tap": "1", "ms": 18}
+{"t": "11:54:35", "mem": {"MemTotal": 5925, "MemFree": 1701, "MemAvailable": 4367, "Cached": 2770, "AnonPages": 876, "Shmem": 29, "SwapTotal": 8192, "SwapFree": 8192}, "ksm": {"run": 0, "pages_shared": 0, "pages_sharing": 0, "saved_mb": 0, "general_profit_mb": 0}, "c": {"1": {"cur": 2476, "anon": 738, "file": 1570, "shmem": 25, "pss": 1379, "uss": 1085, "rss": 6249, "nproc": 85, "app": "1773"}}, "el": 240}
+{"tap": "1", "ms": 18}
+{"t": "11:55:05", "mem": {"MemTotal": 5925, "MemFree": 1689, "MemAvailable": 4355, "Cached": 2770, "AnonPages": 878, "Shmem": 29, "SwapTotal": 8192, "SwapFree": 8192}, "ksm": {"run": 0, "pages_shared": 0, "pages_sharing": 0, "saved_mb": 0, "general_profit_mb": 0}, "c": {"1": {"cur": 2479, "anon": 741, "file": 1570, "shmem": 25, "pss": 1382, "uss": 1088, "rss": 6251, "nproc": 85, "app": "1773"}}, "el": 270}
+{"tap": "1", "ms": 18}
+{"tap": "1", "ms": 18}
+{"relaunch": "1", "out": ["TotalTime: 273", "WaitTime: 275", "Complete"]}
+{"t": "11:55:35", "mem": {"MemTotal": 5925, "MemFree": 1773, "MemAvailable": 4440, "Cached": 2781, "AnonPages": 791, "Shmem": 40, "SwapTotal": 8192, "SwapFree": 8192}, "ksm": {"run": 0, "pages_shared": 0, "pages_sharing": 0, "saved_mb": 0, "general_profit_mb": 0}, "c": {"1": {"cur": 2465, "anon": 706, "file": 1592, "shmem": 47, "pss": 1344, "uss": 1050, "rss": 6224, "nproc": 85, "app": "2167"}}, "el": 300}
+{"tap": "1", "ms": 20}
+{"t": "11:56:05", "mem": {"MemTotal": 5925, "MemFree": 1688, "MemAvailable": 4355, "Cached": 2775, "AnonPages": 867, "Shmem": 33, "SwapTotal": 8192, "SwapFree": 8192}, "ksm": {"run": 0, "pages_shared": 0, "pages_sharing": 0, "saved_mb": 0, "general_profit_mb": 0}, "c": {"1": {"cur": 2475, "anon": 731, "file": 1575, "shmem": 29, "pss": 1369, "uss": 1075, "rss": 6253, "nproc": 85, "app": "2167"}}, "el": 330}
+{"tap": "1", "ms": 20}
+{"tap": "1", "ms": 19}
+{"t": "11:56:35", "mem": {"MemTotal": 5925, "MemFree": 1700, "MemAvailable": 4367, "Cached": 2775, "AnonPages": 869, "Shmem": 33, "SwapTotal": 8192, "SwapFree": 8192}, "ksm": {"run": 0, "pages_shared": 0, "pages_sharing": 0, "saved_mb": 0, "general_profit_mb": 0}, "c": {"1": {"cur": 2476, "anon": 733, "file": 1575, "shmem": 29, "pss": 1371, "uss": 1076, "rss": 6255, "nproc": 85, "app": "2167"}}, "el": 360}
+{"tap": "1", "ms": 17}
+{"t": "11:57:05", "mem": {"MemTotal": 5925, "MemFree": 1694, "MemAvailable": 4361, "Cached": 2775, "AnonPages": 871, "Shmem": 33, "SwapTotal": 8192, "SwapFree": 8192}, "ksm": {"run": 0, "pages_shared": 0, "pages_sharing": 0, "saved_mb": 0, "general_profit_mb": 0}, "c": {"1": {"cur": 2478, "anon": 735, "file": 1575, "shmem": 29, "pss": 1373, "uss": 1078, "rss": 6257, "nproc": 85, "app": "2167"}}, "el": 390}
+{"tap": "1", "ms": 19}
+{"tap": "1", "ms": 18}
+{"t": "11:57:35", "mem": {"MemTotal": 5925, "MemFree": 1686, "MemAvailable": 4354, "Cached": 2775, "AnonPages": 874, "Shmem": 33, "SwapTotal": 8192, "SwapFree": 8192}, "ksm": {"run": 0, "pages_shared": 0, "pages_sharing": 0, "saved_mb": 0, "general_profit_mb": 0}, "c": {"1": {"cur": 2480, "anon": 737, "file": 1575, "shmem": 29, "pss": 1375, "uss": 1080, "rss": 6259, "nproc": 85, "app": "2167"}}, "el": 420}
+{"tap": "1", "ms": 18}
+{"t": "11:58:05", "mem": {"MemTotal": 5925, "MemFree": 1689, "MemAvailable": 4356, "Cached": 2775, "AnonPages": 876, "Shmem": 33, "SwapTotal": 8192, "SwapFree": 8192}, "ksm": {"run": 0, "pages_shared": 0, "pages_sharing": 0, "saved_mb": 0, "general_profit_mb": 0}, "c": {"1": {"cur": 2483, "anon": 739, "file": 1575, "shmem": 29, "pss": 1377, "uss": 1083, "rss": 6261, "nproc": 85, "app": "2167"}}, "el": 450}
+{"tap": "1", "ms": 18}
+{"tap": "1", "ms": 18}
+{"t": "11:58:35", "mem": {"MemTotal": 5925, "MemFree": 1682, "MemAvailable": 4350, "Cached": 2775, "AnonPages": 878, "Shmem": 33, "SwapTotal": 8192, "SwapFree": 8192}, "ksm": {"run": 0, "pages_shared": 0, "pages_sharing": 0, "saved_mb": 0, "general_profit_mb": 0}, "c": {"1": {"cur": 2485, "anon": 741, "file": 1575, "shmem": 29, "pss": 1379, "uss": 1085, "rss": 6263, "nproc": 85, "app": "2167"}}, "el": 480}
+{"tap": "1", "ms": 18}
+{"t": "11:59:05", "mem": {"MemTotal": 5925, "MemFree": 1682, "MemAvailable": 4349, "Cached": 2775, "AnonPages": 880, "Shmem": 33, "SwapTotal": 8192, "SwapFree": 8192}, "ksm": {"run": 0, "pages_shared": 0, "pages_sharing": 0, "saved_mb": 0, "general_profit_mb": 0}, "c": {"1": {"cur": 2487, "anon": 743, "file": 1575, "shmem": 29, "pss": 1382, "uss": 1087, "rss": 6266, "nproc": 85, "app": "2167"}}, "el": 510}
+{"tap": "1", "ms": 18}
+{"tap": "1", "ms": 42}
+{"t": "11:59:35", "mem": {"MemTotal": 5925, "MemFree": 3532, "MemAvailable": 4365, "Cached": 1016, "AnonPages": 883, "Shmem": 33, "SwapTotal": 8192, "SwapFree": 8192}, "ksm": {"run": 0, "pages_shared": 0, "pages_sharing": 0, "saved_mb": 0, "general_profit_mb": 0}, "c": {"1": {"cur": 1626, "anon": 745, "file": 719, "shmem": 29, "pss": 1357, "uss": 1063, "rss": 6241, "nproc": 85, "app": "2167"}}, "el": 540}
+{"tap": "1", "ms": 18}
+{"t": "12:00:04", "mem": {"MemTotal": 5925, "MemFree": 1927, "MemAvailable": 3618, "Cached": 1889, "AnonPages": 1425, "Shmem": 50, "SwapTotal": 8192, "SwapFree": 8192}, "ksm": {"run": 0, "pages_shared": 0, "pages_sharing": 0, "saved_mb": 0, "general_profit_mb": 0}, "c": {"1": {"cur": 1629, "anon": 748, "file": 720, "shmem": 29, "pss": 1178, "uss": 864, "rss": 6244, "nproc": 85, "app": "2167"}, "2": {"cur": 1594, "anon": 571, "file": 863, "shmem": 21, "pss": 945, "uss": 646, "rss": 5496, "nproc": 82, "app": ""}}, "el": 570}
+{"tap": "1", "ms": 19}

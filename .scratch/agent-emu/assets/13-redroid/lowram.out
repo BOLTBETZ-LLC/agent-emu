@@ -1,0 +1,22 @@
+base 12:24:19 avail=9691 vmmemWSL_ws=1589 vmmemWSL_priv=2013 crosvm=8 memcomp=1306
+{"k": "4", "boot_s": 11.8, "install": ["Success"], "launch": ["TotalTime: 340", "WaitTime: 341", "Complete"], "pid": "1837", "total_s": 59.2}
+{"k": "5", "boot_s": 11.9, "install": ["Success"], "launch": ["TotalTime: 341", "WaitTime: 343", "Complete"], "pid": "1839", "total_s": 59.2}
+true
+12:26:19 0 ksm_saved 426 {'4': (1811, 1033, 696, True), '5': (1307, 1029, 693, True)}
+12:26:49 30 ksm_saved 424 {'4': (1812, 1034, 697, True), '5': (1306, 1029, 693, True)}
+12:27:20 60 ksm_saved 426 {'4': (1815, 1037, 700, True), '5': (1310, 1033, 697, True)}
+12:27:50 90 ksm_saved 422 {'4': (1817, 1039, 702, True), '5': (1311, 1034, 698, True)}
+12:28:19 120 ksm_saved 414 {'4': (1814, 1032, 698, True), '5': (1314, 1040, 700, True)}
+12:28:49 150 ksm_saved 411 {'4': (1814, 1034, 700, True), '5': (1315, 1041, 701, True)}
+12:29:21 180 ksm_saved 332 {'4': (1831, 1057, 730, True), '5': (1349, 1061, 734, True)}
+12:29:49 210 ksm_saved 480 {'4': (1746, 1004, 646, True), '5': (1319, 1004, 647, True)}
+12:30:19 240 ksm_saved 481 {'4': (1748, 1004, 646, True), '5': (1320, 1006, 648, True)}
+12:30:50 270 ksm_saved 481 {'4': (1749, 1006, 648, True), '5': (1322, 1008, 651, True)}
+12:31:19 300 ksm_saved 485 {'4': (1752, 1009, 651, True), '5': (1324, 1010, 652, True)}
+12:31:49 330 ksm_saved 482 {'4': (1753, 1009, 651, True), '5': (1325, 1011, 654, True)}
+end 12:32:21 avail=5617 vmmemWSL_ws=4453 vmmemWSL_priv=4982 crosvm=8 memcomp=1412
+{"t": "12:32:21", "mem": {"MemTotal": 5925, "MemFree": 1287, "MemAvailable": 3500, "Cached": 2472, "AnonPages": 1286, "Shmem": 61, "SwapTotal": 8192, "SwapFree": 8191}, "ksm": {"run": 1, "pages_shared": 21903, "pages_sharing": 124586, "saved_mb": 486, "general_profit_mb": 404}, "c": {"4": {"cur": 1754, "anon": 542, "file": 1049, "shmem": 28, "pss": 1010, "uss": 652, "rss": 6234, "nproc": 84, "app": "2166"}, "5": {"cur": 1326, "anon": 598, "file": 564, "shmem": 28, "pss": 1011, "uss": 654, "rss": 6225, "nproc": 84, "app": "2163"}}}
+down5 12:33:39 avail=6980 vmmemWSL_ws=3299 vmmemWSL_priv=3840 crosvm=8 memcomp=1455
+{"t": "12:33:39", "mem": {"MemTotal": 5925, "MemFree": 2604, "MemAvailable": 4299, "Cached": 1940, "AnonPages": 741, "Shmem": 32, "SwapTotal": 8192, "SwapFree": 8191}, "ksm": {"run": 1, "pages_shared": 18276, "pages_sharing": 53505, "saved_mb": 209, "general_profit_mb": 167}, "c": {"4": {"cur": 1750, "anon": 540, "file": 1049, "shmem": 28, "pss": 1218, "uss": 918, "rss": 6197, "nproc": 84, "app": "2166"}}}
+down4 12:34:58 avail=8088 vmmemWSL_ws=2196 vmmemWSL_priv=2717 crosvm=8 memcomp=1450
+{"t": "12:34:58", "mem": {"MemTotal": 5925, "MemFree": 3952, "MemAvailable": 5147, "Cached": 1407, "AnonPages": 139, "Shmem": 3, "SwapTotal": 8192, "SwapFree": 8191}, "ksm": {"run": 1, "pages_shared": 61, "pages_sharing": 1447, "saved_mb": 5, "general_profit_mb": 5}, "c": {}}
