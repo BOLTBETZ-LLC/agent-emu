@@ -165,6 +165,10 @@ Each Device gets its own dir with hard-linked read-only images (one disk copy, o
 |---|---|---|---|---|---|---|
 | fleet2-pmem | 2 | 34.4 / 44.3 | both, first screens seen by eye | 1,919 MB | ~960 MB | 4,377 MB |
 | fleet2-block (system on a block disk, same DAX kernel) | 2 | 34.0 / 53.0 | both | 682 MB | ~341 MB | 3,679 MB |
+| **fleet4-pmem** | 4 | 40.8 / 65.5 / 76.3 / 85.9 | all 4, first screens seen by eye | 4,883 MB (Available) / 4,819 MB (Committed) / +124 MB compression store | **~1,221 MB** | 8,842 MB |
+
+- At 4 Devices the Available delta and the Committed delta agree within 1.5%, so **~1.2 GB per Device at `--mem 1024`** is the reliable number. The cost is guest RAM (1 GB, fully resident) plus about 200 MB of VMM, GPU and device processes. The 2-Device numbers were noise.
+- **The next lever is guest RAM size.** DAX took system files out of the guest page cache, so try `--mem 768` and 640 with pmem. Then add a balloon per Device.
 
 **Measurement caveats, found 2026-10-08:**
 - The Available-MBytes delta is noisy on this PC. Other sessions, the WSL VM and Docker all move it.

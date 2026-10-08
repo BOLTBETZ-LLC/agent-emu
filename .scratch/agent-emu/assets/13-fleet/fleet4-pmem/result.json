@@ -1,0 +1,62 @@
+{
+ "tag": "fleet4-pmem",
+ "n": 4,
+ "mem": "1024",
+ "cpus": "2",
+ "pmem": true,
+ "devices": [
+  {
+   "id": 0,
+   "dir": "C:/dev/agent-emu-work/fleet/d0",
+   "ready_s": 40.8,
+   "install": "Success",
+   "launch": "Status: ok\nTotalTime: 5994",
+   "app_pid": "4214",
+   "guest_used": "Used RAM: 1,131,795K (  724,099K used pss +   407,696K kernel)"
+  },
+  {
+   "id": 1,
+   "dir": "C:/dev/agent-emu-work/fleet/d1",
+   "ready_s": 65.5,
+   "install": "Success",
+   "launch": "Status: ok\nTotalTime: 2765",
+   "app_pid": "4623",
+   "guest_used": "Used RAM: 1,133,269K (  724,725K used pss +   408,544K kernel)"
+  },
+  {
+   "id": 2,
+   "dir": "C:/dev/agent-emu-work/fleet/d2",
+   "ready_s": 76.3,
+   "install": "Success",
+   "launch": "Status: ok\nTotalTime: 2980",
+   "app_pid": "4727",
+   "guest_used": "Used RAM: 1,121,451K (  708,219K used pss +   413,232K kernel)"
+  },
+  {
+   "id": 3,
+   "dir": "C:/dev/agent-emu-work/fleet/d3",
+   "ready_s": 85.9,
+   "install": "Success",
+   "launch": "Status: ok\nTotalTime: 2310",
+   "app_pid": "4717",
+   "guest_used": "Used RAM: 1,129,445K (  723,109K used pss +   406,336K kernel)"
+  }
+ ],
+ "host_before": {
+  "available_mb": 14373,
+  "committed_mb": 33754,
+  "mem_compression_ws_mb": 1672
+ },
+ "available_before_mb": 14373,
+ "host_after": {
+  "available_mb": 9490,
+  "committed_mb": 38573,
+  "mem_compression_ws_mb": 1796
+ },
+ "available_after_mb": 9490,
+ "committed_delta_mb": 4819,
+ "mem_compression_delta_mb": 124,
+ "fleet_cost_mb": 4883,
+ "per_device_mb": 1221,
+ "crosvm_ws_total_mb": 8842
+}
