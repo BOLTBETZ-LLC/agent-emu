@@ -70,3 +70,9 @@ crosvm `agent-emu-pmem` + daemon `daemon`: input goes into virtio-input over nam
 - Trap: the guest flushes a scanout blob before it finishes drawing, so a flush-time copy is one frame old. Copy at read time.
 - Trap: slim3 has no wallpaper and no SystemUI, so regions no layer covers keep old pixels in the scanout. `screencap` shows them black. Full-screen apps are unaffected.
 - Trap: crosvm's Windows virtio-input worker waited on the raw pipe handle, which is always signaled. It spun and logged `ERROR_NO_DATA` (232) without end (GBs of `crosvm.log`). Fixed by waiting on the read notifier.
+
+### Decision: settle rule (2026-10-08, recommended default under Aaron's standing order)
+
+- **Settled** = the first response frame after the input, then **33 ms with no new frame** (about 2 vsyncs at 60 Hz), plus app idle once the in-guest helper exists. It replaces "100 ms quiet" (spec §8), which can never be under 50 ms.
+- **Pass bar:** p95 < 50 ms for *input → first response frame* at 1 Device. The fast path already measures 28 ms p95 (key HOME). "Input → settled frame" is still reported, but it is not the pass bar.
+- Visible input proof checked by eye: a fast-path tap on the drawer icon opened WebView Browser Tester (`assets/10-fast-path/before-tap-drawer.jpg` → `after-tap-app-open.jpg`).

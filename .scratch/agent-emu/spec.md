@@ -303,6 +303,6 @@ These settle the contradictions and gaps found while compiling this spec. Where 
 | Spike guest | `aosp_cf_x86_64_only_phone` 15581820; slim only when the budget needs it | No slim prebuilt since 2023 (Guest image source) |
 | Free-page reporting | Stays as cut 2, marked **unverified**: WHPX has no API for it. If it can't be built, `OfferVirtualMemory` on balloon-freed pages is the substitute (WHPX memory capabilities) | Memory budget plus WHPX memory capabilities |
 | VMM 30 MB row | Measure the NVIDIA driver's per-process baseline in spike stage 1. If over 15 MB, move the excess into cut 1 (graphics) | GPU cost per Device |
-| Settle window N | 100 ms with no new frame, plus app idle | Computer-use API v1 |
+| Settle window N | First response frame, then 33 ms with no new frame, plus app idle (replaces 100 ms; issue 10 decision 2026-10-08) | Computer-use API v1 |
 | Health window N | No frame and no adb reply for 30 s means unhealthy | Fleet manager |
-| Round-trip pass bar | **p95 < 50 ms** for "input to settled frame" at 1 Device; p95 < 100 ms at 10 Devices | Computer-use fast path |
+| Round-trip pass bar | **p95 < 50 ms** for "input to first response frame" at 1 Device (measured 28 ms); settled time reported separately; p95 < 100 ms at 10 Devices | Computer-use fast path |
