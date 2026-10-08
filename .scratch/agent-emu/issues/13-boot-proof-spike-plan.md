@@ -1084,3 +1084,51 @@ Goal: stop the app's own code refaulting from non-DAX `/data`, while it stays a 
 - 576 survives, but swaps ~1.2 GB each way.
 - **No swap still fails at 768.** The file side is now mostly DAX, but anon does not fit: the app is ~218 MB RSS and mostly anon, plus system_server and the kernel, in 724 MB with nothing to reclaim anon into. Without swap the floor stays at 896.
 - What is left in page cache: the APEX loop devices (ART 7 MB in the app), `/data` app data, and dalvik-cache.
+
+### Swap-churn tuning at 640 MB; slim4dax3 (2026-10-08)
+
+Goal: fewer guest page rewrites (clone cost tracks them). Base: slim4dax2, 640 MB, zram on.
+- Protocol: `diet_soak.py`, 10 min, a tap every 20 s, relaunch at minute 5.
+- Runtime knobs are applied by `soakrun.sh` `KNOBS` right after install (`tune640.sh` lists every set).
+- Guest defaults: `swappiness` 60, `page-cluster` 3, MGLRU on (`0x0007`), zram lz4 (zstd available). `watermark_scale_factor` is computed by `extra_free_kbytes.sh` (163 at 640 MB), and `min_free_kbytes` 3603.
+- One run per set. Two baseline runs (dax2-640 and sw60, which equals the default) differ by ~1 %.
+
+| Set (runtime unless noted) | Survives | MemAvail min | pswpin | pswpout | kswapd | direct | refaults |
+|---|---|---|---|---|---|---|---|
+| baseline dax2-640 | yes | 11 MB | 101,819 | 118,293 | 192,897 | 880 | 32,175 |
+| sw60 (= default, repeat) | yes | 8 | 103,004 | 117,918 | 196,963 | 1,922 | 30,246 |
+| wm: `watermark_scale_factor` 10, `min_free_kbytes` 2048 | yes | 49 | 60,613 | 81,486 | 103,288 | 25,654 | 17,339 |
+| sw160 | yes | 10 | 128,934 | 145,719 | 220,553 | 430 | 30,068 |
+| pc0: `page-cluster` 0 | yes | 13 | 98,161 | 118,025 | 194,574 | 964 | 33,730 |
+| zstd (swapoff, reset, zstd, same disksize, swapon) | yes | 9 | 74,343 | 91,186 | 155,138 | 666 | 31,216 |
+| mglru0: `lru_gen/enabled` n | yes | 13 | 62,419 | 80,032 | 191,851 | 652 | **87,301** |
+| psi: lmkd partial 70 / complete 300 ms | yes | 9 | 128,611 | 144,896 | 241,882 | 196 | 42,125 |
+| combo at runtime (wm then zstd) | no: `swapoff` was killed and zram stayed lz4; the app was later killed (`device is not responding`). Invalid as a runtime test | | | | | | |
+| baked v1: zstd + `min_free_kbytes` 2048 (wsf overwritten to 163) | yes | 16 | 58,026 | 76,095 | 128,395 | 4,918 | 20,656 |
+| **baked slim4dax3: zstd + `min_free_kbytes` 2048 + `watermark_scale_factor` 10** | **yes** (relaunch 758 ms) | **75** | **38,219** | **49,079** | **58,708** | 20,561 | **8,829** |
+| slim4dax3 at 576 | no: lmkd killed TOP, `min watermark is breached and swap is low` | | | | | | |
+
+**Winner: slim4dax3 at 640 MB.** Compared with dax2-640:
+- swap-in −62 %, swap-out −59 %, kswapd steals −70 %, refaults −73 %, MemAvailable floor 75 MB;
+- direct reclaim goes up (880 → 20,561 pages): the low watermarks push some reclaim into allocations;
+- the app survived, with relaunch 758 ms. End screenshot `results/diet/dax3b-640-soak/end-d16.png` shows the offline dialog, seen by eye.
+
+**Findings per knob:**
+- **Watermarks** are the biggest lever.
+- **zstd** next.
+- `page-cluster` 0 makes no difference.
+- **Higher swappiness** makes it worse.
+- **MGLRU off** trades swap for 3× refaults.
+- **More aggressive lmkd PSI** makes it worse: killed background apps restart.
+
+**Trap:** `watermark_scale_factor` cannot just be written at boot. ActivityManager sets `sys.sysctl.extra_free_kbytes`, and `init.rc` runs `/system/bin/extra_free_kbytes.sh`, which rewrites it (163). slim4dax3's vendor rc re-applies 10 after that trigger, and again on `sys.boot_completed`.
+
+**Image:**
+- slim4dax3 = slim4dax2 with only the vendor changed (`stage2/slim4dax3/build.sh`; vendor is its own pmem image). In `init.cutf_cvm.rc`:
+  - `write /sys/block/zram0/comp_algorithm zstd`;
+  - `on post-fs-data`: `write /proc/sys/vm/watermark_scale_factor 10` and `write /proc/sys/vm/min_free_kbytes 2048` before `swapon_all`;
+  - the two re-apply triggers above.
+- Checked in the guest: `[zstd]`, `watermark_scale_factor=10`, `min_free_kbytes=2048`.
+- Run dir `run-slim4dax3` (slim4dax2 files plus the new `vendor-pmem.img`). `run-slim4dax3/READY` = `640`.
+
+Not tried: `watermark_scale_factor` 1 (10 already moved reclaim into direct reclaim), a smaller zram disksize, a zram writeback device.
