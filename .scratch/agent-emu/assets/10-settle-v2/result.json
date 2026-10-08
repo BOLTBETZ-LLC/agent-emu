@@ -1,0 +1,408 @@
+{
+ "boot": {
+  "ready_s": 135.8,
+  "available_mb_before": 14220
+ },
+ "status": [
+  {
+   "frames_via": "fast",
+   "id": "d0",
+   "input_via": "fast",
+   "ready": true
+  }
+ ],
+ "screenshot_rt_ms": {
+  "p50": 6,
+  "p95": 6,
+  "min": 6,
+  "max": 6,
+  "n": 10
+ },
+ "screenshot_encode_ms": {
+  "p50": 2,
+  "p95": 3,
+  "min": 2,
+  "max": 3,
+  "n": 10
+ },
+ "frame_meta": {
+  "age_ms": 0,
+  "bytes": 22866,
+  "capture_ms": 2,
+  "captured_ms": 1791431339709,
+  "device_height": 1080,
+  "device_width": 720,
+  "encode_ms": 3,
+  "generation": 2504,
+  "height": 1080,
+  "scale": 1.0,
+  "width": 720
+ },
+ "shots": {
+  "0-home": "C:/dev/agent-emu-work/results/settle-v2/0-home.jpg",
+  "0-idle": "C:/dev/agent-emu-work/results/settle-v2/0-idle.jpg",
+  "1b-tap-open-1s": "C:/dev/agent-emu-work/results/settle-v2/1b-tap-open-1s.jpg",
+  "1-tap-open": "C:/dev/agent-emu-work/results/settle-v2/1-tap-open.jpg",
+  "2-home": "C:/dev/agent-emu-work/results/settle-v2/2-home.jpg"
+ },
+ "idle_wait_s": 4,
+ "idle_frames_3s": 0,
+ "idle_frames_2s": 0,
+ "rows": [
+  {
+   "kind": "tap_open",
+   "input_via": "fast",
+   "input_ms": 0,
+   "first_frame_ms": 56,
+   "settled_ms": 93,
+   "settled": true,
+   "frames": 1,
+   "reason": null,
+   "late_frames": 12,
+   "encode_ms": 2,
+   "generation": 2506,
+   "rt_ms": 97
+  },
+  {
+   "kind": "home",
+   "input_via": "fast",
+   "input_ms": 0,
+   "first_frame_ms": 35,
+   "settled_ms": 71,
+   "settled": true,
+   "frames": 1,
+   "reason": null,
+   "late_frames": null,
+   "encode_ms": 3,
+   "generation": 2519,
+   "rt_ms": 75
+  },
+  {
+   "kind": "tap_open",
+   "input_via": "fast",
+   "input_ms": 0,
+   "first_frame_ms": 43,
+   "settled_ms": 80,
+   "settled": true,
+   "frames": 1,
+   "reason": null,
+   "late_frames": 12,
+   "encode_ms": 3,
+   "generation": 2535,
+   "rt_ms": 84
+  },
+  {
+   "kind": "home",
+   "input_via": "fast",
+   "input_ms": 0,
+   "first_frame_ms": 36,
+   "settled_ms": 355,
+   "settled": true,
+   "frames": 18,
+   "reason": null,
+   "late_frames": null,
+   "encode_ms": 3,
+   "generation": 2565,
+   "rt_ms": 359
+  },
+  {
+   "kind": "tap_open",
+   "input_via": "fast",
+   "input_ms": 0,
+   "first_frame_ms": 26,
+   "settled_ms": 231,
+   "settled": true,
+   "frames": 9,
+   "reason": null,
+   "late_frames": 0,
+   "encode_ms": 3,
+   "generation": 2575,
+   "rt_ms": 235
+  },
+  {
+   "kind": "home",
+   "input_via": "fast",
+   "input_ms": 0,
+   "first_frame_ms": 35,
+   "settled_ms": 87,
+   "settled": true,
+   "frames": 3,
+   "reason": null,
+   "late_frames": null,
+   "encode_ms": 3,
+   "generation": 2578,
+   "rt_ms": 91
+  },
+  {
+   "kind": "tap_open",
+   "input_via": "fast",
+   "input_ms": 0,
+   "first_frame_ms": 35,
+   "settled_ms": 239,
+   "settled": true,
+   "frames": 11,
+   "reason": null,
+   "late_frames": 0,
+   "encode_ms": 3,
+   "generation": 2602,
+   "rt_ms": 244
+  },
+  {
+   "kind": "home",
+   "input_via": "fast",
+   "input_ms": 0,
+   "first_frame_ms": 35,
+   "settled_ms": 320,
+   "settled": true,
+   "frames": 16,
+   "reason": null,
+   "late_frames": null,
+   "encode_ms": 2,
+   "generation": 2618,
+   "rt_ms": 324
+  },
+  {
+   "kind": "tap_open",
+   "input_via": "fast",
+   "input_ms": 0,
+   "first_frame_ms": 27,
+   "settled_ms": 199,
+   "settled": true,
+   "frames": 9,
+   "reason": null,
+   "late_frames": 0,
+   "encode_ms": 3,
+   "generation": 2628,
+   "rt_ms": 203
+  },
+  {
+   "kind": "home",
+   "input_via": "fast",
+   "input_ms": 0,
+   "first_frame_ms": 35,
+   "settled_ms": 305,
+   "settled": true,
+   "frames": 15,
+   "reason": null,
+   "late_frames": null,
+   "encode_ms": 2,
+   "generation": 2643,
+   "rt_ms": 309
+  },
+  {
+   "kind": "tap_open",
+   "input_via": "fast",
+   "input_ms": 0,
+   "first_frame_ms": 27,
+   "settled_ms": 178,
+   "settled": true,
+   "frames": 8,
+   "reason": null,
+   "late_frames": 0,
+   "encode_ms": 3,
+   "generation": 2652,
+   "rt_ms": 182
+  },
+  {
+   "kind": "home",
+   "input_via": "fast",
+   "input_ms": 0,
+   "first_frame_ms": 35,
+   "settled_ms": 305,
+   "settled": true,
+   "frames": 15,
+   "reason": null,
+   "late_frames": null,
+   "encode_ms": 2,
+   "generation": 2667,
+   "rt_ms": 309
+  },
+  {
+   "kind": "tap_open",
+   "input_via": "fast",
+   "input_ms": 0,
+   "first_frame_ms": 27,
+   "settled_ms": 213,
+   "settled": true,
+   "frames": 8,
+   "reason": null,
+   "late_frames": 0,
+   "encode_ms": 2,
+   "generation": 2676,
+   "rt_ms": 217
+  },
+  {
+   "kind": "home",
+   "input_via": "fast",
+   "input_ms": 0,
+   "first_frame_ms": 36,
+   "settled_ms": 305,
+   "settled": true,
+   "frames": 15,
+   "reason": null,
+   "late_frames": null,
+   "encode_ms": 2,
+   "generation": 2691,
+   "rt_ms": 309
+  },
+  {
+   "kind": "tap_open",
+   "input_via": "fast",
+   "input_ms": 0,
+   "first_frame_ms": 27,
+   "settled_ms": 230,
+   "settled": true,
+   "frames": 10,
+   "reason": null,
+   "late_frames": 0,
+   "encode_ms": 3,
+   "generation": 2702,
+   "rt_ms": 234
+  },
+  {
+   "kind": "home",
+   "input_via": "fast",
+   "input_ms": 0,
+   "first_frame_ms": 36,
+   "settled_ms": 307,
+   "settled": true,
+   "frames": 15,
+   "reason": null,
+   "late_frames": null,
+   "encode_ms": 3,
+   "generation": 2717,
+   "rt_ms": 311
+  },
+  {
+   "kind": "tap_open",
+   "input_via": "fast",
+   "input_ms": 0,
+   "first_frame_ms": 26,
+   "settled_ms": 128,
+   "settled": true,
+   "frames": 5,
+   "reason": null,
+   "late_frames": 4,
+   "encode_ms": 3,
+   "generation": 2723,
+   "rt_ms": 132
+  },
+  {
+   "kind": "home",
+   "input_via": "fast",
+   "input_ms": 0,
+   "first_frame_ms": 36,
+   "settled_ms": 174,
+   "settled": true,
+   "frames": 7,
+   "reason": null,
+   "late_frames": null,
+   "encode_ms": 3,
+   "generation": 2734,
+   "rt_ms": 178
+  },
+  {
+   "kind": "tap_open",
+   "input_via": "fast",
+   "input_ms": 0,
+   "first_frame_ms": 24,
+   "settled_ms": 212,
+   "settled": true,
+   "frames": 9,
+   "reason": null,
+   "late_frames": 0,
+   "encode_ms": 2,
+   "generation": 2747,
+   "rt_ms": 216
+  },
+  {
+   "kind": "home",
+   "input_via": "fast",
+   "input_ms": 0,
+   "first_frame_ms": 37,
+   "settled_ms": 289,
+   "settled": true,
+   "frames": 14,
+   "reason": null,
+   "late_frames": null,
+   "encode_ms": 2,
+   "generation": 2761,
+   "rt_ms": 293
+  }
+ ],
+ "summary_tap_open": {
+  "first_frame_ms": {
+   "p50": 27,
+   "p95": 56,
+   "min": 24,
+   "max": 56,
+   "n": 10
+  },
+  "settled_ms": {
+   "p50": 206,
+   "p95": 239,
+   "min": 80,
+   "max": 239,
+   "n": 10
+  },
+  "rt_ms": {
+   "p50": 210,
+   "p95": 244,
+   "min": 84,
+   "max": 244,
+   "n": 10
+  },
+  "settled": 10,
+  "n": 10
+ },
+ "summary_home": {
+  "first_frame_ms": {
+   "p50": 36,
+   "p95": 37,
+   "min": 35,
+   "max": 37,
+   "n": 10
+  },
+  "settled_ms": {
+   "p50": 305,
+   "p95": 355,
+   "min": 71,
+   "max": 355,
+   "n": 10
+  },
+  "rt_ms": {
+   "p50": 309,
+   "p95": 359,
+   "min": 75,
+   "max": 359,
+   "n": 10
+  },
+  "settled": 10,
+  "n": 10
+ },
+ "summary_all": {
+  "first_frame_ms": {
+   "p50": 35,
+   "p95": 56,
+   "min": 24,
+   "max": 56,
+   "n": 20
+  },
+  "settled_ms": {
+   "p50": 222,
+   "p95": 355,
+   "min": 71,
+   "max": 355,
+   "n": 20
+  },
+  "rt_ms": {
+   "p50": 226,
+   "p95": 359,
+   "min": 75,
+   "max": 359,
+   "n": 20
+  },
+  "settled": 20,
+  "n": 20
+ }
+}

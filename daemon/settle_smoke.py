@@ -60,10 +60,13 @@ try:
     for i in range(10):
         o = c.call("tap", x=446, y=925)
         time.sleep(1)
+        late = c.call("screenshot")["frame"]  # frames after "settled" mean the rule stopped early
+        o["late_frames"] = late["generation"] - o["frame"]["generation"]
+        if i == 2: res["shots"]["1b-tap-open-1s"] = save(late, "1b-tap-open-1s")
         b = c.call("key", name="home")
         time.sleep(0.5)
         for kind, r in (("tap_open", o), ("home", b)):
-            rows.append({"kind": kind, **{k: r.get(k) for k in ("input_via", "input_ms", "first_frame_ms", "settled_ms", "settled", "frames", "reason")},
+            rows.append({"kind": kind, **{k: r.get(k) for k in ("input_via", "input_ms", "first_frame_ms", "settled_ms", "settled", "frames", "reason", "late_frames")},
                          "encode_ms": r["frame"]["encode_ms"], "generation": r["frame"]["generation"], "rt_ms": round(r["rt_ms"])})
         if i == 2:
             res["shots"]["1-tap-open"] = save(o["frame"], "1-tap-open")

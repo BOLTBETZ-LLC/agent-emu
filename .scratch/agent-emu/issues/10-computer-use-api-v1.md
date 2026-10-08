@@ -76,3 +76,22 @@ crosvm `agent-emu-pmem` + daemon `daemon`: input goes into virtio-input over nam
 - **Settled** = the first response frame after the input, then **33 ms with no new frame** (about 2 vsyncs at 60 Hz), plus app idle once the in-guest helper exists. It replaces "100 ms quiet" (spec §8), which can never be under 50 ms.
 - **Pass bar:** p95 < 50 ms for *input → first response frame* at 1 Device. The fast path already measures 28 ms p95 (key HOME). "Input → settled frame" is still reported, but it is not the pass bar.
 - Visible input proof checked by eye: a fast-path tap on the drawer icon opened WebView Browser Tester (`assets/10-fast-path/before-tap-drawer.jpg` → `after-tap-app-open.jpg`).
+
+## Measured: settle v2 (2026-10-08)
+
+Daemon settle rule now matches the decision: wait for the first frame after the input, then 33 ms with no new frame. No frame by the 3 s deadline returns `settled=false`, `reason: no_frame`. The settle loop compares scanout seq numbers only; one final frame is captured and encoded. JPEG moved to `jpeg-encoder` with AVX2 (`simd`). Driver: `daemon/settle_smoke.py`. 1 Device, 720x1080, screen idle first (0 frames in 2 s), crash dialogs hidden (`hide_error_dialogs 1`; slim3 crash-loops Bluetooth). 10 rounds of: tap the launcher icon (opens WebView Browser Tester), wait 1 s, HOME.
+
+| Call | p50 | p95 (= max, n=10) |
+|---|---|---|
+| tap → first frame | 27 ms | 56 ms |
+| tap → settled | 206 ms | 239 ms |
+| HOME → first frame | 36 ms | 37 ms |
+| HOME → settled | 305 ms | 355 ms |
+| all 20 inputs → first frame | 35 ms | 56 ms |
+| screenshot (client round trip) | 6 ms | 6 ms |
+| JPEG q75 encode, 720x1080 | 2 ms | 3 ms (was 10 ms with `image`) |
+
+- Settled 20/20. Visible change seen by eye: `assets/10-settle-v2/1-tap-open.jpg` (the settled frame of tap 3 is the app) and `2-home.jpg` (launcher back; app pixels stay where no layer draws, the slim3 trap).
+- **The 33 ms rule stops early on cold launches.** Taps 1 and 2 settled at 93 and 80 ms and 12 more frames came within 1 s (the app window draws after a >33 ms gap). Tap 9 had 4 late frames. Warm taps had 0. The app-idle helper is the fix; until then a cold app launch can return a mid-transition frame.
+- p95 < 50 ms for input → first frame: HOME passes (37 ms). Tap misses at n=10 (56 ms, the first cold tap); taps 3-10 were 24-35 ms.
+- Fixed on the way: the scanout seqlock reader gave up after 1000 spins (a few µs) while crosvm's copy takes about 1 ms, so a tap during a launch failed with `scanout mapping: no consistent frame`. It now retries for up to 200 ms and copies the raw pixels before converting.
