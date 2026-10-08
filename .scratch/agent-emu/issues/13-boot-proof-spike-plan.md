@@ -192,3 +192,18 @@ Each Device gets its own dir with hard-linked read-only images (one disk copy, o
 - So block coming out lower than pmem (341 vs 960) is not a real ranking; the two runs were minutes apart with different background load.
 - The Windows PSS walker (`assets/13-fleet/pss.py`, QueryWorkingSetEx) is also unreliable. crosvm maps guest RAM into several of a Device's processes (main + block workers), and `ShareCount` saturates at 7, so it undercounts (~275 MB per Device even though each guest touched 1 GB).
 - **Next runs record three numbers:** Available delta, `\Memory\Committed Bytes` delta, and the Memory Compression working-set delta. They use larger N so noise per Device shrinks.
+
+## Lever B: host working-set trim and hard caps (2026-10-08, Device 8: slim3, pmem, 896 MB guest, 2 vCPU)
+
+| Step | Device working set (all crosvm processes) | App | Latency p50 / p95 over ~3 min (console path) |
+|---|---|---|---|
+| Settled, untouched | 1,997 MB | alive | shell 66, screencap 280, tap 77 ms |
+| `EmptyWorkingSet` once, after 30 s | 560 MB | alive | shell 106, screencap 360, tap 109 ms |
+| After more actions | 655 MB | alive | |
+| **Hard cap**: main 400 MB, helpers 64 MB | 466 MB p50/max | alive (pid 5819), first screen seen by eye (`assets/13-wscap/cap400.png`) | 75 / 139, 297 / 421, 78 / 202 ms |
+| **Hard cap: main 330 MB, helpers 32 MB** | **364 MB p50, 365 max** | alive (pid 5819), first screen seen by eye (`assets/13-wscap/cap330.png`) | 78 / 102, 297 / 686, 78 / 124 ms |
+
+- The cap is `SetProcessWorkingSetSizeEx(..., QUOTA_LIMITS_HARDWS_MAX_ENABLE)` on each crosvm process of the Device. Windows enforces it by moving extra pages to the standby/modified lists and the pagefile. Pagefile usage stayed at ~3.8%.
+- The compression store grew only ~33 MB; trimmed pages mostly went to standby (reclaimable), not compression.
+- What this proves: **one Device runs the proof app with ≤400 MB of resident host memory**, with the medians unchanged and longer latency tails.
+- What it does not prove yet: that a Fleet of capped Devices costs ≤400 MB each in host RAM under real pressure, when standby pages are evicted and touched pages come back from the pagefile. Next: a capped Fleet run.
