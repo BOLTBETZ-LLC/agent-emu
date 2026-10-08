@@ -295,6 +295,17 @@ async fn start_device(st: &State, idx: u32, req: &Value) -> R<(Arc<Device>, f64)
         return Err(fail(e));
     }
     phase("ready");
+    if let Some((img, size, pkg)) = d.browser.clone() {
+        // After ready, so the boot is not longer: install the browser and make it the default (an event says when).
+        let (d2, ev) = (d.clone(), st.events.clone());
+        tokio::spawn(async move {
+            let t = Instant::now();
+            let r = d2.con.exec(&device::browser_setup_cmd(img, size, &pkg), Duration::from_secs(600)).await;
+            let ok = matches!(&r, Ok((o, 0)) if o.contains(&pkg));
+            let _ = ev.send(json!({"type": "device", "device": d2.id, "browser": if ok { "ready" } else { "failed" }, "package": pkg,
+                "s": t.elapsed().as_secs_f64(), "out": r.map(|x| x.0).unwrap_or_else(|e| e), "ts": device::now_ms()}));
+        });
+    }
     Ok((d, t0.elapsed().as_secs_f64()))
 }
 

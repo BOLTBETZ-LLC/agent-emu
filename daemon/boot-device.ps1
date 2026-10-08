@@ -35,7 +35,8 @@ $args = @(
   "--hypervisor", "whpx", "--disable-sandbox", "--cpus", $cpus, "--mem", $mem,
   "--block", "path=$R\os_composite.img",
   "--block", "path=$R\apk.img,ro=true",
-  "--block", "path=$R\out.img",
+  "--block", "path=$R\out.img"
+) + $(if ($env:AE_BROWSER_IMG) { @("--block", "path=$env:AE_BROWSER_IMG,ro=true") } else { @() }) + @(
   "--serial", "hardware=serial,num=1,type=sink",
   "--serial", "hardware=virtio-console,num=1,type=file,path=$R\kernel.log,console=true",
   "--serial", "hardware=virtio-console,num=2,type=namedpipe,path=$pipe",

@@ -257,6 +257,7 @@
   <symbol id="i-play" viewBox="0 0 16 16"><path d="M5 3.5v9l7-4.5z"/></symbol>
   <symbol id="i-restart" viewBox="0 0 16 16"><path d="M12.8 8A4.8 4.8 0 1 1 11.4 4.6"/><path d="M12.2 2.2v3h-3"/></symbol>
   <symbol id="i-shot" viewBox="0 0 16 16"><path d="M2.5 5.5h2.2l1.2-1.8h4.2l1.2 1.8h2.2v7h-11z"/><circle cx="8" cy="8.8" r="2.1"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/><path d="M2.5 8h11M8 2.5c-2 2.2-2 8.8 0 11M8 2.5c2 2.2 2 8.8 0 11"/></symbol>
   <symbol id="i-bolt" viewBox="0 0 16 16"><path d="M9 1.8 3.8 9h3.6L6.8 14.2 12.2 7H8.6z"/></symbol>
   <symbol id="i-expand" viewBox="0 0 16 16"><path d="M9.5 2.5h4v4M6.5 13.5h-4v-4M13.5 2.5 9 7M2.5 13.5 7 9"/></symbol>
   <symbol id="i-panel" viewBox="0 0 16 16"><rect x="2" y="2.5" width="12" height="11" rx="1.5"/><path d="M10 2.5v11"/></symbol>
@@ -305,6 +306,7 @@
       </div>
       <div class="stack" id="st_acts">
         <button class="btn" data-act="open"><svg class="i"><use href="#i-bolt"/></svg>Open BoltBetz</button>
+        <button class="btn" data-act="browser"><svg class="i"><use href="#i-globe"/></svg>Browser</button>
         <button class="btn" data-act="shot"><svg class="i"><use href="#i-shot"/></svg>Screenshot</button>
         <button class="btn" data-act="restart"><svg class="i"><use href="#i-restart"/></svg>Restart</button>
         <button class="btn danger" data-act="stop"><svg class="i"><use href="#i-stop"/></svg>Stop</button>
@@ -425,6 +427,7 @@
       <button class="btn sm icon ghost live" data-key="app_switch" title="Recent apps"><svg class="i"><use href="#i-recents"/></svg></button>
       <span class="sep live"></span>
       <button class="btn sm icon ghost live" data-act="open" title="Open BoltBetz"><svg class="i"><use href="#i-bolt"/></svg></button>
+      <button class="btn sm icon ghost live" data-act="browser" title="Open a web page in the browser"><svg class="i"><use href="#i-globe"/></svg></button>
       <button class="btn sm icon ghost live" data-act="shot" title="Screenshot (PNG)"><svg class="i"><use href="#i-shot"/></svg></button>
       <span class="end">
         <button class="btn sm icon ghost live" data-act="restart" title="Restart"><svg class="i"><use href="#i-restart"/></svg></button>
@@ -845,7 +848,7 @@ function renderStage() {
   $("st_sub").textContent = d ? `${d.image || ""} · ${d.mem || "?"} MB · ${d.cpus || "?"} CPU${d.net === false ? " · no network" : ""}` : "Not running";
   const live = st === "running";
   $("stagecv").style.visibility = live && f ? "visible" : "hidden";
-  document.querySelectorAll("#st_keys .btn, #st_acts [data-act=open], #st_acts [data-act=shot], #st_acts [data-act=restart]").forEach(b => b.disabled = !live);
+  document.querySelectorAll("#st_keys .btn, #st_acts [data-act=open], #st_acts [data-act=browser], #st_acts [data-act=shot], #st_acts [data-act=restart]").forEach(b => b.disabled = !live);
   document.querySelector("#st_acts [data-act=stop]").disabled = st === "empty" || st === "stopping";
   const html = noApp(id)
     ? `<div class="big">No app open</div><div>This lean image has no home screen.</div><div class="row"><button class="btn primary sm" data-v="open"><svg class="i"><use href="#i-bolt"/></svg>Open BoltBetz</button><button class="btn sm ghost" data-v="noapp">Dismiss</button></div>`
@@ -970,6 +973,17 @@ function act(id, a, btn, ev) {
   if (a === "restart") return restart(id, btn);
   if (a === "open") return openApp(id, btn);
   if (a === "shot") return shot(id);
+  if (a === "browser") return openBrowser(id, btn);
+}
+// Firefox (installed by the daemon after boot) opens the page; Auth0 and Plaid use it for Custom Tabs.
+async function openBrowser(id, btn) {
+  if (stateOf(id) !== "running") return;
+  let url = prompt("Open in the phone's browser", store.get("browser.url", "https://"));
+  if (!url) return;
+  if (!/^[a-z][a-z0-9+.-]*:/i.test(url)) url = "https://" + url;
+  store.set("browser.url", url);
+  const r = await busy(btn, job("deep_link", { device: id, uri: url, package: "org.mozilla.firefox" }));
+  wellSay(id, r.ok ? "Opened " + url : "Browser: " + (r.error || "failed"), !r.ok);
 }
 function shot(id) {
   if (stateOf(id) !== "running") return;

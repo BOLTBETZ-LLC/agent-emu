@@ -86,6 +86,26 @@ impl Cfg {
     }
 }
 
+/// The browser every Device gets (Firefox for Android, x86_64): `<work>/browser/browser.img` is the APK
+/// padded to 4 KiB, attached read-only to every Device as one more virtio-blk disk (one host file, shared);
+/// browser.size holds the APK's byte count and browser.pkg its package. None when the image is not there.
+pub fn browser(work: &Path) -> Option<(PathBuf, u64, String)> {
+    let d = work.join("browser");
+    let size = std::fs::read_to_string(d.join("browser.size")).ok()?.trim().parse().ok()?;
+    let pkg = std::fs::read_to_string(d.join("browser.pkg")).ok()?.trim().to_string();
+    let img = d.join("browser.img");
+    img.exists().then_some((img, size, pkg))
+}
+
+/// Guest command: find the disk whose size is `img_bytes`, stream the APK (`size` bytes) into `pm install`,
+/// make `pkg` the default browser (Auth0 and Plaid open Custom Tabs in it). Skips the install when present.
+pub fn browser_setup_cmd(img_bytes: u64, size: u64, pkg: &str) -> String {
+    format!("if ! pm path {pkg} >/dev/null 2>&1; then dev=; for b in /sys/block/vd*; do \
+        [ $(( $(cat $b/size) * 512 )) -eq {img_bytes} ] && dev=/dev/block/${{b##*/}}; done; \
+        [ -n \"$dev\" ] || {{ echo no browser disk; exit 1; }}; head -c {size} $dev | pm install -r -S {size} || exit 1; fi; \
+        cmd role add-role-holder android.app.role.BROWSER {pkg} 0 && cmd role get-role-holders android.app.role.BROWSER")
+}
+
 /// The Android SDK emulator dir whose lib64 holds libgfxstream_backend.dll (AE_SDK_EMULATOR).
 pub fn sdk_emulator() -> PathBuf {
     std::env::var_os("AE_SDK_EMULATOR").map(PathBuf::from).unwrap_or_else(|| {
@@ -444,6 +464,8 @@ pub struct Device {
     pub density: u32,
     /// The crosvm binary this Device runs (gfxstream or software build); squeeze talks to it.
     pub crosvm: PathBuf,
+    /// (browser.img bytes, APK bytes, package) when the browser disk is attached.
+    pub browser: Option<(u64, u64, String)>,
 }
 
 impl Device {
@@ -469,6 +491,10 @@ impl Device {
         let pmem = cfg.work.join(run).join("system-pmem.img");
         let initrd = if is_phone(image_name) { "initrd.img" } else { "initrd-dax-pmem.img" };
         let mut cmd = Command::new("powershell");
+        let browser = browser(&cfg.work).and_then(|(img, size, pkg)| {
+            cmd.env("AE_BROWSER_IMG", win(&img));
+            Some((std::fs::metadata(&img).ok()?.len(), size, pkg))
+        });
         let crosvm = if gfx {
             let (exe, emu) = (cfg.crosvm_gpu(), sdk_emulator());
             for f in [exe.clone(), emu.join("lib64/libgfxstream_backend.dll")] {
@@ -521,7 +547,7 @@ impl Device {
         Ok(Arc::new(Device {
             id: format!("d{idx}"), dir: dir.clone(), boot: Mutex::new(Some(child)), con, ready: AtomicBool::new(false),
             last: StdMutex::new(None), gen: AtomicU64::new(0), scale: StdMutex::new(1.0),
-            idx, input: OnceLock::new(), fb: OnceLock::new(), events: crate::logs::Events::spawn(dir.join("logcat.log")), net, phone: is_phone(image_name), density: dpi, crosvm,
+            idx, input: OnceLock::new(), fb: OnceLock::new(), events: crate::logs::Events::spawn(dir.join("logcat.log")), net, phone: is_phone(image_name), density: dpi, crosvm, browser,
         }))
     }
 
@@ -752,6 +778,21 @@ mod tests {
     #[test]
     fn wrap_escapes_quotes() {
         assert!(wrap("echo 'hi'", "t").contains(r"su 0 sh -c 'echo '\''hi'\''' 2>&1"));
+    }
+
+    #[test]
+    fn browser_setup() {
+        let c = browser_setup_cmd(139436032, 139432402, "org.mozilla.firefox");
+        assert!(c.contains("-eq 139436032 ] && dev=/dev/block/${b##*/}") && c.contains("head -c 139432402 $dev | pm install -r -S 139432402"));
+        assert!(c.contains("cmd role add-role-holder android.app.role.BROWSER org.mozilla.firefox 0"));
+        let w = std::env::temp_dir().join(format!("ae-br-{}", std::process::id()));
+        assert!(browser(&w).is_none());
+        std::fs::create_dir_all(w.join("browser")).unwrap();
+        for (f, v) in [("browser.size", "12\n"), ("browser.pkg", "org.x\n"), ("browser.img", "x")] {
+            std::fs::write(w.join("browser").join(f), v).unwrap();
+        }
+        assert_eq!(browser(&w).map(|b| (b.1, b.2)), Some((12, "org.x".to_string())));
+        std::fs::remove_dir_all(&w).ok();
     }
 
     #[test]
