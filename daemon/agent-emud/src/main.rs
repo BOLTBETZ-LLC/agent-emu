@@ -36,6 +36,8 @@ struct State {
     cfg: Cfg,
     devs: StdMutex<BTreeMap<String, Slot>>,
     lifecycle: Mutex<()>, // serializes starts and stops
+    /// Set by `fleet_stop`; a running `fleet` checks it before each next boot.
+    fleet_stop: std::sync::atomic::AtomicBool,
 }
 
 impl State {
@@ -58,7 +60,7 @@ fn main() {
 }
 
 async fn serve(addr: String) {
-    let st = Arc::new(State { cfg: Cfg::from_env(), devs: StdMutex::new(BTreeMap::new()), lifecycle: Mutex::new(()) });
+    let st = Arc::new(State { cfg: Cfg::from_env(), devs: StdMutex::new(BTreeMap::new()), lifecycle: Mutex::new(()), fleet_stop: Default::default() });
     let l = TcpListener::bind(&addr).await.expect("bind");
     eprintln!("agent-emud listening on {addr}");
     let conns = AtomicU64::new(1);
@@ -234,6 +236,14 @@ fn fleet_ws(rows: &[Value]) -> u64 {
     rows.iter().filter_map(|r| r["ws_after_squeeze_mb"].as_u64().or(r["ws_mb"].as_u64())).sum()
 }
 
+/// Why the fleet must not boot Device `idx` now: `fleet_stop` was called, or host memory is low.
+fn next_boot_blocked(st: &State, avail_mb: u64, idx: u32) -> Option<String> {
+    if st.fleet_stop.load(Ordering::SeqCst) {
+        return Some(format!("fleet_stop called; d{idx} and later were not booted"));
+    }
+    (avail_mb < st.cfg.min_avail_mb).then(|| format!("host Available {avail_mb} MB < {} MB before d{idx}; not booting it", st.cfg.min_avail_mb))
+}
+
 /// `fleet`: boots `n` Devices one after another (ids base..base+n), each to its app's first screen
 /// (install from the image's apk.img over the console, `app launch`, screen quiet), then squeezes it
 /// when auto_squeeze is on (default). The next boot is refused once host Available is under the
@@ -252,11 +262,12 @@ async fn fleet(st: &State, req: &Value) -> R<Value> {
     let install = format!("head -c {apk_size} /dev/block/vdb > /data/local/tmp/p.apk && chmod 644 /data/local/tmp/p.apk && \
         pm install -r /data/local/tmp/p.apk; rm -f /data/local/tmp/p.apk");
     let (t0, avail_before) = (Instant::now(), device::available_mb());
+    st.fleet_stop.store(false, Ordering::SeqCst);
     let (mut rows, mut stopped) = (vec![], Value::Null);
     for idx in base..base + n {
         let avail = device::available_mb();
-        if avail < st.cfg.min_avail_mb {
-            stopped = json!(format!("host Available {avail} MB < {} MB before d{idx}; not booting it", st.cfg.min_avail_mb));
+        if let Some(why) = next_boot_blocked(st, avail, idx) {
+            stopped = json!(why);
             break;
         }
         let mut row = json!({"id": format!("d{idx}"), "available_mb_before": avail});
@@ -333,7 +344,11 @@ async fn handle(st: &State, conn: u64, req: &Value) -> R<Value> {
             return Ok(json!({"ok": true, "device": d.id, "ready_s": ready_s, "available_mb_before": avail, "dir": d.dir}));
         }
         "fleet" => return fleet(st, req).await,
-        "fleet_stop" => return Ok(json!({"ok": true, "stopped": stop_all(st).await})),
+        "fleet_stop" => {
+            // Raise the flag first: a running fleet must not boot another Device after this stop.
+            st.fleet_stop.store(true, Ordering::SeqCst);
+            return Ok(json!({"ok": true, "stopped": stop_all(st).await}));
+        }
         "status" => {
             let devs: Vec<Value> = st.devs.lock().unwrap().values().map(|s| json!({"id": s.dev.id, "ready": s.dev.ready.load(Ordering::SeqCst),
                 "frames_via": s.dev.transport().0, "input_via": s.dev.transport().1, "lease": s.lease == Some(conn)})).collect();
@@ -482,7 +497,7 @@ mod tests {
 
     fn state() -> State {
         let cfg = Cfg { work: "W".into(), mem: "896".into(), cpus: "2".into(), min_avail_mb: 4000, crosvm_dir: "crosvm-pmem".into() };
-        State { cfg, devs: StdMutex::new(BTreeMap::new()), lifecycle: Mutex::new(()) }
+        State { cfg, devs: StdMutex::new(BTreeMap::new()), lifecycle: Mutex::new(()), fleet_stop: Default::default() }
     }
 
     #[tokio::test]
@@ -493,6 +508,16 @@ mod tests {
         assert!(fleet(&st, &json!({"n": 2, "image": "slim9"})).await.unwrap_err().contains("unknown image"));
         assert!(fleet(&st, &json!({"n": 2, "image": "slim5"})).await.unwrap_err().contains("apk.size"), "W/run-slim5 does not exist");
         assert_eq!(stop_all(&st).await, Vec::<String>::new());
+    }
+
+    #[tokio::test]
+    async fn fleet_stop_blocks_the_next_boot() {
+        let st = state();
+        assert_eq!(next_boot_blocked(&st, 8000, 3), None);
+        assert!(next_boot_blocked(&st, 3999, 3).unwrap().contains("< 4000 MB before d3"));
+        let r = handle(&st, 1, &json!({"call": "fleet_stop"})).await.unwrap();
+        assert_eq!(r["stopped"], json!([]));
+        assert!(next_boot_blocked(&st, 8000, 3).unwrap().contains("fleet_stop"));
     }
 
     #[test]
