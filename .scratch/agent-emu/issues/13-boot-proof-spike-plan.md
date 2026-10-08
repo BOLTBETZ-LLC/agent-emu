@@ -629,6 +629,26 @@ The diet worker's smallest no-swap size where the app survives is 896 MB, so onl
 - **Input HOME→first frame (2 warm-ups, 60 inputs): p50 34.5 ms, p95 50.5 ms**, 0 misses.
 - Screens seen by eye (`privatize/s4ns896-sheet.png`): the template scanout and d13 and d14 show the offline dialog. d15 shows the proof app's Welcome/Start screen ("Welcome to BOLTBETZ", Log In / Create Account) after its Try Again taps. The app was alive in all 3.
 
+### slim4dax (app code on DAX pmem) clones at 768 (2026-10-08, diet worker's `run-slim4dax`, READY = 768)
+
+Setup: second read-only pmem `app-pmem.img`. After install, the template binds base.apk from `/dev/block/pmem1` (`dax=always`), the same step as the diet worker's `soakrun.sh`. zram stays on. Template `snap-slim4dax`: ready 116.5 s, launch 550 ms, MemAvailable 77 MB. 3 uncapped CoW clones, 10 min (tap every 20 s, relaunch at 5 min). Page dumps written this time (the dump path is now forward-slash). Raw data: `assets/13-clone/privatize/slim4dax768-*`.
+
+- **Privatized timeline (MB, page-state dumps):**
+
+| Clone | 30 s | 60 s | 120 s | 300 s | 330 s | 600 s |
+|---|---|---|---|---|---|---|
+| d13 | 126 | 211 | 244 | 272 | 272 | 378 |
+| d14 | 198 | 234 | 251 | 268 | 269 | 383 |
+| d15 | 214 | 235 | 251 | 271 | 374 | 380 |
+
+  End of run 388-395 MB.
+- Plateau private WS 387-404 MB. App alive in all 3 at all 20 samples. Relaunch 1.2-2.9 s, taps p50/p95 78/171 ms. The compression store moved 2,115 → 457 MB during the hold: another session's activity. Pagefile flat.
+- **Stops:** d15 freed 541, d14 freed 403 (non-last; no other crosvm started or stopped). Last d13 freed 271, with Available drifting down in its window, so that one is noisy.
+- **Marginal median ≈ 472 MB** (403 / 541). Not ≤390, so no 10-clone run.
+- **Input HOME→first frame (2 warm-ups, 60 inputs): p50 31.7 ms, p95 41.0 ms**, 0 misses.
+- Screens seen by eye (`privatize/slim4dax768-sheet.png`): the template scanout and all 3 clones show the offline dialog.
+- App code on DAX does not lower clone privatization. The app's code was already shared template file pages in a clone. The 768 MB guest, which the image needs, writes more fresh frames than slim4 at 640.
+
 ### Honest RAM of one squeezed Device (2026-10-08, `assets/13-compress/`)
 
 `compress_probe.py`: d0 (896 MB, slim3 pmem), proof app on its first screen, then the daemon `squeeze` with balloon 0 and caps 250/16. Phase A was 6 min with caps only; phase B was 6 min with caps plus `MEMORY_PRIORITY_VERY_LOW` and EcoQoS on all 8 crosvm processes. One tap every 10 s, one sample every 30 s. Host Available stayed between 5.4 and 11.3 GB in the window (no emergency), but other workers' Devices booted and stopped throughout (`other_brokers` in `result.json`), so every global number below carries their noise.

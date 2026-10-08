@@ -12,13 +12,18 @@ import base64, json, os, re, shutil, socket, subprocess, sys, time, uuid
 W = "C:/dev/agent-emu-work"
 # AE_PROFILE=slim4: run-slim4 images, 640 MB, guest diet cmdline cuts, 11 consoles, one virtio-snd.
 PROFILE = os.environ.get("AE_PROFILE", "")
-SLIM4 = PROFILE in ("slim4", "slim5")  # slim5 = slim4 cuts + HomeStub image at 576 MB
+SLIM4 = PROFILE in ("slim4", "slim5", "slim4ns", "slim4dax", "slim4nsdax")  # slim5 = slim4 cuts + HomeStub image at 576 MB
 RUN = f"{W}/run-{PROFILE}" if SLIM4 else f"{W}/run"
 MEM = {"slim4": "640", "slim5": "576"}.get(PROFILE, "896")
 MEM = os.environ.get("AE_MEM_MB", MEM)
 DIET = dict(AE_PARAMS="virtio_blk.num_request_queues=1 virtio_blk.queue_depth=64 kfence.sample_interval=0 transparent_hugepage=never",
             AE_SINKS="11", AE_GPU_EXTRA="audio-device-mode=one-global") if SLIM4 else {}
 BOOT = f"{W}/boot-diet.ps1" if SLIM4 else f"{W}/boot-stage1.ps1"
+# *dax profiles: app code on a second read-only pmem (DAX); bound after install (diet worker's soakrun.sh).
+APPDAX = PROFILE.endswith("dax")
+APPDAX_BIND = ('setprop sys.agentemu.appdax.done 0; setprop sys.agentemu.appdax 1; for i in $(seq 1 60); do '
+               '[ "$(getprop sys.agentemu.appdax.done)" = 1 ] && break; sleep 1; done; echo done=$(getprop sys.agentemu.appdax.done); '
+               'grep -E "appdax|base" /proc/mounts | cut -d" " -f1-4')
 if os.environ.get("AE_MORE_PARAMS"):  # extra kernel cmdline, e.g. page_reporting.page_reporting_order=4
     DIET = dict(DIET, AE_PARAMS=(DIET.get("AE_PARAMS", "") + " " + os.environ["AE_MORE_PARAMS"]).strip())
 X = f"{W}/clone-exp"; O = f"{X}/out"
@@ -97,7 +102,8 @@ def make_dir(i, from_dir=None):
 def start(i, extra="", env_extra=None):
     d = ddir(i)
     extra = (f"--socket PIPE:ae-vm-{i} --pmem path={RUN}/system-pmem.img,ro=true "
-             f"--input multi-touch[path=\\\\.\\pipe\\ae-touch-{i}] --input keyboard[path=\\\\.\\pipe\\ae-kbd-{i}] " + os.environ.get("AE_MORE_ARGS", "") + " " + extra).strip()
+             + (f"--pmem path={RUN}/app-pmem.img,ro=true " if APPDAX else "")
+             + f"--input multi-touch[path=\\\\.\\pipe\\ae-touch-{i}] --input keyboard[path=\\\\.\\pipe\\ae-kbd-{i}] " + os.environ.get("AE_MORE_ARGS", "") + " " + extra).strip()
     env = dict(os.environ, AE_DIR=d.replace("/", "\\"), AE_ID=str(i), AE_MEM=MEM, AE_CPUS="2", AE_EXTRA=extra,
                AE_KERNEL="kernel-dax", AE_INITRD="initrd-dax-pmem.img", AE_CROSVM=CROSVM.replace("/", "\\"),
                AGENT_EMU_HEADLESS="1", AGENT_EMU_NO_NET="1", AGENT_EMU_INPROC="1", AGENT_EMU_FB=f"{d}/fb.bin".replace("/", "\\"), AGENT_EMU_FB_PIPE=PIPE_FB.format(i),
@@ -158,6 +164,7 @@ elif cmd == "template":
     n_apk = int(open(f"{RUN}/apk.size").read())
     gsh(port, "insmod /system_dlkm/lib/modules/virtio_balloon.ko 2>/dev/null; true")
     res["install"] = gsh(port, f"head -c {n_apk} /dev/block/vdb > /data/local/tmp/p.apk && chmod 644 /data/local/tmp/p.apk && pm install -r /data/local/tmp/p.apk; rm -f /data/local/tmp/p.apk", 300)
+    if APPDAX: res["appdax_bind"] = gsh(port, APPDAX_BIND, 120)
     gsh(port, "settings put global hide_error_dialogs 1; setprop log.tag.RIL S; for t in $(ls /proc/$(pidof libcuttlefish-rild)/task 2>/dev/null); do renice -n 19 -p $t; done >/dev/null 2>&1; cmd connectivity airplane-mode enable; settings put global window_animation_scale 0; "
               "settings put global transition_animation_scale 0; settings put global animator_duration_scale 0; svc power stayon true; "
               "input keyevent KEYCODE_WAKEUP; wm dismiss-keyguard; settings put secure immersive_mode_confirmations confirmed")
