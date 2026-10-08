@@ -1,0 +1,58 @@
+{
+ "tag": "mem1024",
+ "mem": "1024",
+ "extra": "",
+ "boot_s": 47.8,
+ "pm_ready_s": 47.9,
+ "install": "Success",
+ "launch": "Status: ok\nTotalTime: 2946",
+ "app_pid": "4331",
+ "screenshot": "C:/dev/agent-emu-work/results/mem1024/first-screen.png",
+ "guest": "Total RAM:   983,136K (status normal)\n Free RAM:   171,936K (        0K cached pss +   123,644K cached kernel +    48,292K free)\n Used RAM: 1,180,404K (  776,044K used pss +   404,360K kernel)\n           TOTAL PSS:   196464            TOTAL RSS:    24120       TOTAL SWAP PSS:   183123",
+ "host": [
+  {
+   "pid": 37460,
+   "ws_mb": 10,
+   "wspriv_mb": 1,
+   "private_mb": 1,
+   "role": "--block"
+  },
+  {
+   "pid": 26124,
+   "ws_mb": 9,
+   "wspriv_mb": 1,
+   "private_mb": 1,
+   "role": "run"
+  },
+  {
+   "pid": 50844,
+   "ws_mb": 1043,
+   "wspriv_mb": 6,
+   "private_mb": 46,
+   "role": "run"
+  },
+  {
+   "pid": 46816,
+   "ws_mb": 658,
+   "wspriv_mb": 3,
+   "private_mb": 6,
+   "role": "device"
+  },
+  {
+   "pid": 42512,
+   "ws_mb": 87,
+   "wspriv_mb": 1,
+   "private_mb": 4,
+   "role": "device"
+  },
+  {
+   "pid": 46960,
+   "ws_mb": 10,
+   "wspriv_mb": 1,
+   "private_mb": 3,
+   "role": "device"
+  }
+ ],
+ "host_total_ws_mb": 1817,
+ "host_total_private_mb": 61
+}

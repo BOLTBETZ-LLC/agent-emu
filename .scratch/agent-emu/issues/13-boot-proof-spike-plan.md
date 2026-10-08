@@ -70,3 +70,23 @@ Grilled with Aaron on 2026-10-07. Critical path only (map speed rule).
   - a screenshot taken through gfxstream (the guest `screencap` was used instead);
   - boot from the 1.5 GB sparse super without unsparsing.
 - crosvm fork: branch `agent-emu` in `C:\dev\agent-emu-work\crosvm`, commit `6704542b7`. The patch, scripts and screenshot are in `assets/13-stage1/`.
+
+## Memory runs (2026-10-07, crosvm/WHPX, only_phone 15581820, 4 vCPU, proof app on its first screen)
+
+Driver: `assets/13-memory/measure.py`. Each run is a fresh boot, then install, offline launch, a 30-40 s settle, a screenshot checked by eye, then memory. Host numbers are working set per crosvm process: main = guest RAM, block = disk cache, gpu, others.
+
+| Guest `--mem` | Boot to completed | App launch | Host main (guest RAM) | Host block (disk cache) | Host gpu | Unique per Device (main + gpu + small) | Guest used | App PSS |
+|---|---|---|---|---|---|---|---|---|
+| 4096 | ~17-20 s | 335 ms | 3,202 MB | 872 MB | 150 MB | ~3.4 GB | 1,765 MB | 295 MB |
+| 2048 (+`--balloon-page-reporting`) | 23 s | 414 ms | 2,067 MB | 1,228 MB | 149 MB | ~2.25 GB | 1,536 MB | 305 MB |
+| 1024 | 48 s | 2,946 ms | 1,043 MB | 658 MB | 87 MB | **~1.15 GB** | 1,180 MB (zram swap 183 MB) | 196 MB |
+
+- **Guest RAM is always fully resident on the host.** The main process working set is about the full `--mem`. Shrinking guest RAM is the only lever that has worked so far.
+- **`--balloon-page-reporting` did nothing:** no balloon activity in the crosvm log. The guest only has about 50-100 MB of high-order free pages, and the rest is cache. On WHPX, crosvm releases memory with `WHvUnmapGpaRange` + `OfferVirtualMemory`, and offered pages stay in the working set until Windows is under memory pressure.
+- **The block process cache** is Windows file cache of the shared `super.img`. It should count once for the Fleet when every Device reads the same file (not yet measured with 2 Devices).
+- **Next cuts (Memory budget order):**
+  1. graphics: done implicitly by the 720x1080 2D display, about 87-150 MB;
+  2. balloon: inflate at runtime and measure, or a smaller boot-time `--init-mem`;
+  3. slim guest: no SystemUI or launcher;
+  4. DAX shared system image (stage 2: kernel building).
+- The first screen was checked by eye at every size. At 2048 the one-time "Viewing full screen" system hint covered the dialog's top half. It is now pre-dismissed with `settings put secure immersive_mode_confirmations confirmed`.

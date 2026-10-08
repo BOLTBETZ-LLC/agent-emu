@@ -1,0 +1,58 @@
+{
+ "tag": "mem2048-pr",
+ "mem": "2048",
+ "extra": "--balloon-page-reporting",
+ "boot_s": 23.1,
+ "pm_ready_s": 23.2,
+ "install": "Success",
+ "launch": "Status: ok\nTotalTime: 414",
+ "app_pid": "3924",
+ "screenshot": "C:/dev/agent-emu-work/results/mem2048-pr/first-screen.png",
+ "guest": "Total RAM: 2,013,792K (status normal)\n Free RAM:   568,943K (  229,375K cached pss +   295,948K cached kernel +    43,620K free)\n Used RAM: 1,535,537K (1,035,493K used pss +   500,044K kernel)\n           TOTAL PSS:   305498            TOTAL RSS:   450388       TOTAL SWAP PSS:      437",
+ "host": [
+  {
+   "pid": 1800,
+   "ws_mb": 10,
+   "wspriv_mb": 1,
+   "private_mb": 2,
+   "role": "--block"
+  },
+  {
+   "pid": 41472,
+   "ws_mb": 9,
+   "wspriv_mb": 1,
+   "private_mb": 1,
+   "role": "run"
+  },
+  {
+   "pid": 28984,
+   "ws_mb": 2067,
+   "wspriv_mb": 6,
+   "private_mb": 82,
+   "role": "run"
+  },
+  {
+   "pid": 36000,
+   "ws_mb": 1228,
+   "wspriv_mb": 2,
+   "private_mb": 7,
+   "role": "device"
+  },
+  {
+   "pid": 38136,
+   "ws_mb": 149,
+   "wspriv_mb": 1,
+   "private_mb": 6,
+   "role": "device"
+  },
+  {
+   "pid": 30576,
+   "ws_mb": 10,
+   "wspriv_mb": 1,
+   "private_mb": 5,
+   "role": "device"
+  }
+ ],
+ "host_total_ws_mb": 3473,
+ "host_total_private_mb": 103
+}
