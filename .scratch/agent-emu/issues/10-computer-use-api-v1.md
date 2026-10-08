@@ -110,3 +110,51 @@ Daemon settle rule now matches the decision: wait for the first frame after the 
 - **Dialogs:** setup sets `hide_error_dialogs 1` and broadcasts `CLOSE_SYSTEM_DIALOGS` (`b6ab7cd`). The proof app's first screen had 0 dialog windows and kept focus (`assets/15-logs/app-first-screen.jpg`). The Bluetooth crash loop goes on (no HCI peer), but its dialogs stay hidden.
 - **Trap: never `pm disable-user com.android.bluetooth`.** On the next airplane-mode change, `BluetoothManagerService.bleTurningOnToOff` unbinds a service that was never bound (`IllegalArgumentException: Service not registered`). system_server dies and then crash-loops every ~5 s with `No service can handle intent ... android.bluetooth.IAdapter`.
 - Setup also sets `log.tag.RIL S`: the RIL logged `Can't connect to port:9600d` (no modem simulator) at about 40 MB a minute.
+
+## Measured: where swipe -> first frame goes (2026-10-08, slim5, 896 MB, uncapped, crosvm-diet)
+
+First frames are timed by a watcher started before the input, so a frame drawn during a long swipe counts from the swipe's start. Swipes step the proof app's Welcome carousel one page at a time (`daemon/frame_smoke.py`, `prof_smoke.py`, `lever_smoke.py`, `gesture_smoke.py`; results in `assets/10-*`).
+
+**vCPUs** (20 swipes, uncapped; other workers' Devices were running, host CPU 20-54%):
+
+| vCPUs | p50 | p95 | frames drawn |
+|---|---|---|---|
+| 2 | 102 ms | 180 ms | 19/20 |
+| 4 | 87 ms | 149 ms | 20/20 |
+| 6 | 86 ms | 212 ms | 20/20 (host CPU 54%, 13 other Devices) |
+
+**Renderer:** `ro.hardware.egl=angle`, `ro.hardware.vulkan=pastel`: GL over ANGLE on the guest's software Vulkan, all CPU. gfxinfo's GPU percentile is 1 ms because the "GPU" work runs on CPU inside `swap`.
+
+**HWUI per frame, base, 2 vCPU** (framestats, 120 frames, ms p50/p95): UI thread 8.1/22.7, sync incl. texture upload 21.4/31.5, issue draw commands 2.0/7.8, swap (where the software raster runs) 24.6/33.8, total 68.2/91.0. gfxinfo: 50th 44 ms, 95th 65 ms, 55% janky.
+
+**Threads** (`top -H`, 0.5 s samples during swipes): `libcuttlefish-rild` 32% of a vCPU (the RIL retrying a modem that isn't there); the app's two software-raster workers 11.6% each; app UI thread 4.5%; RenderThread 4.1%; surfaceflinger's two raster workers ~2.9% each.
+
+**Levers, applied one after another on one boot (2 vCPU, 24 swipes each):**
+
+| Step | swipe first frame p50/p95 | HWUI frame p50/p95 | janky |
+|---|---|---|---|
+| base | 106 / 125 ms | 40 / 65 ms | 50% |
+| + `setprop ctl.stop vendor.ril-daemon` | 91 / 95 ms | 23 / 30 ms | 7% |
+| + SurfaceFlinger 1008 off (no client composition) | 90 / 108 ms | 15 / 22 ms | 0.4% |
+| + `debug.hwui.renderer skiavk` | app died at start (no frames) | | |
+
+system_server kept its pid through all steps.
+
+**The ~90 ms floor is the app's gesture, not the pipeline** (rild stopped, 2 vCPU):
+
+| Input | p50 | p95 | min |
+|---|---|---|---|
+| HOME key (system path, no app logic) | 35 ms | 52 ms | 27 ms |
+| carousel swipe, 60 ms | 92 ms | 159 ms | 72 ms |
+| carousel swipe, 150 ms | 90 ms | 95 ms | 74 ms |
+| carousel swipe, 300 ms | 91 ms | 107 ms | 74 ms |
+
+The swipe's first frame does not move with the swipe's speed, so it is a fixed ~55 ms inside the app (React Native gesture and JS work before the carousel draws), on top of a ~35 ms input-to-scanout pipeline. Our scanout copy is ~1 ms, and the daemon polls the frame sequence every 0.5 ms.
+
+**Cheapest levers for p95 < 50 ms on the pipeline** (HOME-type input), without gfxstream:
+1. Stop `vendor.ril-daemon` in Device setup: free, frees ~1/3 of a vCPU, HWUI frame 40 -> 23 ms p50. Not yet in the daemon.
+2. 4 vCPUs: about 15 ms off the swipe p50; 6 adds nothing.
+3. Client composition off saves another ~8 ms per HWUI frame, but brings back the slim3 stale pixels (issue 10, headless section); it needs a different stale-pixel fix first.
+4. skiavk does not work on this guest (the app dies).
+
+App-gesture-bound inputs (this carousel) stay near 90 ms: for those, p95 < 50 ms needs the app, or the host GPU (gfxstream), not the emulator's input or copy path.

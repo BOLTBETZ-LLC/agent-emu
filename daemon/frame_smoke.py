@@ -6,7 +6,7 @@
 # 20 inputs each, uncapped and then capped (`squeeze` once 45 s have passed since launch, the proven
 # settle). Idle frames over 5 s are counted first: a pager that animates on its own would fake first frames. Host Available is logged every 30 s; the daemon stops a boot
 # under 4000 MB. Stops d0.
-# usage: [AE_SMOKE_IMAGE=slim4] [AE_SMOKE_MEM=704] [AE_SMOKE_NET=0] [AE_CAP_MAIN=200] [AE_CROSVM_DIR=crosvm-diet] python frame_smoke.py [out_dir]
+# usage: [AE_SMOKE_CAPPED=0] [AE_CPUS=4] [AE_SMOKE_IMAGE=slim4] [AE_SMOKE_MEM=704] [AE_SMOKE_NET=0] [AE_CAP_MAIN=200] [AE_CROSVM_DIR=crosvm-diet] python frame_smoke.py [out_dir]
 import base64, io, json, os, socket, subprocess, sys, threading, time
 from PIL import Image
 
@@ -81,11 +81,12 @@ try:
     open(f"{OUT}/first-screen.jpg", "wb").write(base64.b64decode(call("screenshot")["frame"]["jpeg"]))
     res["idle_frames_5s_uncapped"] = idle_frames()
     res["before"] = rounds(); log("before", {k: v for k, v in res["before"].items() if k != "raw"}, "idle frames/5 s", res["idle_frames_5s_uncapped"])
-    time.sleep(max(0, 45 - (time.time() - t_launch)))
-    sq = call("squeeze", cap_main_mb=int(os.environ.get("AE_CAP_MAIN", "250")), cap_helper_mb=int(os.environ.get("AE_CAP_HELPER", "16"))); res["squeeze"] = {k: sq[k] for k in ("ws_before_mb", "ws_after_mb")}
-    time.sleep(30)
-    res["idle_frames_5s_capped"] = idle_frames()
-    res["after"] = rounds(); log("after", {k: v for k, v in res["after"].items() if k != "raw"}, "idle frames/5 s", res["idle_frames_5s_capped"])
+    if os.environ.get("AE_SMOKE_CAPPED", "1") != "0":  # AE_SMOKE_CAPPED=0: uncapped only
+        time.sleep(max(0, 45 - (time.time() - t_launch)))
+        sq = call("squeeze", cap_main_mb=int(os.environ.get("AE_CAP_MAIN", "250")), cap_helper_mb=int(os.environ.get("AE_CAP_HELPER", "16"))); res["squeeze"] = {k: sq[k] for k in ("ws_before_mb", "ws_after_mb")}
+        time.sleep(30)
+        res["idle_frames_5s_capped"] = idle_frames()
+        res["after"] = rounds(); log("after", {k: v for k, v in res["after"].items() if k != "raw"}, "idle frames/5 s", res["idle_frames_5s_capped"])
     open(f"{OUT}/end.jpg", "wb").write(base64.b64decode(call("screenshot")["frame"]["jpeg"]))
     res["app_pid"] = call("shell", cmd=f"pidof {PKG}")["out"]
 finally:
