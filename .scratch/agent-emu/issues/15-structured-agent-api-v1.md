@@ -75,3 +75,4 @@ Daemon calls plus MCP tools, each taking `device` (`daemon/agent-emud/src/logs.r
 | MCP | `tools/list` has `logs` and `crash_events`; `crash_events` returned `[crash, anr]` |
 
 - Boot noise in `crash_events`: `dlkm_loader` (1 native crash) and the Bluetooth loop (`droid.bluetooth` native, `com.android.bluetooth` crash). Filter by package.
+- **After the `api-controls` merge** (`6926694`, `daemon/merge_smoke.py`, `assets/15-merge/`, d0 at `--mem 2048`, all over MCP): `app install` Success, `app launch` Status ok, `set_location` verified in `dumpsys location`, and `crash_events` returned the `crash` event 242 ms after `am crash`. Trap: `app install` needs `AGENT_EMU_ADB_PORT=<6520+N>` in the daemon's own environment, not only crosvm's.

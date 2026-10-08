@@ -1,0 +1,28 @@
+{
+ "ready_s": 139.2,
+ "app_install": {
+  "isError": false,
+  "text": "{\"frame\":null,\"id\":null,\"ms\":32525,\"ok\":true,\"out\":\"Performing Streamed Install\\nSuccess\"}"
+ },
+ "app_launch": {
+  "isError": false,
+  "text": "{\"frame\":null,\"id\":null,\"ms\":3917,\"ok\":true,\"out\":\"Starting: Intent { cmp=com.boltbetz.staging/com.boltbetz.MainActivity }\\nStatus: ok\\nLaunchState: COLD\\nActivity: com.boltbetz.staging/com.boltbetz.MainActivity\\nTotalTime: 2270\\nWaitTime: 2297\\nComplete\"}"
+ },
+ "set_location": {
+  "isError": false,
+  "text": "{\"frame\":null,\"id\":null,\"ms\":843,\"ok\":true,\"verified\":\"last location=Location[gps 36.114700,-115.172800 hAcc=5.0 et=+2m54s657ms mock]\"}"
+ },
+ "crash_events": {
+  "isError": false,
+  "ms_after_am_crash": 242,
+  "events": [
+   {
+    "seq": 8,
+    "type": "crash",
+    "process": "com.boltbetz.staging",
+    "exception": "android.app.RemoteServiceException$CrashedByAdbException",
+    "message": "shell-induced crash"
+   }
+  ]
+ }
+}
