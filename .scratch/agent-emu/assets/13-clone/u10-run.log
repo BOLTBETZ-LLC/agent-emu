@@ -1,0 +1,144 @@
+d13 avail_before=12259 "restore_s":1.29,"console_s":3.95
+d14 avail_before=13258 "restore_s":0.96,"console_s":2.52
+d15 avail_before=12655 "restore_s":1.11,"console_s":3.13
+d16 avail_before=12256 "restore_s":5.82,"console_s":7.25
+d17 avail_before=11947 "restore_s":1.12,"console_s":2.54
+d18 avail_before=10880 "restore_s":1.11,"console_s":3.24
+d19 avail_before=10291 "restore_s":1.11,"console_s":2.48
+d20 avail_before=9701 "restore_s":1.12,"console_s":2.91
+d21 avail_before=10085 "restore_s":1.12,"console_s":2.54
+d22 avail_before=9722 "restore_s":1.18,"console_s":3.55
+DRIVE EXIT 0
+SHEET ok
+Measure-Object : The property "avail" cannot be found in the input for any objects.
+At C:\dev\agent-emu-work\clone-exp\stopseq.ps1:24 char:20
++   $a0 = ($before | Measure-Object avail -Average).Average; $a1 = ($af ...
++                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Measure-Object], PSArgumentException
+    + FullyQualifiedErrorId : GenericMeasurePropertyNotFound,Microsoft.PowerShell.Commands.MeasureObjectCommand
+Measure-Object : The property "avail" cannot be found in the input for any objects.
+At C:\dev\agent-emu-work\clone-exp\stopseq.ps1:24 char:82
++ ... .Average; $a1 = ($after[1..3] | Measure-Object avail -Average).Averag ...
++                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Measure-Object], PSArgumentException
+    + FullyQualifiedErrorId : GenericMeasurePropertyNotFound,Microsoft.PowerShell.Commands.MeasureObjectCommand
+d22: private=342 ws=539 freed=0 hv=-1536 standby_d=-21 noisy=False
+Measure-Object : The property "avail" cannot be found in the input for any objects.
+At C:\dev\agent-emu-work\clone-exp\stopseq.ps1:24 char:20
++   $a0 = ($before | Measure-Object avail -Average).Average; $a1 = ($af ...
++                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Measure-Object], PSArgumentException
+    + FullyQualifiedErrorId : GenericMeasurePropertyNotFound,Microsoft.PowerShell.Commands.MeasureObjectCommand
+Measure-Object : The property "avail" cannot be found in the input for any objects.
+At C:\dev\agent-emu-work\clone-exp\stopseq.ps1:24 char:82
++ ... .Average; $a1 = ($after[1..3] | Measure-Object avail -Average).Averag ...
++                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Measure-Object], PSArgumentException
+    + FullyQualifiedErrorId : GenericMeasurePropertyNotFound,Microsoft.PowerShell.Commands.MeasureObjectCommand
+d21: private=347 ws=542 freed=0 hv=-1536 standby_d=67 noisy=False
+Measure-Object : The property "avail" cannot be found in the input for any objects.
+At C:\dev\agent-emu-work\clone-exp\stopseq.ps1:24 char:20
++   $a0 = ($before | Measure-Object avail -Average).Average; $a1 = ($af ...
++                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Measure-Object], PSArgumentException
+    + FullyQualifiedErrorId : GenericMeasurePropertyNotFound,Microsoft.PowerShell.Commands.MeasureObjectCommand
+Measure-Object : The property "avail" cannot be found in the input for any objects.
+At C:\dev\agent-emu-work\clone-exp\stopseq.ps1:24 char:82
++ ... .Average; $a1 = ($after[1..3] | Measure-Object avail -Average).Averag ...
++                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Measure-Object], PSArgumentException
+    + FullyQualifiedErrorId : GenericMeasurePropertyNotFound,Microsoft.PowerShell.Commands.MeasureObjectCommand
+d20: private=348 ws=542 freed=0 hv=-1536 standby_d=1479 noisy=False
+Measure-Object : The property "avail" cannot be found in the input for any objects.
+At C:\dev\agent-emu-work\clone-exp\stopseq.ps1:24 char:20
++   $a0 = ($before | Measure-Object avail -Average).Average; $a1 = ($af ...
++                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Measure-Object], PSArgumentException
+    + FullyQualifiedErrorId : GenericMeasurePropertyNotFound,Microsoft.PowerShell.Commands.MeasureObjectCommand
+Measure-Object : The property "avail" cannot be found in the input for any objects.
+At C:\dev\agent-emu-work\clone-exp\stopseq.ps1:24 char:82
++ ... .Average; $a1 = ($after[1..3] | Measure-Object avail -Average).Averag ...
++                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Measure-Object], PSArgumentException
+    + FullyQualifiedErrorId : GenericMeasurePropertyNotFound,Microsoft.PowerShell.Commands.MeasureObjectCommand
+d19: private=340 ws=526 freed=0 hv=-1536 standby_d=58 noisy=False
+Measure-Object : The property "avail" cannot be found in the input for any objects.
+At C:\dev\agent-emu-work\clone-exp\stopseq.ps1:24 char:20
++   $a0 = ($before | Measure-Object avail -Average).Average; $a1 = ($af ...
++                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Measure-Object], PSArgumentException
+    + FullyQualifiedErrorId : GenericMeasurePropertyNotFound,Microsoft.PowerShell.Commands.MeasureObjectCommand
+Measure-Object : The property "avail" cannot be found in the input for any objects.
+At C:\dev\agent-emu-work\clone-exp\stopseq.ps1:24 char:82
++ ... .Average; $a1 = ($after[1..3] | Measure-Object avail -Average).Averag ...
++                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Measure-Object], PSArgumentException
+    + FullyQualifiedErrorId : GenericMeasurePropertyNotFound,Microsoft.PowerShell.Commands.MeasureObjectCommand
+d18: private=343 ws=539 freed=0 hv=-1536 standby_d=20 noisy=False
+Measure-Object : The property "avail" cannot be found in the input for any objects.
+At C:\dev\agent-emu-work\clone-exp\stopseq.ps1:24 char:20
++   $a0 = ($before | Measure-Object avail -Average).Average; $a1 = ($af ...
++                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Measure-Object], PSArgumentException
+    + FullyQualifiedErrorId : GenericMeasurePropertyNotFound,Microsoft.PowerShell.Commands.MeasureObjectCommand
+Measure-Object : The property "avail" cannot be found in the input for any objects.
+At C:\dev\agent-emu-work\clone-exp\stopseq.ps1:24 char:82
++ ... .Average; $a1 = ($after[1..3] | Measure-Object avail -Average).Averag ...
++                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Measure-Object], PSArgumentException
+    + FullyQualifiedErrorId : GenericMeasurePropertyNotFound,Microsoft.PowerShell.Commands.MeasureObjectCommand
+d17: private=342 ws=538 freed=0 hv=-1536 standby_d=-71 noisy=False
+Measure-Object : The property "avail" cannot be found in the input for any objects.
+At C:\dev\agent-emu-work\clone-exp\stopseq.ps1:24 char:20
++   $a0 = ($before | Measure-Object avail -Average).Average; $a1 = ($af ...
++                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Measure-Object], PSArgumentException
+    + FullyQualifiedErrorId : GenericMeasurePropertyNotFound,Microsoft.PowerShell.Commands.MeasureObjectCommand
+Measure-Object : The property "avail" cannot be found in the input for any objects.
+At C:\dev\agent-emu-work\clone-exp\stopseq.ps1:24 char:82
++ ... .Average; $a1 = ($after[1..3] | Measure-Object avail -Average).Averag ...
++                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Measure-Object], PSArgumentException
+    + FullyQualifiedErrorId : GenericMeasurePropertyNotFound,Microsoft.PowerShell.Commands.MeasureObjectCommand
+d16: private=343 ws=539 freed=0 hv=-1536 standby_d=45 noisy=False
+Measure-Object : The property "avail" cannot be found in the input for any objects.
+At C:\dev\agent-emu-work\clone-exp\stopseq.ps1:24 char:20
++   $a0 = ($before | Measure-Object avail -Average).Average; $a1 = ($af ...
++                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Measure-Object], PSArgumentException
+    + FullyQualifiedErrorId : GenericMeasurePropertyNotFound,Microsoft.PowerShell.Commands.MeasureObjectCommand
+Measure-Object : The property "avail" cannot be found in the input for any objects.
+At C:\dev\agent-emu-work\clone-exp\stopseq.ps1:24 char:82
++ ... .Average; $a1 = ($after[1..3] | Measure-Object avail -Average).Averag ...
++                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Measure-Object], PSArgumentException
+    + FullyQualifiedErrorId : GenericMeasurePropertyNotFound,Microsoft.PowerShell.Commands.MeasureObjectCommand
+d15: private=341 ws=527 freed=0 hv=-1536 standby_d=164 noisy=True
+Measure-Object : The property "avail" cannot be found in the input for any objects.
+At C:\dev\agent-emu-work\clone-exp\stopseq.ps1:24 char:20
++   $a0 = ($before | Measure-Object avail -Average).Average; $a1 = ($af ...
++                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Measure-Object], PSArgumentException
+    + FullyQualifiedErrorId : GenericMeasurePropertyNotFound,Microsoft.PowerShell.Commands.MeasureObjectCommand
+Measure-Object : The property "avail" cannot be found in the input for any objects.
+At C:\dev\agent-emu-work\clone-exp\stopseq.ps1:24 char:82
++ ... .Average; $a1 = ($after[1..3] | Measure-Object avail -Average).Averag ...
++                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Measure-Object], PSArgumentException
+    + FullyQualifiedErrorId : GenericMeasurePropertyNotFound,Microsoft.PowerShell.Commands.MeasureObjectCommand
+d14: private=343 ws=532 freed=0 hv=-1536 standby_d=184 noisy=False
+Measure-Object : The property "avail" cannot be found in the input for any objects.
+At C:\dev\agent-emu-work\clone-exp\stopseq.ps1:24 char:20
++   $a0 = ($before | Measure-Object avail -Average).Average; $a1 = ($af ...
++                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Measure-Object], PSArgumentException
+    + FullyQualifiedErrorId : GenericMeasurePropertyNotFound,Microsoft.PowerShell.Commands.MeasureObjectCommand
+Measure-Object : The property "avail" cannot be found in the input for any objects.
+At C:\dev\agent-emu-work\clone-exp\stopseq.ps1:24 char:82
++ ... .Average; $a1 = ($after[1..3] | Measure-Object avail -Average).Averag ...
++                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Measure-Object], PSArgumentException
+    + FullyQualifiedErrorId : GenericMeasurePropertyNotFound,Microsoft.PowerShell.Commands.MeasureObjectCommand
+d13: private=346 ws=533 freed=0 hv=-1536 standby_d=232 noisy=False
+STOPSEQ EXIT 0
+DONE

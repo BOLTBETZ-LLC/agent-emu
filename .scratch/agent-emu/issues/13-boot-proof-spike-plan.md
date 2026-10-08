@@ -437,6 +437,37 @@ Each run: 3 CoW clones (d13-d15) of one template, tap "Try Again" every 10 s, on
   - **3 warmed clones: p50 36.2 ms, p95 50.5 ms, max 53.3 ms** (60 inputs, 0 misses).
   - Warm samples spread 1.5-53 ms, bunched like frame pacing (a few ~16.7 ms vsync periods). Getting p95 under 50 likely needs a higher display refresh rate or a vsync-independent flush. Not tried.
 
+### 10-clone unique proof (2026-10-08, slim4 640 `snapG`, uncapped, crosvm-clone `a45835a2e`)
+
+Run: 10 CoW clones (d13-d22) restored one after another (0.96-5.82 s each). Held 10 min: a tap every ~20 s on each, one relaunch per clone at minute 5. Then stopped one at a time, d22 down to d13, ~25 s apart. Available, hypervisor pages, standby/modified/free lists and the other workers' crosvm pid set were sampled every ~1 s, 3 samples before and 6 after each stop. Freed = mean of after-samples 2-4 minus mean of before-samples. Raw data: `assets/13-clone/u10.json`, `u10-stopseq.json`, `stopseq.ps1`, `u10-run.log`.
+
+- **Hold:** app alive in all 10 at all 20 samples. Plateau private WS 340-348 MB. Relaunch 1.3-5.4 s; console taps p50/p95/max 78/202/1,043 ms, 0 errors. Compression store 2,102 → 2,503 MB (+401, i.e. ≤40 MB per clone).
+- **Screens:** the sheet (`assets/13-clone/u10-sheet.png`) was seen by eye. All 10 show the proof app's offline dialog. Final pids: 9 distinct; d19 and d20 both 3762 (same lockstep effect as before).
+
+| Stop | Private WS | WS | Available freed | Hypervisor pages | Standby Δ | Note |
+|---|---|---|---|---|---|---|
+| d22 | 342 | 539 | 378 | −1,536 | −21 | |
+| d21 | 347 | 542 | 383 | −1,536 | +67 | |
+| d20 | 348 | 542 | (1,831) | −1,536 | +1,479 | rejected: the standby list jumped 1.5 GB in the window, an outside event the crosvm-pid check did not catch |
+| d19 | 340 | 526 | 414 | −1,536 | +58 | |
+| d18 | 343 | 539 | 405 | −1,536 | +20 | |
+| d17 | 342 | 538 | 441 | −1,536 | −71 | |
+| d16 | 343 | 539 | 418 | −1,536 | +45 | |
+| d15 | 341 | 527 | (1,503) | −1,536 | +164 | rejected: another process started or stopped in the window |
+| d14 | 343 | 532 | 482 | −1,536 | +184 | |
+| d13 (last) | 346 | 533 | 634 | −1,536 | +232 | |
+
+- **Marginal (unique) cost per extra clone:**
+  - **median 416 MB, max 482 MB** over the 7 clean non-last stops;
+  - that is private WS (~343) + 6 MB hypervisor + ~65 MB of pages mapped by that clone alone (file pages that go to standby when it exits);
+  - **+ compression worst case 40 → ~456 MB.**
+- **Shared once:** the last clone freed 634 − 346 private = **~288 MB**.
+- **Average per Device at N=10, shared included:**
+  - 9 marginal (the 2 rejected stops taken at the median) = 3,753;
+  - + last 634 = 4,387 MB / 10 = **~439 MB**;
+  - **+ compression ≤40 → ~479 MB**.
+- **Verdict:** meets 600 MB at N=10. Misses the original 400 MB, by ~16 MB at the clean marginal median before compression and by ~56-79 MB once compression and the shared part are counted.
+
 ### Honest RAM of one squeezed Device (2026-10-08, `assets/13-compress/`)
 
 `compress_probe.py`: d0 (896 MB, slim3 pmem), proof app on its first screen, then the daemon `squeeze` with balloon 0 and caps 250/16. Phase A was 6 min with caps only; phase B was 6 min with caps plus `MEMORY_PRIORITY_VERY_LOW` and EcoQoS on all 8 crosvm processes. One tap every 10 s, one sample every 30 s. Host Available stayed between 5.4 and 11.3 GB in the window (no emergency), but other workers' Devices booted and stopped throughout (`other_brokers` in `result.json`), so every global number below carries their noise.
