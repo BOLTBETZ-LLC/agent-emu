@@ -19,7 +19,7 @@ def call(c, **kw):
     return r
 
 def avail():
-    return int(float(subprocess.run(["powershell", "-NoProfile", "-Command", "(Get-Counter '\Memory\Available MBytes').CounterSamples[0].CookedValue"],
+    return int(float(subprocess.run(["powershell", "-NoProfile", "-Command", r"(Get-Counter '\Memory\Available MBytes').CounterSamples[0].CookedValue"],
                                     capture_output=True, text=True).stdout.strip() or 0))
 
 done = threading.Event(); mins = []

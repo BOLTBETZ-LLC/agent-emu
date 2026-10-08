@@ -95,12 +95,50 @@ async fn crosvm_running() -> bool {
 
 // ---------- per-Device dir (port of fleet.py make_device) ----------
 
-fn make_device(cfg: &Cfg, idx: u32) -> R<PathBuf> {
-    let run = cfg.work.join("run");
+// Guest diet (issue 13, lever C), on every Device. Kernel: one block queue per disk with tag depth 64
+// (the vhost-user queues were ~180 MB of slab), no THP (min_free_kbytes 22528 -> 3603), no KFENCE pool.
+// crosvm: one virtio-snd for the GPU instead of one per display, console sinks only up to num=11
+// (hvc10 must stay: the oemlock HAL waits on it forever).
+/// daemon/boot-device.ps1 next to this checkout (exe is daemon/target/<profile>/agent-emud.exe), or AE_BOOT_SCRIPT.
+fn boot_script() -> PathBuf {
+    std::env::var_os("AE_BOOT_SCRIPT").map(PathBuf::from).unwrap_or_else(|| {
+        let exe = std::env::current_exe().unwrap_or_default();
+        exe.ancestors().nth(3).map(|d| d.join("boot-device.ps1")).unwrap_or_else(|| PathBuf::from("boot-device.ps1"))
+    })
+}
+
+pub const DIET_PARAMS: &str = "virtio_blk.num_request_queues=1 virtio_blk.queue_depth=64 transparent_hugepage=never kfence.sample_interval=0";
+const DIET_SINKS: &str = "11";
+const DIET_GPU: &str = "audio-device-mode=one-global";
+
+/// Guest image: (run dir under AE_WORK holding super.img + system-pmem.img, default guest MB or None = AE_MEM).
+pub fn image(name: &str) -> R<(&'static str, Option<&'static str>)> {
+    match name {
+        "" | "slim3" => Ok(("run", None)),
+        // slim4: the diet floor was 640 MB without the daemon's extra devices (virtio-net for adb, two
+        // virtio-input, fb). Through the daemon at 640, lmkd killed the app as TOP 3 of 3 times (low on
+        // swap, thrashing); at 704 it stays up. `start {mem}` overrides.
+        "slim4" => Ok(("run-slim4", Some("704"))),
+        _ => Err(format!("unknown image `{name}` (slim3, slim4)")),
+    }
+}
+
+fn make_device(cfg: &Cfg, idx: u32, run: &str) -> R<PathBuf> {
+    let run = cfg.work.join(run);
     let d = cfg.work.join(format!("fleet/d{idx}"));
     std::fs::create_dir_all(&d).map_err(|e| e.to_string())?;
+    // Relink every start: the Device dir may hold links into another image's run dir.
     for f in SHARED {
-        if !d.join(f).exists() {
+        // A link can't be deleted while any process (another Device) has the file open; then keep it if it
+        // already is this image's file (same size and mtime: all links share one file record).
+        if std::fs::remove_file(d.join(f)).is_err() && d.join(f).exists() {
+            let meta = |p: PathBuf| std::fs::metadata(p).ok().map(|m| (m.len(), m.modified().ok()));
+            if meta(d.join(f)) == meta(run.join(f)) {
+                continue;
+            }
+            return Err(format!("{f}: an old link is in use and is not this image's file"));
+        }
+        if run.join(f).exists() {
             std::fs::hard_link(run.join(f), d.join(f)).map_err(|e| format!("link {f}: {e}"))?;
         }
     }
@@ -266,7 +304,9 @@ pub struct Device {
 
 impl Device {
     /// Check the host, build the Device dir, spawn boot-stage1.ps1 and open the console pipe.
-    pub async fn spawn(cfg: &Cfg, idx: u32) -> R<Arc<Device>> {
+    pub async fn spawn(cfg: &Cfg, idx: u32, image_name: &str, mem: Option<&str>) -> R<Arc<Device>> {
+        let (run, image_mem) = image(image_name)?;
+        let mem = mem.or(image_mem).unwrap_or(&cfg.mem).to_string();
         let avail = available_mb();
         if avail < cfg.min_avail_mb {
             return Err(format!("host Available {avail} MB < {} MB; not booting", cfg.min_avail_mb));
@@ -275,11 +315,12 @@ impl Device {
         if std::env::var_os("AE_ALLOW_OTHER_CROSVM").is_none() && crosvm_running().await {
             return Err("a crosvm.exe is already running; one Device at a time".into());
         }
-        let dir = make_device(cfg, idx)?;
-        let pmem = cfg.work.join("run/system-pmem.img");
+        let dir = make_device(cfg, idx, run)?;
+        let pmem = cfg.work.join(run).join("system-pmem.img");
         let child = Command::new("powershell")
-            .args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-File"]).arg(cfg.work.join("boot-stage1.ps1"))
-            .env("AE_DIR", win(&dir)).env("AE_ID", idx.to_string()).env("AE_MEM", &cfg.mem).env("AE_CPUS", &cfg.cpus)
+            .args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-File"]).arg(boot_script())
+            .env("AE_PARAMS", DIET_PARAMS).env("AE_SINKS", DIET_SINKS).env("AE_GPU_EXTRA", DIET_GPU)
+            .env("AE_DIR", win(&dir)).env("AE_ID", idx.to_string()).env("AE_MEM", &mem).env("AE_CPUS", &cfg.cpus)
             .env("AE_EXTRA", format!("--socket PIPE:ae-vm-{idx} --pmem path={},ro=true --input multi-touch[path={}] --input keyboard[path={}]",
                 pmem.to_string_lossy().replace('\\', "/"), fast::touch_pipe(idx), fast::kbd_pipe(idx)))
             // No desktop window: crosvm's 2D GPU uses the stub display; frames still come from fb.bin.
@@ -479,6 +520,14 @@ mod tests {
     #[test]
     fn wrap_escapes_quotes() {
         assert!(wrap("echo 'hi'", "t").contains(r"su 0 sh -c 'echo '\''hi'\''' 2>&1"));
+    }
+
+    #[test]
+    fn images() {
+        assert_eq!(image("slim4").unwrap(), ("run-slim4", Some("704")));
+        assert_eq!(image("").unwrap(), ("run", None));
+        assert!(image("slim9").is_err());
+        assert!(DIET_PARAMS.contains("virtio_blk.num_request_queues=1") && DIET_PARAMS.contains("transparent_hugepage=never"));
     }
 
     #[test]

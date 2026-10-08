@@ -1,0 +1,106 @@
+{
+ "available_before_mb": 9301,
+ "ready_s": 123.7,
+ "guest": "virtio_blk.num_request_queues=1\nvirtio_blk.queue_depth=64\ntransparent_hugepage=never\nkfence.sample_interval=0\nMemTotal:         594952 kB\n64",
+ "install": "Success",
+ "launch": "Status: ok\nTotalTime: 2800",
+ "memory_before": 1594,
+ "taps_before": {
+  "n": 20,
+  "with_frame": 0,
+  "p50": null,
+  "p95": null,
+  "max": null
+ },
+ "compression_before_squeeze_mb": 2129,
+ "squeeze": {
+  "balloon": {
+   "actual_mb": 0,
+   "final_mb": 0,
+   "guest_available_mb": 28,
+   "requested_mb": 150,
+   "steps": [
+    {
+     "balloon_mb": 0,
+     "guest_available_mb": 28
+    }
+   ],
+   "wait_ms": 106
+  },
+  "ws_before_mb": 1594,
+  "ws_after_mb": 348,
+  "squeeze_ms": 1129
+ },
+ "compression_after_mb": [
+  2236,
+  2259,
+  2259,
+  2251
+ ],
+ "compression_growth_60s_mb": 122,
+ "memory_after": {
+  "id": 1,
+  "ms": 500,
+  "ok": true,
+  "processes": [
+   {
+    "cap_mb": 16,
+    "pid": 20392,
+    "role": "helper",
+    "ws_mb": 13
+   },
+   {
+    "cap_mb": 16,
+    "pid": 28572,
+    "role": "helper",
+    "ws_mb": 13
+   },
+   {
+    "cap_mb": 250,
+    "pid": 47788,
+    "role": "main",
+    "ws_mb": 249
+   },
+   {
+    "cap_mb": 16,
+    "pid": 10704,
+    "role": "helper",
+    "ws_mb": 15
+   },
+   {
+    "cap_mb": 16,
+    "pid": 45784,
+    "role": "helper",
+    "ws_mb": 15
+   },
+   {
+    "cap_mb": 16,
+    "pid": 12036,
+    "role": "helper",
+    "ws_mb": 13
+   },
+   {
+    "cap_mb": 16,
+    "pid": 33548,
+    "role": "helper",
+    "ws_mb": 15
+   },
+   {
+    "cap_mb": 16,
+    "pid": 35372,
+    "role": "helper",
+    "ws_mb": 14
+   }
+  ],
+  "ws_mb": 347
+ },
+ "taps_after": {
+  "n": 20,
+  "with_frame": 0,
+  "p50": null,
+  "p95": null,
+  "max": null
+ },
+ "screenshot_ms": 5,
+ "app_pid": ""
+}

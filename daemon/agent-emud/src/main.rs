@@ -187,7 +187,8 @@ async fn handle(st: &State, conn: u64, req: &Value) -> R<Value> {
             let t0 = Instant::now();
             let avail = device::available_mb();
             *st.squeeze.lock().unwrap() = squeeze::Opts::from(req, squeeze::Opts::DEFAULT);
-            let d = Device::spawn(&st.cfg, idx).await?;
+            let mem = req["mem"].as_u64().map(|m| m.to_string());
+            let d = Device::spawn(&st.cfg, idx, req["image"].as_str().unwrap_or(""), mem.as_deref()).await?;
             *st.dev.lock().unwrap() = Some(d.clone());
             if let Err(e) = d.wait_boot(Duration::from_secs(900), st.cfg.min_avail_mb).await {
                 d.stop().await;
