@@ -29,3 +29,23 @@ Grilled with Aaron on 2026-10-07. Each line below is his pick. The speed and siz
 - **MCP:** one tool per call: `screenshot`, `tap`, `long_press`, `swipe`, `type_text`, `key`, `gesture`, `ui_tree`, `zoom`. Each takes a device id. The binary API underneath has the same calls.
 - **Ownership:** one agent leases a Device at a time. Any other agent's input gets a `busy` error. Watchers (the viewer, other agents) can still take screenshots.
 - **Acceptance timings,** each reported as p50/p95/p99 at 1 and at 10 Devices: screenshot request to image; input request to injection ack; input request to a settled frame.
+
+## Measured: daemon v1 (2026-10-08)
+
+`agent-emud` (branch `daemon`, commit `52f81fc`): Rust/tokio, newline JSON on 127.0.0.1:7400, and an `mcp` stdio mode with 8 tools. The daemon owns the console pipe itself. Smoke test on 1 Device (slim3 + pmem + DAX kernel, 896 MB, 720x1080 display), with input and screenshots going over the guest console (`input` / `screencap` + base64):
+
+| Call | p50 | p95 |
+|---|---|---|
+| screenshot (client round trip) | 159 ms | 174 ms |
+| of which guest `screencap` + base64 | 144 ms | 159 ms |
+| JPEG encode | 13 ms | 13 ms |
+| tap, input ack | 37 ms | 61 ms |
+| tap returning a settled screenshot (2-4 frames, settled 10/10) | 496 ms | 613 ms |
+| tap with `screenshot:false` | 21 ms | 36 ms |
+| ui_tree | 2.2-4.3 s | |
+
+- **Misses the p95 < 50 ms target** (spec §8). The cost is the console transport. Next: the fast path through host-side frame capture plus virtio-input.
+- Lease works: a second client got `busy`. The MCP screenshot returns an image block in 155 ms.
+- **The tap's effect is not proven.** Before and after frames are identical (`assets/10-daemon-smoke/`, both seen by eye): offline, "Try Again" brings back the same dialog. The input ack is real.
+- Trap: `uiautomator` from the console shell fails (`libnativeloader.so not found`). The console shell predates apexd's mount namespace and lacks `*CLASSPATH`. Fix: `nsenter` into system_server's namespace and take its env.
+- Not built yet: Job Object, health check, restart, `long_press` / `gesture` / `zoom`, the app-idle helper, binary framing. Settle is "two identical frames", not the spec's "100 ms + app idle".
