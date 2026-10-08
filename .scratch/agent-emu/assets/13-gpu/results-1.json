@@ -1,0 +1,65 @@
+{
+ "start": {
+  "t": 1791490571.142,
+  "n": 8,
+  "cpu_s_sum": 434.4375,
+  "ws_mb": 4067.7,
+  "private_mb": 1060.1,
+  "main_ws_mb": 2819.6,
+  "main_private_mb": 951.2,
+  "gpu_dedicated_mb": 2780.8,
+  "gpu_shared_mb": 333.3,
+  "host_avail_mb": 5119
+ },
+ "idle_frames_5s": 0,
+ "swipe_first_frame_ms": {
+  "n": 20,
+  "p50": 77.1,
+  "p95": 83.5,
+  "max": 84.6,
+  "raw": [
+   77.9,
+   78.0,
+   77.1,
+   71.8,
+   69.7,
+   83.4,
+   82.4,
+   79.2,
+   76.7,
+   75.8,
+   71.9,
+   71.0,
+   68.2,
+   84.6,
+   83.5,
+   81.2,
+   79.2,
+   76.8,
+   76.9,
+   74.6
+  ]
+ },
+ "drag_5s": {
+  "frames": 287,
+  "seconds": 5.0,
+  "fps": 57.4,
+  "gap_ms_p50": 16.7,
+  "gap_ms_p95": 17.5,
+  "gaps_over_20ms": 4,
+  "host_cpu_pct_of_one_core": 211.3
+ },
+ "gfxinfo": "",
+ "end": {
+  "t": 1791490605.918,
+  "n": 8,
+  "cpu_s_sum": 495.859375,
+  "ws_mb": 4066.8,
+  "private_mb": 1037.3,
+  "main_ws_mb": 2818.4,
+  "main_private_mb": 928.4,
+  "gpu_dedicated_mb": 2758.3,
+  "gpu_shared_mb": 333.3,
+  "host_avail_mb": 5580
+ }
+}

@@ -1200,3 +1200,29 @@ Question: do Android containers on one shared Linux kernel (redroid in WSL2) cos
 - GPU: guest mode is SwiftShader in software. Android 16 surfaceflinger already depends on the ashmem workaround; host GPU mode needs `/dev/dri`, which WSL exposes only as `dxg`.
 
 **State left:** `.wslconfig` restored from `.wslconfig.bak-redroid-2026-10-08` (stock kernel back, `uname -r` = `6.18.33.2-microsoft-standard-WSL2`). Docker and containerd in Ubuntu are disabled (installed, not started). The redroid kernel, modules and ashmem build stay at `C:/dev/agent-emu-work/redroid/` and `/root/wslk`, `/lib/modules/6.18.33.2-redroid+` in Ubuntu, if anyone wants to rerun this. No follow-up needs them.
+
+## GPU (gfxstream) (2026-10-08, crosvm `agent-emu-gpu` `b2d9a6a8a`, evidence `assets/13-gpu/`)
+
+**The guest now renders on the host GPU.** SurfaceFlinger's `GLES:` line reads `ANGLE (NVIDIA, Vulkan 1.4.341 (NVIDIA Virtio-GPU GFXStream (NVIDIA GeForce RTX 5060 Ti)))`. BoltBetz is on screen at 1320x2868 / 480 dpi and at 656x1424 / 238 dpi (both 440 dp wide), checked by eye in fb.bin frames (`welcome-*.png`).
+
+- **Host backend:** the Android SDK emulator 37.1.11 ships `lib64\libgfxstream_backend.dll`, which exports every `stream_renderer_*` symbol rutabaga_gfx 0.1.80 uses. crosvm links it through an import lib made with `dumpbin /exports` + `lib /def` (`GFXSTREAM_PATH_RELEASE`). `--features all-msvc64,whpx,composite-disk,gfxstream` builds in 77 s. No gfxstream source build was needed. How-to: `crosvm-gpu/GPU-INTEGRATION.md`.
+- **Mode that works:** Cuttlefish `gfxstream_guest_angle`. Guest ANGLE runs on gfxstream Vulkan; the host runs only NVIDIA Vulkan. `--gpu backend=gfxstream,context-types=gfxstream-vulkan:gfxstream-composer,egl=false,gles=false,glx=false,surfaceless=true,vulkan=true`. Bootconfig: `egl=angle`, `vulkan=ranchu`, `gltransport=virtio-gpu-asg`, `cpuvulkan.version=0` (source: Cuttlefish `host/libs/vm_manager/crosvm_manager.cpp` `ConfigureGraphics` on android.googlesource.com, main). Both the full phone image and slim5 ship `vulkan.ranchu.so` and `libEGL_angle.so`.
+- **Mode that crashes:** Cuttlefish `gfxstream` (guest `egl=emulation`, host GLES on the SDK's ANGLE-on-D3D11). crosvm faulted in `libGLESv2.dll` about 10 s after SurfaceFlinger started (0xc0000005, Application event 1000). The first try loaded WezTerm's 2020 `libGLESv2.dll` from PATH; the second loaded the SDK's 2.1.22762 and still crashed.
+- **Fork fixes:** (1) the Windows display soft max was 1920x1080, so a 1320x2868 guest came up as 1320x1080; this also capped 2D `iphone17promax-native`. Now 3840 both ways. (2) gfxstream's `resource_flush` returned before the fb.bin publish, so fb.bin got no frames. It now publishes from there through a `transfer_read` of the host ColorBuffer. (3) fb.bin max is 1320x2868.
+- **Shared binary:** the daemon worker's fleet Devices d1 and d4 now run `crosvm-gpu\target\release\crosvm.exe`. Rebuilding it while they run fails (exe locked).
+
+Carousel drag = finger held 5 s sweeping the Welcome card, frames counted from fb.bin's flush counter. First frame = 20 timed 150 ms carousel swipes. Host CPU = all processes of the Device. PSS = `pss.py`.
+
+| Device | guest RAM | display | drag fps (5 s) | steady fps | frame gap p50/p95 | swipe -> first frame p50/p95 | HWUI frame 50th/95th (gfxinfo) | host CPU dragging | host CPU idle | host PSS | VRAM |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| full phone, d40 | 2048 | 1320x2868 | 57.4 | n/a | 16.7 / 17.5 ms | 77 / 84 ms | 8 / 11 ms, 1.1% janky | 2.1 cores | n/a | 1170 MB | ~0.41 GB (nvidia-smi 2987 -> 2573 MiB at stop) |
+| slim5, d41 | 896 | 1320x2868 | 58.2 | n/a | 16.7 / 17.3 ms | 76 / 83 ms | 5 / 7 ms, 1.2% janky | 1.66 cores | 1.17 cores | 817 MB | n/a |
+| slim5, d41 | 640 | 656x1424 | 58.4 | 59.2 | 16.7 / 17.3 ms | 76 / 81 ms | n/a | 1.72 cores | 1.27 cores | **622 MB**, the same 7 min later | n/a |
+
+CPU baseline (issue 10, slim5 720x1080, ANGLE on pastel): HWUI 40-68 ms p50, 50-55% janky, swipe first frame ~90 ms.
+
+- **60 fps:** frames come every vsync (gap p50 16.7 ms). Over the drag, 4 of about 290 gaps are > 20 ms. Without the first-frame latency, the rate is 59.2 fps. gfxinfo counts about 1% janky frames (99th percentile 53-105 ms), so the misses are the app's own long frames (RN JS), not the scanout copy.
+- **Swipe -> first frame** barely moves (90 -> 76 ms). As measured in issue 10, about 55 ms of it is the app's gesture handling before it draws.
+- **RAM:** 1320x2868 at 640 MB guest RAM never got healthy. Boot took 2.5 min; after the app launch, frames stopped, `dumpsys` hung and guest MemAvailable was 27 MB. At 896, MemAvailable is about 20-40 MB and about 230 MB of guest RAM is not in any meminfo counter. That is most likely virtio-gpu guest-backed resources: minigbm says `Supported CAPSET IDs: 552` and uses its virgl backend, not host blobs. Adding `cross-domain` to context-types advertised capset 5, but minigbm still used virgl. Native-res RAM needs blob/host3d buffers in minigbm (issue 07, T24) or the 128 MiB staging-buffer cut, which needs a gfxstream source build because the DLL is prebuilt.
+- **Idle CPU, 4 vCPU:** about 1.2 cores. Guest `top`: `libcuttlefish-rild` 27% plus two `virtio_vsock` kworkers about 7%, so about 0.5 core of guest work. 4-5 host threads take 0.15-0.36 cores each. This is the pre-existing RIL spin and guest vsock retries plus WHPX exits, not gfxstream (no frames while idle). The < 0.1 core target needs the RIL and vsock fixes, and maybe 2 vCPUs.
+- Not measured yet: 8 Devices at once with gfxstream, input -> first frame for HOME, the 2 vCPU variant.

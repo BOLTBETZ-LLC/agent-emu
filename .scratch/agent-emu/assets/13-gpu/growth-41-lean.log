@@ -1,0 +1,10 @@
+{"t":1791491844.944,"n":8,"cpu_s_sum":510.71875,"ws_mb":1820.5,"private_mb":688,"main_ws_mb":1325.8,"main_private_mb":590.6,"gpu_dedicated_mb":326.9,"gpu_shared_mb":251.3,"host_avail_mb":8950}
+{"t":1791491876.809,"n":8,"cpu_s_sum":548.984375,"ws_mb":1820.5,"private_mb":688,"main_ws_mb":1325.8,"main_private_mb":590.6,"gpu_dedicated_mb":326.9,"gpu_shared_mb":251.3,"host_avail_mb":9800}
+{"t":1791491908.632,"n":8,"cpu_s_sum":585.5625,"ws_mb":1820.7,"private_mb":688.2,"main_ws_mb":1325.8,"main_private_mb":590.6,"gpu_dedicated_mb":326.9,"gpu_shared_mb":251.3,"host_avail_mb":10178}
+{"t":1791491940.45,"n":8,"cpu_s_sum":623.84375,"ws_mb":1822.1,"private_mb":688.7,"main_ws_mb":1326.1,"main_private_mb":590.6,"gpu_dedicated_mb":326.9,"gpu_shared_mb":251.3,"host_avail_mb":9781}
+{"t":1791491972.335,"n":8,"cpu_s_sum":660.6875,"ws_mb":1822.2,"private_mb":688.7,"main_ws_mb":1326.1,"main_private_mb":590.6,"gpu_dedicated_mb":326.9,"gpu_shared_mb":251.3,"host_avail_mb":9513}
+{"t":1791492004.241,"n":16,"cpu_s_sum":702.4375,"ws_mb":2530.3,"private_mb":1034,"main_ws_mb":1326.1,"main_private_mb":590.6,"gpu_dedicated_mb":344.4,"gpu_shared_mb":398.8,"host_avail_mb":8500}
+{"t":1791492036.321,"n":24,"cpu_s_sum":877.75,"ws_mb":5762.9,"private_mb":1792.6,"main_ws_mb":1434.1,"main_private_mb":466.3,"gpu_dedicated_mb":593,"gpu_shared_mb":672.5,"host_avail_mb":6698}
+{"t":1791492068.336,"n":24,"cpu_s_sum":1085.296875,"ws_mb":5783.3,"private_mb":1806.1,"main_ws_mb":1434.9,"main_private_mb":464.2,"gpu_dedicated_mb":628.1,"gpu_shared_mb":688.3,"host_avail_mb":7231}
+{"t":1791492100.314,"n":24,"cpu_s_sum":1293.0625,"ws_mb":5783.9,"private_mb":1805.6,"main_ws_mb":1435.2,"main_private_mb":464.2,"gpu_dedicated_mb":628.1,"gpu_shared_mb":688.3,"host_avail_mb":7121}
+{"t":1791492132.436,"n":24,"cpu_s_sum":1490.96875,"ws_mb":5996.8,"private_mb":2024.1,"main_ws_mb":1531.5,"main_private_mb":619,"gpu_dedicated_mb":873.6,"gpu_shared_mb":742.1,"host_avail_mb":6417}
