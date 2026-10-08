@@ -135,7 +135,7 @@
     text-align:center; font-size:13px; color:var(--z7); border-radius:12.5% / 5.75%; }
   .veil .big { font-family:var(--label); font-size:17px; font-weight:600; color:var(--z9); }
   .veil .num { font-family:var(--label); }
-  .veil .raw { font:11px/1.4 var(--mono); color:var(--z7); word-break:break-all; max-height:5.6em; overflow:hidden; }
+  .veil .raw { font:11px/1.4 var(--mono); color:var(--z7); overflow-wrap:anywhere; max-height:8.4em; overflow:auto; }
   [data-state=failed] .veil { color:var(--z8); background:color-mix(in srgb, var(--red) 6%, var(--z0)); }
   [data-state=failed] .veil .big { color:var(--red); }
   .veil .row { display:flex; gap:6px; flex-wrap:wrap; justify-content:center; }
@@ -233,7 +233,7 @@
   .issuesum b { color:var(--z9); }
 
   /* Narrow windows: the panel floats over the stage instead of taking a column. */
-  @media (max-width: 2200px) { #stage { grid-template-columns:minmax(0,1fr) 196px; } }
+  @media (max-width: 2200px) { #stage { grid-template-columns:minmax(0,1fr) 176px; } }
   @media (max-width: 1500px) {
     :root { --panel:360px; }
     #main { grid-template-columns:max-content minmax(0,1fr) 48px; }
