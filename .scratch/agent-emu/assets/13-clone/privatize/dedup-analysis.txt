@@ -1,0 +1,15 @@
+out/dedup/d13-pages.bin: 337 MB private
+  (a) identical to template at same GPA: 27.8 MB (8%); whole 64K chunks revertable now: 95 (1.7 MB private freed)
+  (b) content in template at another offset (4K page level): 56.4 MB (17%); whole chunk = another aligned template chunk: 3 chunks
+  (c) shared with another clone, not in template: 60.6 MB (18%)
+  (d) zero pages: 6.1 MB (2%)  (zero pages also counted in (a)/(b) when the template has them there)
+out/dedup/d14-pages.bin: 334 MB private
+  (a) identical to template at same GPA: 27.2 MB (8%); whole 64K chunks revertable now: 97 (1.7 MB private freed)
+  (b) content in template at another offset (4K page level): 52.1 MB (16%); whole chunk = another aligned template chunk: 2 chunks
+  (c) shared with another clone, not in template: 46.3 MB (14%)
+  (d) zero pages: 7.3 MB (2%)  (zero pages also counted in (a)/(b) when the template has them there)
+out/dedup/d15-pages.bin: 337 MB private
+  (a) identical to template at same GPA: 28.0 MB (8%); whole 64K chunks revertable now: 105 (2.0 MB private freed)
+  (b) content in template at another offset (4K page level): 58.7 MB (17%); whole chunk = another aligned template chunk: 2 chunks
+  (c) shared with another clone, not in template: 58.6 MB (17%)
+  (d) zero pages: 8.5 MB (3%)  (zero pages also counted in (a)/(b) when the template has them there)

@@ -590,6 +590,25 @@ Method: `AGENT_EMU_COW_DUMP` makes crosvm write each clone page's state (not res
 - A reported block is free only until the guest allocates again, and the page allocator reuses it within seconds under this load. The net privatized set does not shrink.
 - No variant reached ≤ 390 MB, so I ran no 3-clone or 10-clone run. Reporting stays available but is not a lever here. The guest's write footprint over 10 min (~300-340 MB at 576-640) is the floor for this app and protocol.
 
+### Same-content dedup of clone pages (2026-10-08, crosvm-clone `dda1c35a5`, `privatize/dedup_analyze.py`)
+
+Run: 3 slim4 640 clones of `snapG`, 10 min (tap every 20 s, relaunch at 5 min). `AGENT_EMU_COW_PAGEDUMP_AT=600` dumps each clone's private pages (gpa + 4 KiB). They are hashed against the snapshot `mem` file, against each other, and against zero.
+
+| Per clone (MB / % of private) | d13 (337 MB) | d14 (334) | d15 (337) |
+|---|---|---|---|
+| (a) identical to the template at the same GPA | 27.8 / 8% | 27.2 / 8% | 28.0 / 8% |
+| ... of that, in whole 64 KiB chunks (revertable now) | 1.7 | 1.7 | 2.0 |
+| (b) content in the template at another offset (4 KiB level) | 56.4 / 17% | 52.1 / 16% | 58.7 / 17% |
+| ... whole chunk equal to another 64 KiB-aligned template chunk | 3 chunks | 2 | 2 |
+| (c) same content in another clone, not in the template | 60.6 / 18% | 46.3 / 14% | 58.6 / 17% |
+| (d) zero pages | 6.1 / 2% | 7.3 / 2% | 8.5 / 3% |
+
+- (a) is under the 30 MB bar. Windows can only revert whole 64 KiB views (single-page revert fails, see above), so only ~2 MB per clone is recoverable today. Revert-if-identical was not built.
+- (b) A view maps a contiguous file range at a 64 KiB-aligned offset, so `MapViewOfFile3` at another offset only helps when a whole 64 KiB chunk equals an aligned template chunk: 2-3 chunks per clone, about nothing. Mapping single GPA pages to other template VAs (`WHvMapGpaRange` per 4 KiB) would split what the guest and the in-process devices see, so it is not an option.
+- (c) ~46-61 MB per clone would need a section shared between clones: KSM-like work with no Windows API.
+- (d) zero pages are 6-9 MB per clone.
+- **Ceiling of all same-content tricks together: ~(a)+(b)+(c) ≈ 140 MB per clone at page granularity.** None of it is reachable with Windows file-view granularity except ~2 MB. 400 MB per clone stays out of reach on the host side. The ~73% remainder is unique guest data.
+
 ### Honest RAM of one squeezed Device (2026-10-08, `assets/13-compress/`)
 
 `compress_probe.py`: d0 (896 MB, slim3 pmem), proof app on its first screen, then the daemon `squeeze` with balloon 0 and caps 250/16. Phase A was 6 min with caps only; phase B was 6 min with caps plus `MEMORY_PRIORITY_VERY_LOW` and EcoQoS on all 8 crosvm processes. One tap every 10 s, one sample every 30 s. Host Available stayed between 5.4 and 11.3 GB in the window (no emergency), but other workers' Devices booted and stopped throughout (`other_brokers` in `result.json`), so every global number below carries their noise.
