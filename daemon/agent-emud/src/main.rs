@@ -301,12 +301,57 @@ async fn start_device(st: &State, idx: u32, req: &Value) -> R<(Arc<Device>, f64)
         tokio::spawn(async move {
             let t = Instant::now();
             let r = d2.con.exec(&device::browser_setup_cmd(img, size, &pkg), Duration::from_secs(600)).await;
-            let ok = matches!(&r, Ok((o, 0)) if o.contains(&pkg));
+            let mut ok = matches!(&r, Ok((o, 0)) if o.contains(&pkg));
+            if ok && pkg == "org.mozilla.firefox" {
+                // Accept Firefox's first-run Terms screen once, or it covers every Custom Tab (Auth0, Plaid).
+                ok = firefox_first_run(&d2).await.inspect_err(|e| eprintln!("{}: firefox first run: {e}", d2.id)).is_ok();
+            }
             let _ = ev.send(json!({"type": "device", "device": d2.id, "browser": if ok { "ready" } else { "failed" }, "package": pkg,
                 "s": t.elapsed().as_secs_f64(), "out": r.map(|x| x.0).unwrap_or_else(|e| e), "ts": device::now_ms()}));
         });
     }
     Ok((d, t0.elapsed().as_secs_f64()))
+}
+
+/// The screen's view tree (uiautomator dump). The console shell starts before apexd: it sits in the bootstrap
+/// mount namespace and lacks the *CLASSPATH vars, so app_process (uiautomator) can't run there. Borrow both
+/// from system_server.
+async fn ui_xml(d: &Device) -> R<String> {
+    const UI: &str = "p=$(pidof system_server); for v in $(tr '\\0' '\\n' < /proc/$p/environ | grep CLASSPATH=); \
+        do export \"$v\"; done; nsenter -m -t $p -- sh -c 'uiautomator dump /data/local/tmp/ui.xml >/dev/null && \
+        cat /data/local/tmp/ui.xml'";
+    let (o, code) = d.con.exec(UI, Duration::from_secs(30)).await?;
+    if code != 0 {
+        return Err(format!("uiautomator exit {code}: {o}"));
+    }
+    Ok(o)
+}
+
+/// Center of the first node whose text is `text` in a uiautomator dump.
+fn node_center(xml: &str, text: &str) -> Option<(i64, i64)> {
+    let at = xml.find(&format!("text=\"{text}\""))?;
+    let node = &xml[xml[..at].rfind('<')?..];
+    let b = &node[node.find("bounds=\"[")? + 9..];
+    let n: Vec<i64> = b[..b.find('"')?].split(|c| c == '[' || c == ']' || c == ',').filter_map(|v| v.parse().ok()).collect();
+    (n.len() == 4).then(|| ((n[0] + n[2]) / 2, (n[1] + n[3]) / 2))
+}
+
+/// Opens Firefox once and taps "Continue" on its Terms of Use screen (seeding fenix_preferences did not stick,
+/// 2026-10-08), then closes it. Up to ~40 s for the screen to show.
+async fn firefox_first_run(d: &Device) -> R<()> {
+    d.con.exec("am start -n org.mozilla.firefox/org.mozilla.fenix.HomeActivity >/dev/null", Duration::from_secs(60)).await?;
+    let mut res = Err("no Continue button".to_string());
+    for _ in 0..8 {
+        tokio::time::sleep(Duration::from_secs(5)).await;
+        if let Some((x, y)) = node_center(&ui_xml(d).await.unwrap_or_default(), "Continue") {
+            inject(d, Input::Tap(x, y)).await?;
+            tokio::time::sleep(Duration::from_secs(3)).await;
+            res = Ok(());
+            break;
+        }
+    }
+    d.con.exec("am force-stop org.mozilla.firefox", Duration::from_secs(30)).await?;
+    res
 }
 
 /// Default boot cap (MB) for the main crosvm process; helpers get BOOT_CAP_HELPER_MB.
@@ -630,14 +675,7 @@ async fn handle(st: &Arc<State>, conn: u64, req: &Value) -> R<Value> {
         "ui_tree" => {
             // The console shell starts before apexd: it sits in the bootstrap mount namespace and lacks the
             // *CLASSPATH vars, so app_process (uiautomator) can't run there. Borrow both from system_server.
-            const UI: &str = "p=$(pidof system_server); for v in $(tr '\\0' '\\n' < /proc/$p/environ | grep CLASSPATH=); \
-                do export \"$v\"; done; nsenter -m -t $p -- sh -c 'uiautomator dump /data/local/tmp/ui.xml >/dev/null && \
-                cat /data/local/tmp/ui.xml'";
-            let (o, code) = d.con.exec(UI, Duration::from_secs(30)).await?;
-            if code != 0 {
-                return Err(format!("uiautomator exit {code}: {o}"));
-            }
-            return Ok(json!({"ok": true, "xml": o}));
+            return Ok(json!({"ok": true, "xml": ui_xml(&d).await?}));
         }
         "logs" => {
             // One-shot read; with wait_ms it is a long poll that returns once new lines arrive.
@@ -765,6 +803,13 @@ mod tests {
 
     fn state() -> Arc<State> {
         Arc::new(new_state(Cfg { work: "W".into(), mem: "896".into(), cpus: "2".into(), min_avail_mb: 4000, crosvm_dir: "crosvm-pmem".into() }))
+    }
+
+    #[test]
+    fn finds_button_center() {
+        let xml = r#"<node index="0" text="Welcome" bounds="[0,0][10,10]" /><node index="1" text="Continue" resource-id="x" bounds="[147,2154][1173,2297]" />"#;
+        assert_eq!(node_center(xml, "Continue"), Some((660, 2225)));
+        assert_eq!(node_center(xml, "Accept"), None);
     }
 
     #[tokio::test]
