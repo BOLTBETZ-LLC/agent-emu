@@ -581,9 +581,10 @@ function renderWell(id) {
   w.el.classList.toggle("sel", S.sel === id);
   w.el.style.setProperty("--p", progress(id, st).toFixed(1));
   const live = st === "running", m = S.m[id] || {};
-  w.fps.innerHTML = live ? `<b>${Math.round(m.scanout_fps || 0)}</b> fps` : "";
+  const fps = Math.round(m.scanout_fps || 0);
+  w.fps.innerHTML = live && fps ? `<b>${fps}</b> fps` : "";
   w.fps.title = "Frames the phone drew in the last second (0 while the screen is still)";
-  w.ram.innerHTML = (live || st === "booting") && m.own_mb != null ? `<b>${m.own_mb}</b> MB <span>+${m.shared_mb}</span>` : "";
+  w.ram.innerHTML = (live || st === "booting") && m.own_mb != null ? `<b>${m.own_mb}</b> MB` : "";
   w.ram.title = m.own_mb != null ? `own ${m.own_mb} MB: RAM only this Device uses. +${m.shared_mb} MB shared: system image and program files other Devices reuse.` : "";
   w.crash.hidden = !S.crashes[id]; w.crash.textContent = S.crashes[id] === 1 ? "1 crash" : S.crashes[id] + " crashes";
   const html = noApp(id)
@@ -686,16 +687,25 @@ function openEvents() {
 
 // ---------- frames: every Device on one connection ----------
 // /mux sends [u32 len][u64 seq][u32 w][u32 h][u32 n][jpeg]; w x h is the device size. The focused one comes unscaled.
-let mux = null, muxKey = "";
-function tileWidth() { return Math.ceil(W.d0.recess.clientWidth * (devicePixelRatio || 1) / 40) * 40; }
+// Two connections: unfocused tiles share one /mux at small size and 5 fps (light on the host); the focused
+// phone gets its own /frames at full rate. Both pause while this tab is hidden.
+const TILE_FPS = 5;
+let streams = [], streamKey = "";
+function tileWidth() { return Math.min(240, Math.ceil(W.d0.recess.clientWidth * (devicePixelRatio || 1) / 40) * 40); }
 function openMux() {
-  const key = `${S.sel}|${tileWidth()}`;
-  if (mux && key === muxKey) return;
-  if (mux) mux.abort();
-  const ctl = new AbortController(); mux = ctl; muxKey = key;
-  readMux(ctl, `${BASE}/mux?devices=${IDS.join(",")}&max_width=${tileWidth()}&full=${S.sel || ""}`);
+  const key = document.hidden ? "hidden" : `${S.sel}|${tileWidth()}`;
+  if (key === streamKey && streams.length) return;
+  streams.forEach(c => c.abort()); streams = []; streamKey = key;
+  if (document.hidden) return;
+  const tiles = IDS.filter(id => id !== S.sel).join(",");
+  readStream(`${BASE}/mux?devices=${tiles}&max_width=${tileWidth()}&fps=${TILE_FPS}&quality=60`, null);
+  if (S.sel) readStream(`${BASE}/frames?device=${S.sel}&fps=30`, S.sel);
 }
-async function readMux(ctl, url) {
+document.addEventListener("visibilitychange", openMux);
+// /mux records carry the device number (24-byte head); /frames records are one Device's (20-byte head).
+async function readStream(url, fixedId) {
+  const ctl = new AbortController(); streams.push(ctl);
+  const head = fixedId ? 20 : 24;
   try {
     const res = await fetch(url, { signal: ctl.signal });
     if (!res.ok) throw new Error("HTTP " + res.status);
@@ -703,16 +713,18 @@ async function readMux(ctl, url) {
     for (;;) {
       const { value, done } = await rd.read(); if (done) break;
       const nb = new Uint8Array(buf.length + value.length); nb.set(buf); nb.set(value, buf.length); buf = nb;
-      while (buf.length >= 24) {
-        const dv = new DataView(buf.buffer, buf.byteOffset, 24), n = dv.getUint32(0, true);
-        if (buf.length < 24 + n) break;
-        const seq = Number(dv.getBigUint64(4, true)), w = dv.getUint32(12, true), h = dv.getUint32(16, true), id = "d" + dv.getUint32(20, true);
-        const blob = new Blob([buf.slice(24, 24 + n)], { type: "image/jpeg" }); buf = buf.slice(24 + n);
+      while (buf.length >= head) {
+        const dv = new DataView(buf.buffer, buf.byteOffset, head), n = dv.getUint32(0, true);
+        if (buf.length < head + n) break;
+        const seq = Number(dv.getBigUint64(4, true)), w = dv.getUint32(12, true), h = dv.getUint32(16, true);
+        const id = fixedId || "d" + dv.getUint32(20, true);
+        const blob = new Blob([buf.slice(head, head + n)], { type: "image/jpeg" }); buf = buf.slice(head + n);
         onFrame(id, seq, w, h, await createImageBitmap(blob));
       }
     }
   } catch (e) { if (e.name === "AbortError") return; }
-  if (mux === ctl) setTimeout(() => { if (mux === ctl) { mux = null; openMux(); } }, 1000);
+  // Ended (the focused Device stopped, or the daemon went away): retry while this stream is still wanted.
+  if (streams.includes(ctl)) setTimeout(() => { if (streams.includes(ctl)) { streams.splice(streams.indexOf(ctl), 1); readStream(url, fixedId); } }, 1000);
 }
 function onFrame(id, seq, w, h, bmp) {
   if (!W[id]) { bmp.close(); return; }
@@ -747,7 +759,9 @@ setInterval(() => {
 // ---------- input: click = tap, drag = swipe, wheel = scroll, keys to the focused phone ----------
 let pending = null;
 async function input(id, call, args, what) {
-  const f = S.frame[id]; pending = f ? { id, seq: f.seq, t0: performance.now(), what } : null;
+  const f = S.frame[id], mine = f ? { id, seq: f.seq, t0: performance.now(), what } : null; pending = mine;
+  // No new frame within 3 s: say so, so a tap that did nothing on the phone is not mistaken for a lost click.
+  if (mine) setTimeout(() => { if (pending === mine) { pending = null; say(`${id}: ${what} sent; the screen did not change.`); } }, 3000);
   const r = await api(call, { device: id, ...args, screenshot: false, device_px: true });
   if (!r.ok) { pending = null; wellSay(id, plain(r.error, id), true, 5000); say(`${id}: ${plain(r.error, id)}`, true); }
 }
