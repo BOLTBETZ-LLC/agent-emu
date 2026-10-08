@@ -27,6 +27,12 @@ fn tools() -> Value {
         tool("type_text", "Type text into the focused field. Returns a settled screenshot.", json!({"text": {"type": "string"}}), &["text"], true),
         tool("key", "Press a key: back, home, enter, app_switch, del, ... Returns a settled screenshot.", json!({"name": {"type": "string"}}), &["name"], true),
         tool("ui_tree", "uiautomator XML of the current screen.", json!({}), &[], false),
+        tool("logs", "Logcat lines (threadtime), newest last. filter = package (its processes, restarts followed) or tag.             Pass the returned cursor back to get only newer lines; with follow (or wait_ms) the call waits until new lines arrive.",
+            json!({"filter": {"type": "string"}, "since": {"type": "number", "description": "unix ms; drop older lines"},
+                "cursor": {"type": "number", "description": "from a previous reply"}, "max_lines": {"type": "number", "description": "default 500"},
+                "follow": {"type": "boolean", "description": "wait up to wait_ms (default 10000) for new lines"}, "wait_ms": num}), &[], false),
+        tool("crash_events", "Crash, ANR and native-crash events since boot, each with a seq. Pass `after` = the last seq seen             and wait_ms to block until the next one arrives. filter = package.",
+            json!({"filter": {"type": "string"}, "after": {"type": "number"}, "wait_ms": num}), &[], false),
         tool("lease", "Take exclusive input control of a Device.", json!({}), &[], false),
         tool("release", "Give up the lease.", json!({}), &[], false),
     ])
@@ -63,6 +69,11 @@ fn to_content(mut rep: Value) -> Value {
     if let Some(xml) = rep.as_object_mut().and_then(|o| o.remove("xml")) {
         content.push(json!({"type": "text", "text": xml}));
     }
+    if let Some(Value::Array(lines)) = rep.as_object_mut().and_then(|o| o.remove("lines")) {
+        let text: Vec<&str> = lines.iter().filter_map(Value::as_str).collect();
+        content.push(json!({"type": "text", "text": text.join("
+")}));
+    }
     content.push(json!({"type": "text", "text": rep.to_string()}));
     json!({"content": content})
 }
@@ -84,6 +95,11 @@ pub fn run(addr: &str) {
                 let mut req = p["arguments"].clone();
                 if !req.is_object() { req = json!({}); }
                 req["call"] = p["name"].clone();
+                if req["call"] == json!("logs") && req["follow"] == json!(true) {
+                    // MCP is request/response: follow becomes a long poll.
+                    req["follow"] = json!(false);
+                    if req["wait_ms"].is_null() { req["wait_ms"] = json!(10000); }
+                }
                 Ok(match forward(&mut conn, addr, &req) {
                     Ok(rep) => to_content(rep),
                     Err(e) => json!({"content": [{"type": "text", "text": e}], "isError": true}),
@@ -111,6 +127,13 @@ mod tests {
         assert!(!c["content"][1]["text"].as_str().unwrap().contains("AAA"));
         let e = to_content(json!({"ok": false, "error": "busy"}));
         assert_eq!(e["isError"], true);
+    }
+
+    #[test]
+    fn log_lines_become_text() {
+        let c = to_content(json!({"ok": true, "lines": ["a", "b"], "cursor": 5}));
+        assert_eq!(c["content"][0]["text"], "a\nb");
+        assert!(c["content"][1]["text"].as_str().unwrap().contains("\"cursor\":5"));
     }
 
     #[test]

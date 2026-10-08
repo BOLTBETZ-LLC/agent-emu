@@ -260,6 +260,8 @@ pub struct Device {
     idx: u32,
     pub input: OnceLock<Input>,
     pub fb: OnceLock<Arc<Fb>>,
+    /// Crash/ANR events parsed from this boot's logcat.log (logs.rs).
+    pub events: Arc<crate::logs::Events>,
 }
 
 impl Device {
@@ -295,9 +297,9 @@ impl Device {
             }
         };
         Ok(Arc::new(Device {
-            id: format!("d{idx}"), dir, boot: Mutex::new(Some(child)), con, ready: AtomicBool::new(false),
+            id: format!("d{idx}"), dir: dir.clone(), boot: Mutex::new(Some(child)), con, ready: AtomicBool::new(false),
             last: StdMutex::new(None), gen: AtomicU64::new(0), scale: StdMutex::new(1.0),
-            idx, input: OnceLock::new(), fb: OnceLock::new(),
+            idx, input: OnceLock::new(), fb: OnceLock::new(), events: crate::logs::Events::spawn(dir.join("logcat.log")),
         }))
     }
 

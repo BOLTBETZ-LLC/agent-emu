@@ -5,6 +5,7 @@
 // Reply:    {"id":1,"ok":true,"ms":12,...} or {"id":1,"ok":false,"error":"..."}
 mod device;
 mod fast;
+mod logs;
 mod mcp;
 
 use base64::Engine;
@@ -50,6 +51,14 @@ async fn serve(addr: String) {
                     while let Ok(Some(line)) = lines.next_line().await {
                         let t0 = Instant::now();
                         let req: Value = serde_json::from_str(&line).unwrap_or(Value::Null);
+                        if req["call"] == json!("logs") && req["follow"] == json!(true) {
+                            if let Err(e) = follow_logs(&st, &req, &mut w).await {
+                                let out = format!("{}
+", json!({"id": req["id"], "ok": false, "error": e}));
+                                if w.write_all(out.as_bytes()).await.is_err() { break; }
+                            }
+                            continue;
+                        }
                         let mut rep = match handle(&st, conn, &req).await {
                             Ok(v) => v,
                             Err(e) => json!({"ok": false, "error": e}),
@@ -114,6 +123,52 @@ fn frame_json(f: &device::Frame, size: Option<(u32, u32)>) -> R<Value> {
     }))
 }
 
+/// Package (process name) or tag filter for `logs`. A package's current pids come from `pidof`; pids
+/// of later starts are learned from the log itself.
+async fn log_filter(d: &Device, req: &Value) -> logs::Filter {
+    let name = req["filter"].as_str().filter(|s| !s.is_empty()).map(str::to_string);
+    let mut pids = std::collections::HashSet::new();
+    if let Some(n) = name.as_deref().filter(|n| n.chars().all(|c| c.is_ascii_alphanumeric() || "._:".contains(c))) {
+        if let Ok((o, _)) = d.con.exec(&format!("pidof {n}"), Duration::from_secs(10)).await {
+            pids.extend(o.split_whitespace().filter_map(|p| p.parse::<u32>().ok()));
+        }
+    }
+    logs::Filter { name, pids, since_ms: req["since"].as_u64(), year: logs::this_year() }
+}
+
+fn ready_device(st: &State, devid: &str) -> R<Arc<Device>> {
+    let d = st.dev.lock().unwrap().clone().filter(|d| d.id == devid).ok_or(format!("no Device `{devid}`"))?;
+    if !d.ready.load(Ordering::SeqCst) {
+        return Err(format!("Device `{devid}` is still booting"));
+    }
+    Ok(d)
+}
+
+/// `logs` with follow=true: one reply per batch of new lines (`more: true`) until `duration_ms`
+/// passes (then a last reply with `more: false`), the Device stops, or the client hangs up.
+async fn follow_logs(st: &State, req: &Value, w: &mut (impl AsyncWriteExt + Unpin)) -> R<()> {
+    let d = ready_device(st, req["device"].as_str().unwrap_or("d0"))?;
+    let mut f = log_filter(&d, req).await;
+    let path = d.dir.join("logcat.log");
+    let max = req["max_lines"].as_u64().unwrap_or(500) as usize;
+    let end = req["duration_ms"].as_u64().map(|ms| Instant::now() + Duration::from_millis(ms));
+    let mut cursor = req["cursor"].as_u64();
+    loop {
+        let (lines, cur) = logs::read(&path, cursor, &mut f, max)?;
+        cursor = Some(cur);
+        let done = end.is_some_and(|e| Instant::now() >= e) || !d.ready.load(Ordering::SeqCst);
+        if !lines.is_empty() || done {
+            let out = format!("{}
+", json!({"id": req["id"], "ok": true, "lines": lines, "cursor": cur, "more": !done}));
+            w.write_all(out.as_bytes()).await.map_err(|e| e.to_string())?;
+        }
+        if done {
+            return Ok(());
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+}
+
 async fn handle(st: &State, conn: u64, req: &Value) -> R<Value> {
     let call = req["call"].as_str().ok_or("missing `call`")?;
     let devid = req["device"].as_str().unwrap_or("d0");
@@ -173,6 +228,35 @@ async fn handle(st: &State, conn: u64, req: &Value) -> R<Value> {
                 return Err(format!("uiautomator exit {code}: {o}"));
             }
             return Ok(json!({"ok": true, "xml": o}));
+        }
+        "logs" => {
+            // One-shot read; with wait_ms it is a long poll that returns once new lines arrive.
+            let mut f = log_filter(&d, req).await;
+            let path = d.dir.join("logcat.log");
+            let max = req["max_lines"].as_u64().unwrap_or(500) as usize;
+            let end = Instant::now() + Duration::from_millis(req["wait_ms"].as_u64().unwrap_or(0));
+            let mut cursor = req["cursor"].as_u64();
+            loop {
+                let (lines, cur) = logs::read(&path, cursor, &mut f, max)?;
+                if !lines.is_empty() || Instant::now() >= end {
+                    return Ok(json!({"ok": true, "lines": lines, "cursor": cur}));
+                }
+                cursor = Some(cur);
+                tokio::time::sleep(Duration::from_millis(100)).await;
+            }
+        }
+        "crash_events" => {
+            // Long poll: events after seq `after`, waiting up to wait_ms for the first one.
+            let after = req["after"].as_u64().unwrap_or(0);
+            let end = tokio::time::Instant::now() + Duration::from_millis(req["wait_ms"].as_u64().unwrap_or(0));
+            loop {
+                let notified = d.events.notify.notified();
+                let (events, last) = d.events.after(after, req["filter"].as_str().filter(|s| !s.is_empty()));
+                if !events.is_empty() || tokio::time::Instant::now() >= end {
+                    return Ok(json!({"ok": true, "events": events, "last": last}));
+                }
+                let _ = tokio::time::timeout_at(end, notified).await;
+            }
         }
         "shell" => {
             let secs = req["timeout_s"].as_u64().unwrap_or(120);
