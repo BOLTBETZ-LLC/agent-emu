@@ -11,9 +11,10 @@ import base64, json, os, re, shutil, socket, subprocess, sys, time, uuid
 
 W = "C:/dev/agent-emu-work"
 # AE_PROFILE=slim4: run-slim4 images, 640 MB, guest diet cmdline cuts, 11 consoles, one virtio-snd.
-SLIM4 = os.environ.get("AE_PROFILE") == "slim4"
-RUN = f"{W}/run-slim4" if SLIM4 else f"{W}/run"
-MEM = "640" if SLIM4 else "896"
+PROFILE = os.environ.get("AE_PROFILE", "")
+SLIM4 = PROFILE in ("slim4", "slim5")  # slim5 = slim4 cuts + HomeStub image at 576 MB
+RUN = f"{W}/run-{PROFILE}" if SLIM4 else f"{W}/run"
+MEM = {"slim4": "640", "slim5": "576"}.get(PROFILE, "896")
 DIET = dict(AE_PARAMS="virtio_blk.num_request_queues=1 virtio_blk.queue_depth=64 kfence.sample_interval=0 transparent_hugepage=never",
             AE_SINKS="11", AE_GPU_EXTRA="audio-device-mode=one-global") if SLIM4 else {}
 BOOT = f"{W}/boot-diet.ps1" if SLIM4 else f"{W}/boot-stage1.ps1"
