@@ -526,3 +526,50 @@ python leverD/a17/fleet_a17.py a17-640 --run C:/dev/agent-emu-work/leverD/a17/ru
 CAP_MAIN=200 CAP_HELPER=16 python leverD/tools/measure.py 30 <fleet dir d30> leverD/results/a17-640-cap --no-install
 ```
 Then the same at 576.
+
+### 10-Device proof (2026-10-08): 10 Devices, all alive, 445 MB per Device
+
+**Setup:**
+- slim5, `--mem 576`, 2 vCPU, crosvm-diet binary (`9858134a6`), cmdline cuts, 11 consoles, one virtio-snd, pmem DAX system, no balloon.
+- Caps: run-main 200 MB, helpers 16 MB, applied right after each Device's first screen.
+- Driver: `C:/dev/agent-emu-work/fleet10_diet.py`. Results: `results/diet/fleet10-576/` (`result.json`, `progress.log`, `first-d*.png`, `end-d*.png`).
+
+**Baseline (23:19:06):**
+- Available 12,629 MB, Committed 37,173 MB, pagefile 2.57 %, Memory Compression WS 1,744 MB.
+- Other crosvm: 14 processes, 1,482 MB WS. They were gone by the end (lever A's Devices 13-15, see the incident below), so the Available drop understates this run's cost.
+
+**Boot, one at a time:**
+- Every Device: install Success, `Status: ok`, app pid alive after a 45 s settle, then capped.
+- Ready 133.6-149.0 s, launch TotalTime 1,399-3,282 ms, boot-to-capped 195-217 s.
+- Devices 16 → 25 took 23:19 → 23:54. Available stayed ≥ 5,882 MB throughout; no abort.
+
+**Hold:** 5 min with all 10 up and capped; a tap on each Device every 20 s; a sample every 30 s (10 samples).
+
+| Measure | Value |
+|---|---|
+| Per-Device WS | 257-263 MB, flat for the whole hold |
+| All 10 Devices WS | 2,612 MB |
+| Memory Compression WS | 1,744 → 3,580 MB (**+1,836 MB**) |
+| Committed | 37,173 → 41,901 MB (+4,728 MB) |
+| Pagefile % | 2.57 → 2.34 |
+| Available | 12,629 → 8,803 MB (−3,826 MB) |
+| App alive | 10 of 10 Devices in every sample |
+
+**Per-Device unique RAM:**
+- WS + compression growth / 10 = 261 + 184 = **445 MB**. This already puts all of the compression growth on these 10 Devices, so it is also the attributable worst case.
+- Available drop / 10 = **383 MB**. This is low: lever A's 1,482 MB of crosvm WS was freed during the run. Corrected for that it is about 531 MB.
+- Available recovered 8,803 → 13,763 MB (+4,960) when the 10 were stopped, which is **496 MB** per Device.
+- All three measures are under 600 MB.
+
+**End screenshots, all 10 looked at:** `end-d16.png` … `end-d25.png`. Each shows the proof app's first screen: the "No Internet Connection / Try Again" dialog over the blurred Start screen. No system dialogs, no launcher, no "Phone is starting…".
+
+All 10 were stopped at the end by their own `ae-vm-<id>` pipes. 0 crosvm processes were left.
+
+**Incident: lever A's Devices 13-15 were killed around the start of this run. My cleanup is the likely cause.**
+- At ~23:15, before this run, I stopped my 576 squeeze Device by hand. The command matched any powershell running `*boot-diet.ps1*` and also killed each match's crosvm children.
+- It stopped 5 powershell processes, not the expected 2. The 3 extra are consistent with Devices 13-15, if they were booted through `boot-diet.ps1`. The daemon's `boot-device.ps1` notes that other workers' cleanup matched `boot-diet.ps1` by name.
+- The same name match was in `fleet_diet.py` `kill_mine()`.
+- The baseline at 23:19 still counted 14 other crosvm processes, so the timing is not certain.
+- `fleet10_diet.py` itself never stopped anything during this run (no abort), and its caps only touch its own Devices' processes.
+- **Fix:** `kill_mine()` in `fleet_diet.py`, and `stop()`/`device_procs()` in `fleet10_diet.py`, now match only a `run-mp` broker whose command line has `pipe?ae-vm-<id> ` for this run's ids. They stop only that broker's crosvm children, its parent powershell and the bridge `console_bridge.ps1 -Id <id> -Port <7100+id>`. A read-only check matched only the right broker for ids 16 and 19, and nothing for 13 or 1.
+- A second bug was in `fleet_diet.py`: the pattern `'*\ae-vm-{i} *'` contained `\a`, which Python reads as a BEL character, so it would never have matched. It now uses the `?` wildcard.
