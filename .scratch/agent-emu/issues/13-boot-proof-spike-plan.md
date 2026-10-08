@@ -174,6 +174,7 @@ Each Device gets its own dir with hard-linked read-only images (one disk copy, o
   - Memory at OOM: anon about 280 MB, **slab_unreclaimable 177 MB**, pagetables 24 MB, free 22 MB.
   - Android 16 boot needs more than 768 MB even without SystemUI, with DAX system and low_ram.
   - Getting lower needs kernel and userspace diet work (slab users, zram sizing, fewer boot services), not just APK removal.
+- **slim3 + pmem at `--mem 896`: PASS.** Ready at 143 s (slow, memory-bound), launch 691 ms, app alive, first screen seen by eye. Guest used 995 MB (with zram). The single-Device host delta was noise (WSL had just shut down).
 - **pmem + slim2 at `--mem 768`: boot timeout.** The guest was only 26 s into boot after 10 min of wall time. This image (with SystemUI and the launcher) needs about 1 GB even with DAX. Next cut: slim3 without SystemUI (252 MB RSS), like the ATD images.
 - **The next lever is guest RAM size.** DAX took system files out of the guest page cache, so try `--mem 768` and 640 with pmem. Then add a balloon per Device.
 

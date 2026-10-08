@@ -1,0 +1,35 @@
+{
+ "tag": "slim3-896",
+ "n": 1,
+ "mem": "896",
+ "cpus": "2",
+ "pmem": true,
+ "devices": [
+  {
+   "id": 0,
+   "dir": "C:/dev/agent-emu-work/fleet/d0",
+   "ready_s": 143.3,
+   "install": "Success",
+   "launch": "Status: ok\nTotalTime: 691",
+   "app_pid": "4563",
+   "guest_used": "Used RAM:   995,020K (  603,536K used pss +   391,484K kernel)"
+  }
+ ],
+ "host_before": {
+  "available_mb": 8688,
+  "committed_mb": 32494,
+  "mem_compression_ws_mb": 597
+ },
+ "available_before_mb": 8688,
+ "host_after": {
+  "available_mb": 4513,
+  "committed_mb": 35978,
+  "mem_compression_ws_mb": 451
+ },
+ "available_after_mb": 4513,
+ "committed_delta_mb": 3484,
+ "mem_compression_delta_mb": -146,
+ "fleet_cost_mb": 4175,
+ "per_device_mb": 4175,
+ "crosvm_ws_total_mb": 1983
+}
