@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>agent-emu</title>
+<style>
+  :root { --bg:#f6f7f9; --panel:#fff; --ink:#1b1f24; --mute:#667085; --line:#d9dde3; --accent:#1f6feb; --bad:#c62828; --ok:#1a7f37; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#111418; --panel:#1a1f25; --ink:#e6e9ee; --mute:#98a2b3; --line:#2c333b; --accent:#4c8dff; --bad:#ff6b6b; --ok:#3fb950; } }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.45 system-ui, Segoe UI, sans-serif; background:var(--bg); color:var(--ink); }
+  header { display:flex; align-items:center; gap:12px; padding:10px 16px; border-bottom:1px solid var(--line); background:var(--panel); }
+  header h1 { font-size:26px; font-weight:650; letter-spacing:-.01em; margin:0; }
+  header .grow { flex:1; }
+  main { display:grid; grid-template-columns: 340px minmax(360px, 1fr) 380px; gap:12px; padding:12px; height:calc(100vh - 64px); }
+  @media (max-width: 1100px) { main { grid-template-columns: 1fr; height:auto; } }
+  section { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:12px; overflow:auto; }
+  h2 { font-size:15px; font-weight:600; color:var(--ink); margin:14px 0 6px; }
+  h2:first-child { margin-top:0; }
+  button { font:inherit; padding:5px 10px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--ink); cursor:pointer; }
+  button:hover:not(:disabled) { border-color:var(--accent); }
+  button.primary { background:#1f6feb; border-color:#1f6feb; color:#fff; }
+  button.danger { color:var(--bad); }
+  button:disabled { opacity:.45; cursor:default; }
+  input, select { font:inherit; padding:4px 6px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--ink); }
+  label { display:flex; align-items:center; gap:6px; margin:4px 0; }
+  label > span { width:100px; color:var(--mute); }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  td, th { text-align:left; padding:4px; border-bottom:1px solid var(--line); vertical-align:top; }
+  tr.sel { background:color-mix(in srgb, var(--accent) 14%, transparent); }
+  tr.dev { cursor:pointer; }
+  .row { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+  .mute { color:var(--mute); }
+  #err { display:none; margin:0 16px; padding:8px 12px; border:1px solid var(--bad); color:var(--bad); border-radius:6px; background:var(--panel); white-space:pre-wrap; }
+  #busy { font-weight:600; color:var(--accent); }
+  #progress { font-weight:600; }
+  .note { font-size:13px; color:var(--mute); margin:2px 0 6px; }
+  #screenwrap { display:flex; flex-direction:column; align-items:center; gap:8px; height:100%; }
+  #screenbox { flex:1; min-height:0; width:100%; display:flex; align-items:center; justify-content:center; }
+  #screen { max-width:100%; max-height:100%; background:#000; border-radius:6px; touch-action:none; outline:none; cursor:crosshair; }
+  #screen:focus { box-shadow:0 0 0 3px var(--accent); }
+  #placeholder { color:var(--mute); }
+  pre { margin:0; font:13px/1.4 ui-monospace, Consolas, monospace; white-space:pre-wrap; word-break:break-all; }
+  #logs { height:330px; overflow:auto; border:1px solid var(--line); border-radius:6px; padding:6px; background:var(--bg); }
+  #drop { border:2px dashed var(--line); border-radius:8px; padding:14px; text-align:center; color:var(--mute); }
+  #drop.over { border-color:var(--accent); color:var(--accent); }
+  .tabs button.on { background:#1f6feb; color:#fff; border-color:#1f6feb; }
+  .ok { color:var(--ok); } .bad { color:var(--bad); }
+</style>
+</head>
+<body>
+<header>
+  <h1>agent-emu</h1><span class="mute" id="host"></span><span class="grow"></span>
+  <span id="busy"></span>
+  <button class="danger" id="quit" title="Stop every Device and the daemon">Quit</button>
+</header>
+<div id="err"></div>
+<main>
+  <section>
+    <h2>Devices</h2>
+    <table><thead><tr><th>id</th><th>state</th><th>image / RAM / vCPU</th><th>up</th><th>RAM use</th><th></th></tr></thead><tbody id="devs"></tbody></table>
+    <div class="row" style="margin-top:6px"><button id="stopall" class="danger">Stop all</button></div>
+    <h2>Start a Device</h2>
+    <label><span>Device id</span><input id="s_id" value="d0" size="5"></label>
+    <label><span>Image</span><select id="s_image">
+      <option value="phone" selected>Phone (full Android)</option>
+      <optgroup label="Agent (lean)"><option value="">Lean slim3n</option><option value="slim3">Lean slim3</option><option value="slim4">Lean slim4</option><option value="slim5">Lean slim5</option></optgroup>
+    </select></label>
+    <div class="note" id="imgnote">Full phone: status bar, navigation bar, notifications, Settings. 2 GB.</div>
+    <label><span>RAM (MB)</span><input id="s_mem" placeholder="image default" size="10"></label>
+    <label><span>CPU cores</span><input id="s_cpus" value="2" size="4"></label>
+    <label><span>Network</span><input type="checkbox" id="s_net" checked></label>
+    <label><span>Save RAM</span><input type="checkbox" id="s_squeeze"><span class="mute" style="width:auto">after the first app launch</span></label>
+    <button class="primary" id="start">Start</button>
+    <div id="progress" class="mute"></div>
+    <h2>Fleet</h2>
+    <label><span>Devices</span><input id="f_n" value="2" size="4"></label>
+    <label><span>first id</span><input id="f_base" value="0" size="4"></label>
+    <div class="row"><button id="fleet">Start fleet</button><button id="fleetstop">Stop fleet</button></div>
+    <pre id="fleetout" class="mute"></pre>
+  </section>
+
+  <section id="screenwrap">
+    <div class="row">
+      <button data-key="back" title="Back">◀ Back</button>
+      <button data-key="home" title="Home">● Home</button>
+      <button data-key="app_switch" title="Recents">■ Recents</button>
+      <button disabled title="Rotation is not supported on this Device">⟳ Rotate</button>
+      <button id="shot" title="Download a PNG of the screen">Screenshot</button>
+    </div>
+    <div class="mute" id="screeninfo">Pick a Device on the left.</div>
+    <div id="screenbox"><span id="placeholder">No Device selected</span><canvas id="screen" tabindex="0" hidden></canvas></div>
+    <div class="mute" id="lat">click → frame: no samples yet</div>
+  </section>
+
+  <section>
+    <div class="row tabs"><button data-tab="apps" class="on">Apps</button><button data-tab="logs">Logs</button><button data-tab="crashes">Crashes</button></div>
+    <div id="tab_apps">
+      <h2>Install</h2>
+      <div id="drop">Drop an APK here, or <input type="file" id="apkfile" accept=".apk"></div>
+      <label><span>host path</span><input id="apkpath" placeholder="C:\path\app.apk" style="flex:1"><button id="installpath">Install</button></label>
+      <div class="row"><button class="primary" id="preset">Open BoltBetz (staging)</button></div>
+      <h2>Launch</h2>
+      <label><span>package</span><input id="pkg" value="com.boltbetz.staging" style="flex:1"><button id="launch">Launch</button></label>
+      <pre id="appout" class="mute"></pre>
+    </div>
+    <div id="tab_logs" hidden>
+      <label><span>filter</span><input id="logfilter" placeholder="package or tag" style="flex:1"></label>
+      <div class="row"><label><input type="checkbox" id="follow" checked> follow</label><button id="clearlogs">Clear</button></div>
+      <div id="logs"><pre id="logtext"></pre></div>
+    </div>
+    <div id="tab_crashes" hidden>
+      <p class="mute">Crashes, ANRs and native crashes on the selected Device since boot.</p>
+      <table><thead><tr><th>#</th><th>type</th><th>process</th><th>what</th></tr></thead><tbody id="crashes"></tbody></table>
+    </div>
+  </section>
+</main>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+let sel = null, devices = [], mem = {}, stream = null, lastSeq = 0, pending = null, lat = [];
+let logGen = 0, logCursor = null, logDev = null, crashAfter = 0, crashDev = null, fps = 0, frameCount = 0;
+
+function showErr(msg) { const e = $("err"); if (!msg) { e.style.display = "none"; return; } e.textContent = msg; e.style.display = "block"; }
+function plain(e) { return /Available .* MB/.test(e) ? "Host memory too low to boot a Device: " + e : e; }
+async function api(call, args = {}, quiet = false) {
+  const r = await fetch("/api", { method: "POST", body: JSON.stringify({ call, device: sel, ...args }) }).then(r => r.json()).catch(e => ({ ok: false, error: "daemon not reachable: " + e }));
+  if (!r.ok && !quiet) showErr(call + ": " + plain(r.error || "failed"));
+  return r;
+}
+function busy(t) { $("busy").textContent = t || ""; }
+const fmtUp = (s) => s < 60 ? s + " s" : s < 3600 ? Math.floor(s / 60) + " min" : (s / 3600).toFixed(1) + " h";
+
+async function refresh() {
+  const r = await api("status", { device: undefined }, true);
+  if (!r.ok) { $("host").textContent = "daemon not reachable"; return; }
+  devices = r.devices; $("host").textContent = "host free RAM " + r.available_mb + " MB";
+  const tb = $("devs"); tb.innerHTML = "";
+  for (const d of devices) {
+    const tr = document.createElement("tr"); tr.className = "dev" + (d.id === sel ? " sel" : "");
+    tr.innerHTML = `<td>${d.id}</td><td class="${d.ready ? "ok" : "mute"}">${d.ready ? "running" : "booting…"}</td>
+      <td>${d.image || ""}<br><span class="mute">${d.mem || "?"} MB · ${d.cpus || "?"} vCPU${d.net === false ? " · no net" : ""}</span></td>
+      <td>${fmtUp(d.uptime_s || 0)}</td><td>${mem[d.id] != null ? mem[d.id] + " MB" : ""}</td><td><button class="danger">Stop</button></td>`;
+    tr.onclick = (ev) => { if (ev.target.tagName !== "BUTTON") select(d.id); };
+    tr.querySelector("button").onclick = async () => { busy("stopping " + d.id + "…"); await api("stop", { device: d.id }); busy(); if (sel === d.id) select(null); refresh(); };
+    tb.appendChild(tr);
+  }
+  if (!sel && devices.length) select(devices[0].id);
+  if (sel && !devices.find(d => d.id === sel)) select(null);
+}
+async function refreshMem() {
+  for (const d of devices.filter(d => d.ready)) { const r = await api("memory", { device: d.id }, true); if (r.ok) mem[d.id] = r.ws_mb; }
+}
+
+function select(id) {
+  if (sel === id) return;
+  sel = id; if (stream) stream.abort(); stream = null; lastSeq = 0; pending = null;
+  $("screen").hidden = !id; $("placeholder").hidden = !!id; $("placeholder").textContent = "No Device selected";
+  $("screeninfo").textContent = id ? id + ": waiting for frames…" : "Pick a Device on the left.";
+  $("logtext").textContent = ""; logCursor = null; crashAfter = 0; $("crashes").innerHTML = "";
+  if (id) startStream(id);
+  refresh();
+}
+
+async function startStream(id) {
+  const ctl = new AbortController(); stream = ctl;
+  try {
+    const res = await fetch("/frames?device=" + encodeURIComponent(id), { signal: ctl.signal });
+    const reader = res.body.getReader(); let buf = new Uint8Array(0);
+    const cv = $("screen"), g = cv.getContext("2d");
+    while (true) {
+      const { value, done } = await reader.read(); if (done) break;
+      const nb = new Uint8Array(buf.length + value.length); nb.set(buf); nb.set(value, buf.length); buf = nb;
+      while (buf.length >= 20) {
+        const dv = new DataView(buf.buffer, buf.byteOffset, 20), n = dv.getUint32(0, true);
+        if (buf.length < 20 + n) break;
+        const seq = Number(dv.getBigUint64(4, true)), w = dv.getUint32(12, true), h = dv.getUint32(16, true);
+        const bmp = await createImageBitmap(new Blob([buf.slice(20, 20 + n)], { type: "image/jpeg" }));
+        buf = buf.slice(20 + n);
+        if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+        g.drawImage(bmp, 0, 0); bmp.close(); frameCount++;
+        if (pending && seq > pending.seq) {
+          lat.push(performance.now() - pending.t0); pending = null; if (lat.length > 200) lat.shift(); showLat();
+        }
+        lastSeq = seq;
+        $("screeninfo").textContent = `${id} · ${w}×${h} · ${fps} fps · frame ${seq}`;
+      }
+    }
+  } catch (e) { if (e.name !== "AbortError") showErr("screen stream: " + e); }
+  if (stream === ctl && sel === id) setTimeout(() => { if (sel === id && stream === ctl) startStream(id); }, 1000);
+}
+setInterval(() => { fps = frameCount; frameCount = 0; }, 1000);
+function pct(a, p) { const s = [...a].sort((x, y) => x - y); return s.length ? Math.round(s[Math.min(s.length - 1, Math.floor(s.length * p))]) : null; }
+function showLat() { $("lat").textContent = `click → frame shown in this page: p50 ${pct(lat, .5)} ms · p95 ${pct(lat, .95)} ms (n=${lat.length})`; window.__lat = lat; }
+
+// input
+function toFrame(ev) { const cv = $("screen"), r = cv.getBoundingClientRect(); return [Math.round((ev.clientX - r.left) * cv.width / r.width), Math.round((ev.clientY - r.top) * cv.height / r.height)]; }
+async function input(call, args) { pending = { t0: performance.now(), seq: lastSeq }; const r = await api(call, { ...args, screenshot: false, device_px: true }); if (!r.ok) pending = null; }
+let down = null;
+$("screen").addEventListener("pointerdown", (ev) => { $("screen").focus(); $("screen").setPointerCapture(ev.pointerId); down = { xy: toFrame(ev), t: performance.now(), cx: ev.clientX, cy: ev.clientY }; });
+$("screen").addEventListener("pointerup", (ev) => {
+  if (!down || !sel) return; const [x, y] = toFrame(ev), moved = Math.hypot(ev.clientX - down.cx, ev.clientY - down.cy);
+  const ms = Math.max(50, Math.min(1000, Math.round(performance.now() - down.t)));
+  if (moved < 8) input("tap", { x: down.xy[0], y: down.xy[1] }); else input("swipe", { x1: down.xy[0], y1: down.xy[1], x2: x, y2: y, ms });
+  down = null;
+});
+$("screen").addEventListener("wheel", (ev) => {
+  ev.preventDefault(); if (!sel) return; const [x, y] = toFrame(ev), d = Math.sign(ev.deltaY) * Math.round($("screen").height * 0.25);
+  input("swipe", { x1: x, y1: y, x2: x, y2: Math.max(1, Math.min($("screen").height - 1, y - d)), ms: 120 });
+}, { passive: false });
+let typed = "", typeTimer = null;
+const KEYS = { Enter: "enter", Backspace: "del", Escape: "back", Tab: "tab", ArrowUp: "dpad_up", ArrowDown: "dpad_down", ArrowLeft: "dpad_left", ArrowRight: "dpad_right", Home: "home", Delete: "forward_del" };
+$("screen").addEventListener("keydown", (ev) => {
+  if (!sel || ev.ctrlKey || ev.metaKey || ev.altKey) return;
+  if (ev.key.length === 1) { ev.preventDefault(); typed += ev.key; clearTimeout(typeTimer); typeTimer = setTimeout(flushTyped, 150); return; }
+  if (KEYS[ev.key]) { ev.preventDefault(); flushTyped(); input("key", { name: KEYS[ev.key] }); }
+});
+function flushTyped() { if (typed) { const t = typed; typed = ""; input("type_text", { text: t }); } }
+document.querySelectorAll("[data-key]").forEach(b => b.onclick = () => sel && input("key", { name: b.dataset.key }));
+$("shot").onclick = () => { if (sel) location.href = "/screenshot.png?device=" + encodeURIComponent(sel); };
+
+// start / stop / fleet / quit
+$("s_image").onchange = () => { $("imgnote").textContent = $("s_image").value === "phone"
+  ? "Full phone: status bar, navigation bar, notifications, Settings. 2 GB."
+  : "Lean image for agents: no status bar, navigation bar or Settings (no system UI). Under 1 GB."; };
+let ticker = null;
+function progress(text, since) {
+  clearInterval(ticker); const el = $("progress");
+  if (!text) { el.textContent = ""; return; }
+  const t0 = since || performance.now();
+  const draw = () => { el.textContent = `${text} ${Math.round((performance.now() - t0) / 1000)} s`; };
+  draw(); ticker = setInterval(draw, 1000);
+}
+$("start").onclick = async () => {
+  const id = $("s_id").value.trim(), args = { device: id, net: $("s_net").checked, auto_squeeze: $("s_squeeze").checked };
+  if ($("s_image").value) args.image = $("s_image").value;
+  if ($("s_mem").value.trim()) args.mem = parseInt($("s_mem").value);
+  if ($("s_cpus").value.trim()) args.cpus = parseInt($("s_cpus").value);
+  showErr(); progress(`Booting ${id} (about 2 minutes)…`); sel = id; setTimeout(refresh, 500);
+  const r = await api("start", args); progress();
+  if (r.ok) { $("progress").textContent = `Ready: ${id} booted in ${Math.round(r.ready_s)} s`; sel = null; select(id); } else { $("progress").textContent = "Boot failed (see the message above)."; refresh(); }
+};
+$("stopall").onclick = async () => { busy("stopping all…"); await api("fleet_stop", { device: undefined }); busy(); select(null); refresh(); };
+$("fleet").onclick = async () => {
+  const args = { device: undefined, n: parseInt($("f_n").value), base: parseInt($("f_base").value), net: $("s_net").checked,
+    cpus: parseInt($("s_cpus").value) || undefined, auto_squeeze: $("s_squeeze").checked };
+  if ($("s_image").value) args.image = $("s_image").value; if ($("s_mem").value.trim()) args.mem = parseInt($("s_mem").value);
+  showErr(); busy(`fleet: booting ${args.n} Devices one by one…`); $("fleetout").textContent = "";
+  const r = await api("fleet", args); busy();
+  if (r.ok) $("fleetout").textContent = r.devices.map(d => `${d.id}: ${d.error ? "FAILED " + d.error : "ready " + Math.round(d.ready_s) + " s, RAM use " + (d.ws_after_squeeze_mb ?? d.ws_mb) + " MB"}`).join("\n")
+    + `\n${r.total.up}/${r.total.requested} up, ${r.total.ws_mb} MB total` + (r.stopped ? "\nstopped: " + r.stopped : "");
+  refresh();
+};
+$("fleetstop").onclick = () => api("fleet_stop", { device: undefined }).then(refresh);
+$("quit").onclick = async () => {
+  if (!confirm("Stop every Device and the agent-emu daemon?")) return;
+  await api("quit", { device: undefined }, true); document.body.innerHTML = "<p style='padding:24px'>agent-emu stopped. Open agent-emu again to restart it.</p>";
+};
+
+// apps
+async function upload(file) {
+  if (!sel) return showErr("Pick a Device first.");
+  busy(`installing ${file.name}…`); $("appout").textContent = "";
+  const r = await fetch("/upload?device=" + encodeURIComponent(sel), { method: "POST", body: file }).then(r => r.json()).catch(e => ({ ok: false, error: String(e) }));
+  busy(); $("appout").textContent = r.ok ? `installed ${file.name}: ${r.out || "Success"}` : ""; if (!r.ok) showErr("install: " + r.error);
+}
+$("apkfile").onchange = (e) => e.target.files[0] && upload(e.target.files[0]);
+const drop = $("drop");
+drop.ondragover = (e) => { e.preventDefault(); drop.classList.add("over"); };
+drop.ondragleave = () => drop.classList.remove("over");
+drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove("over"); const f = e.dataTransfer.files[0]; if (f) upload(f); };
+$("installpath").onclick = async () => { busy("installing…"); const r = await api("app", { install: $("apkpath").value.trim() }); busy(); $("appout").textContent = r.ok ? r.out : ""; };
+$("launch").onclick = async () => { const r = await api("app", { launch: $("pkg").value.trim() }); $("appout").textContent = r.ok ? r.out : ""; };
+$("preset").onclick = async () => {
+  if (!sel) return showErr("Start a Device first.");
+  progress("Installing BoltBetz…"); let r = await api("install_bundled");
+  if (r.ok) { progress("Opening BoltBetz…"); r = await api("app", { launch: "com.boltbetz.staging" }); }
+  progress(); $("progress").textContent = r.ok ? "Ready: BoltBetz is open" : "Could not open BoltBetz (see the message above).";
+  $("appout").textContent = r.ok ? "BoltBetz staging installed and opened" : "";
+};
+
+// tabs, logs, crashes
+document.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => {
+  document.querySelectorAll("[data-tab]").forEach(x => x.classList.toggle("on", x === b));
+  for (const t of ["apps", "logs", "crashes"]) $("tab_" + t).hidden = t !== b.dataset.tab;
+});
+// A reset bumps logGen so a reply to a request sent before it cannot set the cursor afterwards.
+function resetLogs() { logGen++; logCursor = null; $("logtext").textContent = ""; }
+$("clearlogs").onclick = () => { $("logtext").textContent = ""; };
+$("logfilter").onchange = resetLogs;
+async function logLoop() {
+  while (true) {
+    const d = devices.find(x => x.id === sel && x.ready);
+    if (!d || !$("follow").checked || $("tab_logs").hidden) { await new Promise(r => setTimeout(r, 700)); continue; }
+    if (logDev !== sel) { logDev = sel; resetLogs(); }
+    const g = logGen, args = { max_lines: 300, filter: $("logfilter").value.trim() || undefined };
+    if (logCursor != null) { args.cursor = logCursor; args.wait_ms = 1500; }
+    const r = await api("logs", args, true);
+    if (g !== logGen) continue;
+    if (r.ok && logDev === sel) {
+      logCursor = r.cursor;
+      if (r.lines.length) {
+        const box = $("logs"), atEnd = box.scrollTop + box.clientHeight > box.scrollHeight - 20, t = $("logtext");
+        t.textContent = (t.textContent + r.lines.join("\n") + "\n").split("\n").slice(-1500).join("\n");
+        if (atEnd) box.scrollTop = box.scrollHeight;
+      }
+    } else await new Promise(r => setTimeout(r, 1000));
+  }
+}
+async function crashLoop() {
+  while (true) {
+    await new Promise(r => setTimeout(r, 3000));
+    if (!devices.find(x => x.id === sel && x.ready)) continue;
+    if (crashDev !== sel) { crashDev = sel; crashAfter = 0; $("crashes").innerHTML = ""; }
+    const r = await api("crash_events", { after: crashAfter }, true);
+    if (!r.ok || crashDev !== sel) continue;
+    for (const e of r.events) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${e.seq}</td><td class="bad">${e.type}</td><td>${e.process}</td><td>${(e.exception || e.reason || e.signal || "")} ${(e.message || "").slice(0, 120)}</td>`;
+      tr.title = (e.stack || []).join("\n"); $("crashes").prepend(tr);
+    }
+    crashAfter = r.last;
+  }
+}
+refresh(); setInterval(refresh, 2000); setInterval(refreshMem, 5000); logLoop(); crashLoop();
+</script>
+</body>
+</html>

@@ -9,6 +9,7 @@ mod fast;
 mod logs;
 mod mcp;
 mod squeeze;
+mod ui;
 
 use base64::Engine;
 use device::{Cfg, Device, R};
@@ -30,6 +31,9 @@ struct Slot {
     auto_squeeze: bool,
     /// Connection holding the input lease.
     lease: Option<u64>,
+    /// What `start` asked for, for `status` (image name, guest MB, vCPUs, net) and when.
+    info: Value,
+    started: Instant,
 }
 
 struct State {
@@ -61,6 +65,8 @@ fn main() {
 
 async fn serve(addr: String) {
     let st = Arc::new(State { cfg: Cfg::from_env(), devs: StdMutex::new(BTreeMap::new()), lifecycle: Mutex::new(()), fleet_stop: Default::default() });
+    let ui_addr = std::env::var("AE_UI_ADDR").unwrap_or_else(|_| "127.0.0.1:7401".into());
+    tokio::spawn(ui::serve(st.clone(), ui_addr));
     let l = TcpListener::bind(&addr).await.expect("bind");
     eprintln!("agent-emud listening on {addr}");
     let conns = AtomicU64::new(1);
@@ -211,9 +217,13 @@ async fn start_device(st: &State, idx: u32, req: &Value) -> R<(Arc<Device>, f64)
     // Other crosvm processes are fine once this daemon runs a Device itself (a fleet).
     let others_ok = !st.devs.lock().unwrap().is_empty();
     let cpus = req["cpus"].as_u64().map(|c| c.to_string());
+    let image_name = req["image"].as_str().unwrap_or("");
+    let shown_mem = mem.clone().or(device::image(image_name)?.1.map(str::to_string)).unwrap_or(st.cfg.mem.clone());
+    let info = json!({"image": if image_name.is_empty() { "slim3n (default)" } else { image_name }, "mem": shown_mem,
+        "cpus": cpus.clone().unwrap_or(st.cfg.cpus.clone()), "net": net, "image_name": image_name});
     let d = Device::spawn(&st.cfg, idx, req["image"].as_str().unwrap_or(""), mem.as_deref(), cpus.as_deref(), net, others_ok).await?;
     st.devs.lock().unwrap().insert(id.clone(), Slot { dev: d.clone(), opts: squeeze::Opts::from(req, squeeze::Opts::DEFAULT),
-        auto_squeeze: req["auto_squeeze"] == json!(true), lease: None });
+        auto_squeeze: req["auto_squeeze"] == json!(true), lease: None, info, started: Instant::now() });
     if let Err(e) = d.wait_boot(Duration::from_secs(900), st.cfg.min_avail_mb).await {
         d.stop().await;
         st.devs.lock().unwrap().remove(&id);
@@ -352,8 +362,12 @@ async fn handle(st: &State, conn: u64, req: &Value) -> R<Value> {
             return Ok(json!({"ok": true, "stopped": stop_all(st).await}));
         }
         "status" => {
-            let devs: Vec<Value> = st.devs.lock().unwrap().values().map(|s| json!({"id": s.dev.id, "ready": s.dev.ready.load(Ordering::SeqCst),
-                "frames_via": s.dev.transport().0, "input_via": s.dev.transport().1, "lease": s.lease == Some(conn)})).collect();
+            let devs: Vec<Value> = st.devs.lock().unwrap().values().map(|s| {
+                let mut v = json!({"id": s.dev.id, "ready": s.dev.ready.load(Ordering::SeqCst), "frames_via": s.dev.transport().0,
+                    "input_via": s.dev.transport().1, "lease": s.lease == Some(conn), "uptime_s": s.started.elapsed().as_secs()});
+                for (k, x) in s.info.as_object().into_iter().flatten() { v[k] = x.clone(); }
+                v
+            }).collect();
             return Ok(json!({"ok": true, "devices": devs, "available_mb": device::available_mb()}));
         }
         _ => {}
@@ -431,6 +445,18 @@ async fn handle(st: &State, conn: u64, req: &Value) -> R<Value> {
             let o = squeeze::Opts::from(req, base);
             return squeeze::squeeze(&d, &st.cfg.crosvm(), pid, o).await;
         }
+        "install_bundled" => {
+            // The image's own APK (apk.img on /dev/block/vdb, size in <run>/apk.size), over the console: no adb needed.
+            let name = st.devs.lock().unwrap().get(devid).and_then(|s| s.info["image_name"].as_str().map(str::to_string)).unwrap_or_default();
+            let run = device::image(&name)?.0;
+            let size: u64 = std::fs::read_to_string(st.cfg.work.join(run).join("apk.size")).ok()
+                .and_then(|s| s.trim().parse().ok()).ok_or(format!("{run}/apk.size missing"))?;
+            let (o, _) = d.con.exec(&format!("head -c {size} /dev/block/vdb > /data/local/tmp/p.apk && chmod 644 /data/local/tmp/p.apk &&                 pm install -r /data/local/tmp/p.apk; rm -f /data/local/tmp/p.apk"), Duration::from_secs(300)).await?;
+            if !o.contains("Success") {
+                return Err(format!("install: {o}"));
+            }
+            return Ok(json!({"ok": true, "out": o.trim()}));
+        }
         "crash_events" => {
             // Long poll: events after seq `after`, waiting up to wait_ms for the first one.
             let after = req["after"].as_u64().unwrap_or(0);
@@ -459,7 +485,8 @@ async fn handle(st: &State, conn: u64, req: &Value) -> R<Value> {
             };
         }
         "tap" | "swipe" => {
-            let s = *d.scale.lock().unwrap();
+            // device_px: coordinates are device pixels (the panel), not pixels of a scaled screenshot.
+            let s = if req["device_px"] == json!(true) { 1.0 } else { *d.scale.lock().unwrap() };
             let p = |k: &str| arg_i(req, k).map(|v| (v as f64 * s).round() as i64);
             if call == "tap" {
                 Input::Tap(p("x")?, p("y")?)

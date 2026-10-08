@@ -17,7 +17,7 @@ pub type R<T> = Result<T, String>;
 const B64: base64::engine::GeneralPurpose = base64::engine::general_purpose::STANDARD;
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 // Read-only images every Device hard-links from run/ (one disk copy, one Windows file cache).
-const SHARED: &[&str] = &["kernel-dax", "initrd-dax-pmem.img", "initrd-dax-slim.img", "boot.img", "init_boot.img",
+const SHARED: &[&str] = &["kernel", "initrd.img", "kernel-dax", "initrd-dax-pmem.img", "initrd-dax-slim.img", "boot.img", "init_boot.img",
     "vendor_boot.img", "vbmeta.img", "vbmeta_system.img", "vbmeta_system_dlkm.img", "vbmeta_vendor_dlkm.img",
     "super.img", "apk.img"];
 const PARTS: &str = "misc:misc.img:writable frp:frp.img:writable boot_a:boot.img boot_b:boot.img \
@@ -114,9 +114,19 @@ fn boot_script() -> PathBuf {
     })
 }
 
+const PHONE_NET_FROM: &str =
+    "ip link set buried_eth0 up; ip addr add 10.0.2.15/24 dev buried_eth0; ip route add 10.0.2.0/24 dev buried_eth0 table legacy_system";
+const PHONE_NET_TO: &str =
+    "ip link set buried_eth0 down; ip link set buried_eth0 name eth0; ip link set eth0 up; sleep 6; ip addr add 10.0.2.15/24 dev eth0";
+
 pub const DIET_PARAMS: &str = "virtio_blk.num_request_queues=1 virtio_blk.queue_depth=64 transparent_hugepage=never kfence.sample_interval=0";
 const DIET_SINKS: &str = "11";
 const DIET_GPU: &str = "audio-device-mode=one-global";
+
+/// The stock phone image boots like stage 1 (stock kernel and initrd, system in super) and keeps the network.
+pub fn is_phone(name: &str) -> bool {
+    name == "phone"
+}
 
 /// Guest image: (run dir under AE_WORK holding super.img + system-pmem.img, default guest MB or None = AE_MEM).
 pub fn image(name: &str) -> R<(&'static str, Option<&'static str>)> {
@@ -125,13 +135,16 @@ pub fn image(name: &str) -> R<(&'static str, Option<&'static str>)> {
         // slim3n (default): slim3 minus the Cuttlefish NFC HAL apex. Its panic left com.android.nfc
         // ANR-restarting every ~45-60 s; 15 min soak on slim3n: 0 ANRs (issue 10).
         "" | "slim3n" => Ok(("run-slim3n", None)),
+        // phone: the stock Cuttlefish 15581820 image (SystemUI, Launcher3, Settings, wallpaper) for people.
+        // Stock kernel and initrd, system on the super block device (no pmem), 2 GB.
+        "phone" => Ok(("run-full", Some("2048"))),
         // slim4: the diet floor was 640 MB without the daemon's extra devices (virtio-net for adb, two
         // virtio-input, fb). Through the daemon at 640, lmkd killed the app as TOP 3 of 3 times (low on
         // swap, thrashing); at 704 it stays up. `start {mem}` overrides.
         "slim4" => Ok(("run-slim4", Some("704"))),
         // slim5: slim4 plus a home stub and tuned lmkd. 640 MB until tested through the daemon.
         "slim5" => Ok(("run-slim5", Some("640"))),
-        _ => Err(format!("unknown image `{name}` (slim3, slim3n, slim4, slim5)")),
+        _ => Err(format!("unknown image `{name}` (phone, slim3, slim3n, slim4, slim5)")),
     }
 }
 
@@ -312,6 +325,10 @@ pub struct Device {
     pub fb: OnceLock<Arc<Fb>>,
     /// Crash/ANR events parsed from this boot's logcat.log (logs.rs).
     pub events: Arc<crate::logs::Events>,
+    /// Booted with virtio-net, so adb answers on 127.0.0.1:6520+idx.
+    pub net: bool,
+    /// The full phone image: setup leaves airplane mode off.
+    pub phone: bool,
 }
 
 impl Device {
@@ -343,12 +360,14 @@ impl Device {
             .args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-File"]).arg(boot_script())
             .env("AE_PARAMS", DIET_PARAMS).env("AE_SINKS", DIET_SINKS).env("AE_GPU_EXTRA", DIET_GPU)
             .env("AE_DIR", win(&dir)).env("AE_ID", idx.to_string()).env("AE_MEM", &mem).env("AE_CPUS", cpus.unwrap_or(&cfg.cpus))
-            .env("AE_EXTRA", format!("--socket PIPE:ae-vm-{idx} --pmem path={},ro=true --input multi-touch[path={}] --input keyboard[path={}]",
-                pmem.to_string_lossy().replace('\\', "/"), fast::touch_pipe(idx), fast::kbd_pipe(idx)))
+            .env("AE_EXTRA", format!("--socket PIPE:ae-vm-{idx}{} --input multi-touch[path={}] --input keyboard[path={}]",
+                if is_phone(image_name) { String::new() } else { format!(" --pmem path={},ro=true", pmem.to_string_lossy().replace('\\', "/")) },
+                fast::touch_pipe(idx), fast::kbd_pipe(idx)))
             // No desktop window: crosvm's 2D GPU uses the stub display; frames still come from fb.bin.
             .env("AGENT_EMU_HEADLESS", "1")
             .env("AGENT_EMU_FB", win(&dir.join("fb.bin"))).env("AGENT_EMU_FB_PIPE", fast::fb_pipe(idx))
-            .env("AE_KERNEL", "kernel-dax").env("AE_INITRD", "initrd-dax-pmem.img").env("AE_CROSVM", win(&cfg.crosvm()))
+            .env("AE_KERNEL", if is_phone(image_name) { "kernel" } else { "kernel-dax" })
+            .env("AE_INITRD", if is_phone(image_name) { "initrd.img" } else { "initrd-dax-pmem.img" }).env("AE_CROSVM", win(&cfg.crosvm()))
             .stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null())
             .creation_flags(CREATE_NO_WINDOW).spawn().map_err(|e| format!("spawn boot: {e}"))?;
         let con = match Console::open(&format!(r"\\.\pipe\agentemu-console-{idx}"), dir.join("console.log"), Duration::from_secs(60)).await {
@@ -361,7 +380,7 @@ impl Device {
         Ok(Arc::new(Device {
             id: format!("d{idx}"), dir: dir.clone(), boot: Mutex::new(Some(child)), con, ready: AtomicBool::new(false),
             last: StdMutex::new(None), gen: AtomicU64::new(0), scale: StdMutex::new(1.0),
-            idx, input: OnceLock::new(), fb: OnceLock::new(), events: crate::logs::Events::spawn(dir.join("logcat.log")),
+            idx, input: OnceLock::new(), fb: OnceLock::new(), events: crate::logs::Events::spawn(dir.join("logcat.log")), net, phone: is_phone(image_name),
         }))
     }
 
@@ -387,7 +406,16 @@ impl Device {
             }
             tokio::time::sleep(Duration::from_secs(3)).await;
         }
-        self.con.exec(SETUP, Duration::from_secs(60)).await?;
+        // The phone image is for people: keep its network (agents' lean images run in airplane mode).
+        // Cuttlefish hides its ethernet ("buried_eth0") and expects Wi-Fi from a host simulator that is not
+        // here, so Android had no default network. Renamed eth0, Android's Ethernet service takes it and
+        // gets DHCP from slirp; 10.0.2.15 stays on it because slirp forwards adb to that address.
+        let setup = if self.phone {
+            SETUP.replace("cmd connectivity airplane-mode enable; ", "").replace(PHONE_NET_FROM, PHONE_NET_TO)
+        } else {
+            SETUP.to_string()
+        };
+        self.con.exec(&setup, Duration::from_secs(60)).await?;
         match Input::open(self.idx) {
             Ok(i) => { let _ = self.input.set(i); }
             Err(e) => eprintln!("{}: fast input off, console fallback: {e}", self.id),
@@ -570,6 +598,9 @@ mod tests {
         assert_eq!(image("slim3").unwrap(), ("run", None));
         assert_eq!(image("slim5").unwrap(), ("run-slim5", Some("640")));
         assert!(image("slim9").is_err());
+        assert_eq!(image("phone").unwrap(), ("run-full", Some("2048")));
+        assert!(is_phone("phone") && !is_phone("") && SETUP.contains("cmd connectivity airplane-mode enable; "));
+        assert!(SETUP.contains(PHONE_NET_FROM), "the phone network swap must match SETUP");
         let cfg = Cfg { work: PathBuf::from("W"), mem: "896".into(), cpus: "2".into(), min_avail_mb: 4000, crosvm_dir: "crosvm-diet".into() };
         assert_eq!(cfg.crosvm(), PathBuf::from("W/crosvm-diet/target/release/crosvm.exe"));
         assert!(DIET_PARAMS.contains("virtio_blk.num_request_queues=1") && DIET_PARAMS.contains("transparent_hugepage=never"));

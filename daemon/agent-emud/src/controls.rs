@@ -123,7 +123,7 @@ pub async fn handle(d: &Device, call: &str, req: &Value) -> R<Value> {
             let [k] = keys[..] else { return Err("give exactly one of install, uninstall, clear, launch".into()) };
             let v = str_arg(k)?;
             let out = match k {
-                "install" => adb_host(&["install", "-r", v], Duration::from_secs(600)).await?,
+                "install" => adb_host(d, &["install", "-r", v], Duration::from_secs(600)).await?,
                 "uninstall" => sh(d, &format!("pm uninstall {}", name(v)?)).await?,
                 "clear" => sh(d, &format!("pm clear {}", name(v)?)).await?,
                 _ => {
@@ -146,15 +146,17 @@ pub async fn handle(d: &Device, call: &str, req: &Value) -> R<Value> {
     }
 }
 
-fn adb_port() -> Option<String> {
+/// AGENT_EMU_ADB_PORT if set, else the Device's own forward (127.0.0.1:6520+idx) when it has net.
+fn adb_port(d: Option<&Device>) -> Option<String> {
     std::env::var("AGENT_EMU_ADB_PORT").ok().filter(|p| !p.is_empty())
+        .or_else(|| d.filter(|d| d.net).map(|d| (6520 + d.idx()).to_string()))
 }
 
 /// Root shell in the guest; non-zero exit is an error carrying the output.
 async fn sh(d: &Device, cmd: &str) -> R<String> {
-    let (out, code) = match adb_port() {
+    let (out, code) = match adb_port(None) {
         Some(_) => {
-            let o = adb_raw(&["shell", &format!("su 0 sh -c {}", q(cmd))], Duration::from_secs(120)).await?;
+            let o = adb_raw(None, &["shell", &format!("su 0 sh -c {}", q(cmd))], Duration::from_secs(120)).await?;
             (o.0, o.1)
         }
         None => d.con.exec(cmd, Duration::from_secs(120)).await?,
@@ -166,19 +168,19 @@ async fn sh(d: &Device, cmd: &str) -> R<String> {
 }
 
 /// adb against the Device; host-file operations need it.
-async fn adb_host(args: &[&str], timeout: Duration) -> R<String> {
-    if adb_port().is_none() {
-        return Err("needs adb: start the daemon with AGENT_EMU_ADB_PORT=<6520+N>".into());
+async fn adb_host(d: &Device, args: &[&str], timeout: Duration) -> R<String> {
+    if adb_port(Some(d)).is_none() {
+        return Err("needs adb: boot the Device with net on (or set AGENT_EMU_ADB_PORT)".into());
     }
-    let (out, code) = adb_raw(args, timeout).await?;
+    let (out, code) = adb_raw(Some(d), args, timeout).await?;
     if code != 0 {
         return Err(format!("adb {} exit {code}: {}", args.join(" "), out.trim()));
     }
     Ok(out)
 }
 
-async fn adb_raw(args: &[&str], timeout: Duration) -> R<(String, i32)> {
-    let serial = format!("127.0.0.1:{}", adb_port().ok_or("AGENT_EMU_ADB_PORT not set")?);
+async fn adb_raw(d: Option<&Device>, args: &[&str], timeout: Duration) -> R<(String, i32)> {
+    let serial = format!("127.0.0.1:{}", adb_port(d).ok_or("no adb port for this Device")?);
     let run = |a: Vec<&str>| {
         let mut c = Command::new("adb");
         c.args(a).kill_on_drop(true);
