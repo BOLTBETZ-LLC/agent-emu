@@ -1,0 +1,1023 @@
+{
+ "args": {
+  "tag": "slim4nsdax896",
+  "ids": "13,14,15",
+  "minutes": 10.0,
+  "relaunch_at": 5.0,
+  "tap_every": 20.0,
+  "cap_main": 0,
+  "cap_helper": 16
+ },
+ "samples": [
+  {
+   "t": 3,
+   "available_mb": 11740,
+   "pagefile_pct": 4.71,
+   "memcomp_ws_mb": 832,
+   "committed_mb": 38855,
+   "d13": {
+    "privatized_mb": null,
+    "private_ws_mb": 154,
+    "ws_mb": 323,
+    "app_pid": "3398"
+   },
+   "d14": {
+    "privatized_mb": null,
+    "private_ws_mb": 147,
+    "ws_mb": 327,
+    "app_pid": "3398"
+   },
+   "d15": {
+    "privatized_mb": null,
+    "private_ws_mb": 145,
+    "ws_mb": 327,
+    "app_pid": "3398"
+   }
+  },
+  {
+   "t": 34,
+   "available_mb": 12162,
+   "pagefile_pct": 4.71,
+   "memcomp_ws_mb": 830,
+   "committed_mb": 38706,
+   "d13": {
+    "privatized_mb": 172,
+    "private_ws_mb": 199,
+    "ws_mb": 351,
+    "app_pid": "3398"
+   },
+   "d14": {
+    "privatized_mb": 166,
+    "private_ws_mb": 196,
+    "ws_mb": 361,
+    "app_pid": "3398"
+   },
+   "d15": {
+    "privatized_mb": 183,
+    "private_ws_mb": 198,
+    "ws_mb": 364,
+    "app_pid": "3398"
+   }
+  },
+  {
+   "t": 62,
+   "available_mb": 12251,
+   "pagefile_pct": 4.71,
+   "memcomp_ws_mb": 830,
+   "committed_mb": 38715,
+   "d13": {
+    "privatized_mb": 191,
+    "private_ws_mb": 206,
+    "ws_mb": 359,
+    "app_pid": "3398"
+   },
+   "d14": {
+    "privatized_mb": 193,
+    "private_ws_mb": 203,
+    "ws_mb": 366,
+    "app_pid": "3398"
+   },
+   "d15": {
+    "privatized_mb": 194,
+    "private_ws_mb": 203,
+    "ws_mb": 367,
+    "app_pid": "3398"
+   }
+  },
+  {
+   "t": 93,
+   "available_mb": 12249,
+   "pagefile_pct": 4.71,
+   "memcomp_ws_mb": 826,
+   "committed_mb": 38709,
+   "d13": {
+    "privatized_mb": 201,
+    "private_ws_mb": 219,
+    "ws_mb": 377,
+    "app_pid": "3398"
+   },
+   "d14": {
+    "privatized_mb": 200,
+    "private_ws_mb": 220,
+    "ws_mb": 386,
+    "app_pid": "3398"
+   },
+   "d15": {
+    "privatized_mb": 203,
+    "private_ws_mb": 213,
+    "ws_mb": 375,
+    "app_pid": "3398"
+   }
+  },
+  {
+   "t": 124,
+   "available_mb": 12247,
+   "pagefile_pct": 4.71,
+   "memcomp_ws_mb": 822,
+   "committed_mb": 38684,
+   "d13": {
+    "privatized_mb": 214,
+    "private_ws_mb": 231,
+    "ws_mb": 387,
+    "app_pid": "3398"
+   },
+   "d14": {
+    "privatized_mb": 219,
+    "private_ws_mb": 233,
+    "ws_mb": 399,
+    "app_pid": "3398"
+   },
+   "d15": {
+    "privatized_mb": 215,
+    "private_ws_mb": 227,
+    "ws_mb": 393,
+    "app_pid": "3398"
+   }
+  },
+  {
+   "t": 153,
+   "available_mb": 12145,
+   "pagefile_pct": 4.71,
+   "memcomp_ws_mb": 822,
+   "committed_mb": 39938,
+   "d13": {
+    "privatized_mb": 223,
+    "private_ws_mb": 233,
+    "ws_mb": 389,
+    "app_pid": "3398"
+   },
+   "d14": {
+    "privatized_mb": 225,
+    "private_ws_mb": 234,
+    "ws_mb": 399,
+    "app_pid": "3398"
+   },
+   "d15": {
+    "privatized_mb": 221,
+    "private_ws_mb": 229,
+    "ws_mb": 395,
+    "app_pid": "3398"
+   }
+  },
+  {
+   "t": 184,
+   "available_mb": 12380,
+   "pagefile_pct": 4.71,
+   "memcomp_ws_mb": 820,
+   "committed_mb": 38707,
+   "d13": {
+    "privatized_mb": 225,
+    "private_ws_mb": 241,
+    "ws_mb": 397,
+    "app_pid": "3398"
+   },
+   "d14": {
+    "privatized_mb": 227,
+    "private_ws_mb": 236,
+    "ws_mb": 401,
+    "app_pid": "3398"
+   },
+   "d15": {
+    "privatized_mb": 222,
+    "private_ws_mb": 231,
+    "ws_mb": 397,
+    "app_pid": "3398"
+   }
+  },
+  {
+   "t": 212,
+   "available_mb": 12057,
+   "pagefile_pct": 4.71,
+   "memcomp_ws_mb": 820,
+   "committed_mb": 38746,
+   "d13": {
+    "privatized_mb": 233,
+    "private_ws_mb": 245,
+    "ws_mb": 401,
+    "app_pid": "3398"
+   },
+   "d14": {
+    "privatized_mb": 230,
+    "private_ws_mb": 241,
+    "ws_mb": 407,
+    "app_pid": "3398"
+   },
+   "d15": {
+    "privatized_mb": 228,
+    "private_ws_mb": 238,
+    "ws_mb": 405,
+    "app_pid": "3398"
+   }
+  },
+  {
+   "t": 243,
+   "available_mb": 12110,
+   "pagefile_pct": 4.71,
+   "memcomp_ws_mb": 821,
+   "committed_mb": 38644,
+   "d13": {
+    "privatized_mb": 237,
+    "private_ws_mb": 246,
+    "ws_mb": 402,
+    "app_pid": "3398"
+   },
+   "d14": {
+    "privatized_mb": 237,
+    "private_ws_mb": 246,
+    "ws_mb": 412,
+    "app_pid": "3398"
+   },
+   "d15": {
+    "privatized_mb": 231,
+    "private_ws_mb": 239,
+    "ws_mb": 406,
+    "app_pid": "3398"
+   }
+  },
+  {
+   "t": 274,
+   "available_mb": 12062,
+   "pagefile_pct": 4.71,
+   "memcomp_ws_mb": 821,
+   "committed_mb": 38653,
+   "d13": {
+    "privatized_mb": 238,
+    "private_ws_mb": 247,
+    "ws_mb": 403,
+    "app_pid": "3398"
+   },
+   "d14": {
+    "privatized_mb": 238,
+    "private_ws_mb": 247,
+    "ws_mb": 413,
+    "app_pid": "3398"
+   },
+   "d15": {
+    "privatized_mb": 233,
+    "private_ws_mb": 242,
+    "ws_mb": 408,
+    "app_pid": "3398"
+   }
+  },
+  {
+   "t": 308,
+   "available_mb": 11470,
+   "pagefile_pct": 4.71,
+   "memcomp_ws_mb": 821,
+   "committed_mb": 38656,
+   "d13": {
+    "privatized_mb": 384,
+    "private_ws_mb": 393,
+    "ws_mb": 623,
+    "app_pid": "3736"
+   },
+   "d14": {
+    "privatized_mb": 240,
+    "private_ws_mb": 395,
+    "ws_mb": 635,
+    "app_pid": "3734"
+   },
+   "d15": {
+    "privatized_mb": 234,
+    "private_ws_mb": 385,
+    "ws_mb": 626,
+    "app_pid": "3731"
+   }
+  },
+  {
+   "t": 338,
+   "available_mb": 11474,
+   "pagefile_pct": 4.71,
+   "memcomp_ws_mb": 821,
+   "committed_mb": 38657,
+   "d13": {
+    "privatized_mb": 386,
+    "private_ws_mb": 394,
+    "ws_mb": 624,
+    "app_pid": "3736"
+   },
+   "d14": {
+    "privatized_mb": 388,
+    "private_ws_mb": 396,
+    "ws_mb": 636,
+    "app_pid": "3734"
+   },
+   "d15": {
+    "privatized_mb": 391,
+    "private_ws_mb": 401,
+    "ws_mb": 654,
+    "app_pid": "3731"
+   }
+  },
+  {
+   "t": 363,
+   "available_mb": 11072,
+   "pagefile_pct": 4.71,
+   "memcomp_ws_mb": 824,
+   "committed_mb": 39028,
+   "d13": {
+    "privatized_mb": 386,
+    "private_ws_mb": 394,
+    "ws_mb": 624,
+    "app_pid": "3736"
+   },
+   "d14": {
+    "privatized_mb": 388,
+    "private_ws_mb": 396,
+    "ws_mb": 636,
+    "app_pid": "3734"
+   },
+   "d15": {
+    "privatized_mb": 397,
+    "private_ws_mb": 405,
+    "ws_mb": 658,
+    "app_pid": "3731"
+   }
+  },
+  {
+   "t": 394,
+   "available_mb": 11065,
+   "pagefile_pct": 4.71,
+   "memcomp_ws_mb": 812,
+   "committed_mb": 39071,
+   "d13": {
+    "privatized_mb": 386,
+    "private_ws_mb": 394,
+    "ws_mb": 625,
+    "app_pid": "3736"
+   },
+   "d14": {
+    "privatized_mb": 388,
+    "private_ws_mb": 397,
+    "ws_mb": 637,
+    "app_pid": "3734"
+   },
+   "d15": {
+    "privatized_mb": 398,
+    "private_ws_mb": 406,
+    "ws_mb": 658,
+    "app_pid": "3731"
+   }
+  },
+  {
+   "t": 423,
+   "available_mb": 11095,
+   "pagefile_pct": 4.71,
+   "memcomp_ws_mb": 812,
+   "committed_mb": 39102,
+   "d13": {
+    "privatized_mb": 386,
+    "private_ws_mb": 395,
+    "ws_mb": 625,
+    "app_pid": "3736"
+   },
+   "d14": {
+    "privatized_mb": 389,
+    "private_ws_mb": 397,
+    "ws_mb": 637,
+    "app_pid": "3734"
+   },
+   "d15": {
+    "privatized_mb": 398,
+    "private_ws_mb": 406,
+    "ws_mb": 658,
+    "app_pid": "3731"
+   }
+  },
+  {
+   "t": 453,
+   "available_mb": 11389,
+   "pagefile_pct": 4.48,
+   "memcomp_ws_mb": 837,
+   "committed_mb": 38654,
+   "d13": {
+    "privatized_mb": 387,
+    "private_ws_mb": 395,
+    "ws_mb": 627,
+    "app_pid": "3736"
+   },
+   "d14": {
+    "privatized_mb": 389,
+    "private_ws_mb": 397,
+    "ws_mb": 637,
+    "app_pid": "3734"
+   },
+   "d15": {
+    "privatized_mb": 403,
+    "private_ws_mb": 411,
+    "ws_mb": 666,
+    "app_pid": "3731"
+   }
+  },
+  {
+   "t": 484,
+   "available_mb": 11308,
+   "pagefile_pct": 4.48,
+   "memcomp_ws_mb": 837,
+   "committed_mb": 38732,
+   "d13": {
+    "privatized_mb": 387,
+    "private_ws_mb": 396,
+    "ws_mb": 627,
+    "app_pid": "3736"
+   },
+   "d14": {
+    "privatized_mb": 389,
+    "private_ws_mb": 397,
+    "ws_mb": 637,
+    "app_pid": "3734"
+   },
+   "d15": {
+    "privatized_mb": 404,
+    "private_ws_mb": 412,
+    "ws_mb": 666,
+    "app_pid": "3731"
+   }
+  },
+  {
+   "t": 513,
+   "available_mb": 11374,
+   "pagefile_pct": 4.48,
+   "memcomp_ws_mb": 833,
+   "committed_mb": 38659,
+   "d13": {
+    "privatized_mb": 388,
+    "private_ws_mb": 397,
+    "ws_mb": 627,
+    "app_pid": "3736"
+   },
+   "d14": {
+    "privatized_mb": 389,
+    "private_ws_mb": 398,
+    "ws_mb": 637,
+    "app_pid": "3734"
+   },
+   "d15": {
+    "privatized_mb": 405,
+    "private_ws_mb": 414,
+    "ws_mb": 666,
+    "app_pid": "3731"
+   }
+  },
+  {
+   "t": 543,
+   "available_mb": 11359,
+   "pagefile_pct": 4.48,
+   "memcomp_ws_mb": 833,
+   "committed_mb": 38663,
+   "d13": {
+    "privatized_mb": 388,
+    "private_ws_mb": 397,
+    "ws_mb": 627,
+    "app_pid": "3736"
+   },
+   "d14": {
+    "privatized_mb": 390,
+    "private_ws_mb": 398,
+    "ws_mb": 638,
+    "app_pid": "3734"
+   },
+   "d15": {
+    "privatized_mb": 406,
+    "private_ws_mb": 414,
+    "ws_mb": 666,
+    "app_pid": "3731"
+   }
+  },
+  {
+   "t": 574,
+   "available_mb": 11275,
+   "pagefile_pct": 4.48,
+   "memcomp_ws_mb": 829,
+   "committed_mb": 38739,
+   "d13": {
+    "privatized_mb": 388,
+    "private_ws_mb": 397,
+    "ws_mb": 627,
+    "app_pid": "3736"
+   },
+   "d14": {
+    "privatized_mb": 390,
+    "private_ws_mb": 398,
+    "ws_mb": 638,
+    "app_pid": "3734"
+   },
+   "d15": {
+    "privatized_mb": 406,
+    "private_ws_mb": 415,
+    "ws_mb": 666,
+    "app_pid": "3731"
+   }
+  }
+ ],
+ "taps": [
+  {
+   "id": 13,
+   "t": 0,
+   "ms": 374
+  },
+  {
+   "id": 14,
+   "t": 1,
+   "ms": 142
+  },
+  {
+   "id": 15,
+   "t": 1,
+   "ms": 170
+  },
+  {
+   "id": 13,
+   "t": 21,
+   "ms": 67
+  },
+  {
+   "id": 14,
+   "t": 21,
+   "ms": 64
+  },
+  {
+   "id": 15,
+   "t": 21,
+   "ms": 79
+  },
+  {
+   "id": 13,
+   "t": 42,
+   "ms": 63
+  },
+  {
+   "id": 14,
+   "t": 42,
+   "ms": 63
+  },
+  {
+   "id": 15,
+   "t": 42,
+   "ms": 63
+  },
+  {
+   "id": 13,
+   "t": 60,
+   "ms": 94
+  },
+  {
+   "id": 14,
+   "t": 60,
+   "ms": 93
+  },
+  {
+   "id": 15,
+   "t": 60,
+   "ms": 78
+  },
+  {
+   "id": 13,
+   "t": 81,
+   "ms": 188
+  },
+  {
+   "id": 14,
+   "t": 81,
+   "ms": 94
+  },
+  {
+   "id": 15,
+   "t": 81,
+   "ms": 63
+  },
+  {
+   "id": 13,
+   "t": 102,
+   "ms": 72
+  },
+  {
+   "id": 14,
+   "t": 102,
+   "ms": 64
+  },
+  {
+   "id": 15,
+   "t": 102,
+   "ms": 79
+  },
+  {
+   "id": 13,
+   "t": 122,
+   "ms": 74
+  },
+  {
+   "id": 14,
+   "t": 122,
+   "ms": 62
+  },
+  {
+   "id": 15,
+   "t": 122,
+   "ms": 63
+  },
+  {
+   "id": 13,
+   "t": 140,
+   "ms": 63
+  },
+  {
+   "id": 14,
+   "t": 141,
+   "ms": 64
+  },
+  {
+   "id": 15,
+   "t": 141,
+   "ms": 63
+  },
+  {
+   "id": 13,
+   "t": 161,
+   "ms": 69
+  },
+  {
+   "id": 14,
+   "t": 161,
+   "ms": 79
+  },
+  {
+   "id": 15,
+   "t": 161,
+   "ms": 78
+  },
+  {
+   "id": 13,
+   "t": 181,
+   "ms": 75
+  },
+  {
+   "id": 14,
+   "t": 181,
+   "ms": 63
+  },
+  {
+   "id": 15,
+   "t": 181,
+   "ms": 77
+  },
+  {
+   "id": 13,
+   "t": 202,
+   "ms": 74
+  },
+  {
+   "id": 14,
+   "t": 202,
+   "ms": 63
+  },
+  {
+   "id": 15,
+   "t": 202,
+   "ms": 79
+  },
+  {
+   "id": 13,
+   "t": 221,
+   "ms": 63
+  },
+  {
+   "id": 14,
+   "t": 221,
+   "ms": 78
+  },
+  {
+   "id": 15,
+   "t": 221,
+   "ms": 62
+  },
+  {
+   "id": 13,
+   "t": 241,
+   "ms": 78
+  },
+  {
+   "id": 14,
+   "t": 241,
+   "ms": 64
+  },
+  {
+   "id": 15,
+   "t": 241,
+   "ms": 63
+  },
+  {
+   "id": 13,
+   "t": 261,
+   "ms": 66
+  },
+  {
+   "id": 14,
+   "t": 261,
+   "ms": 63
+  },
+  {
+   "id": 15,
+   "t": 262,
+   "ms": 78
+  },
+  {
+   "id": 13,
+   "t": 282,
+   "ms": 62
+  },
+  {
+   "id": 14,
+   "t": 282,
+   "ms": 63
+  },
+  {
+   "id": 15,
+   "t": 282,
+   "ms": 78
+  },
+  {
+   "id": 13,
+   "t": 304,
+   "ms": 93
+  },
+  {
+   "id": 14,
+   "t": 305,
+   "ms": 483
+  },
+  {
+   "id": 15,
+   "t": 306,
+   "ms": 985
+  },
+  {
+   "id": 13,
+   "t": 321,
+   "ms": 68
+  },
+  {
+   "id": 14,
+   "t": 321,
+   "ms": 77
+  },
+  {
+   "id": 15,
+   "t": 321,
+   "ms": 63
+  },
+  {
+   "id": 13,
+   "t": 341,
+   "ms": 63
+  },
+  {
+   "id": 14,
+   "t": 341,
+   "ms": 63
+  },
+  {
+   "id": 15,
+   "t": 341,
+   "ms": 77
+  },
+  {
+   "id": 13,
+   "t": 361,
+   "ms": 95
+  },
+  {
+   "id": 14,
+   "t": 361,
+   "ms": 93
+  },
+  {
+   "id": 15,
+   "t": 361,
+   "ms": 62
+  },
+  {
+   "id": 13,
+   "t": 381,
+   "ms": 63
+  },
+  {
+   "id": 14,
+   "t": 382,
+   "ms": 62
+  },
+  {
+   "id": 15,
+   "t": 382,
+   "ms": 63
+  },
+  {
+   "id": 13,
+   "t": 400,
+   "ms": 65
+  },
+  {
+   "id": 14,
+   "t": 400,
+   "ms": 78
+  },
+  {
+   "id": 15,
+   "t": 400,
+   "ms": 79
+  },
+  {
+   "id": 13,
+   "t": 420,
+   "ms": 78
+  },
+  {
+   "id": 14,
+   "t": 420,
+   "ms": 63
+  },
+  {
+   "id": 15,
+   "t": 420,
+   "ms": 77
+  },
+  {
+   "id": 13,
+   "t": 441,
+   "ms": 73
+  },
+  {
+   "id": 14,
+   "t": 441,
+   "ms": 63
+  },
+  {
+   "id": 15,
+   "t": 441,
+   "ms": 93
+  },
+  {
+   "id": 13,
+   "t": 461,
+   "ms": 63
+  },
+  {
+   "id": 14,
+   "t": 462,
+   "ms": 63
+  },
+  {
+   "id": 15,
+   "t": 462,
+   "ms": 63
+  },
+  {
+   "id": 13,
+   "t": 482,
+   "ms": 76
+  },
+  {
+   "id": 14,
+   "t": 482,
+   "ms": 63
+  },
+  {
+   "id": 15,
+   "t": 482,
+   "ms": 94
+  },
+  {
+   "id": 13,
+   "t": 500,
+   "ms": 78
+  },
+  {
+   "id": 14,
+   "t": 500,
+   "ms": 77
+  },
+  {
+   "id": 15,
+   "t": 500,
+   "ms": 78
+  },
+  {
+   "id": 13,
+   "t": 521,
+   "ms": 79
+  },
+  {
+   "id": 14,
+   "t": 521,
+   "ms": 77
+  },
+  {
+   "id": 15,
+   "t": 521,
+   "ms": 63
+  },
+  {
+   "id": 13,
+   "t": 541,
+   "ms": 70
+  },
+  {
+   "id": 14,
+   "t": 541,
+   "ms": 63
+  },
+  {
+   "id": 15,
+   "t": 541,
+   "ms": 77
+  },
+  {
+   "id": 13,
+   "t": 562,
+   "ms": 70
+  },
+  {
+   "id": 14,
+   "t": 562,
+   "ms": 63
+  },
+  {
+   "id": 15,
+   "t": 562,
+   "ms": 77
+  },
+  {
+   "id": 13,
+   "t": 580,
+   "ms": 64
+  },
+  {
+   "id": 14,
+   "t": 580,
+   "ms": 79
+  },
+  {
+   "id": 15,
+   "t": 580,
+   "ms": 77
+  }
+ ],
+ "host_before": {
+  "available_mb": 11895,
+  "pagefile_pct": 4.71,
+  "memcomp_ws_mb": 832,
+  "committed_mb": 38798,
+  "other_crosvm": 6
+ },
+ "relaunch": {
+  "13": "Status: ok\nTotalTime: 1399",
+  "14": "Status: ok\nTotalTime: 894",
+  "15": "Status: ok\nTotalTime: 956"
+ },
+ "alive": {
+  "13": "3736",
+  "14": "3734",
+  "15": "3731"
+ },
+ "check13": {
+  "cmd": "check",
+  "args": [
+   "13",
+   "slim4nsdax896-d13"
+  ],
+  "console": "13:56:12 up 13 min,  0 users,  load average: 0.00, 0.27, 0.44\n3736\n    topResumedActivity=ActivityRecord{95015591 u0 com.boltbetz.staging/com.boltbetz.MainActivity t5}\nFailed to write while dumping service activity: Broken pipe",
+  "screencap": "C:/dev/agent-emu-work/clone-exp/out/slim4nsdax896-d13-screencap.png",
+  "fb_pipe_seq": 202,
+  "scanout": "C:/dev/agent-emu-work/clone-exp/out/slim4nsdax896-d13-scanout.png",
+  "scanout_seq": 202
+ },
+ "check14": {
+  "cmd": "check",
+  "args": [
+   "14",
+   "slim4nsdax896-d14"
+  ],
+  "console": "13:56:12 up 13 min,  0 users,  load average: 0.00, 0.21, 0.35\n3734\n    topResumedActivity=ActivityRecord{95015591 u0 com.boltbetz.staging/com.boltbetz.MainActivity t5}\nFailed to write while dumping service activity: Broken pipe",
+  "screencap": "C:/dev/agent-emu-work/clone-exp/out/slim4nsdax896-d14-screencap.png",
+  "fb_pipe_seq": 204,
+  "scanout": "C:/dev/agent-emu-work/clone-exp/out/slim4nsdax896-d14-scanout.png",
+  "scanout_seq": 204
+ },
+ "check15": {
+  "cmd": "check",
+  "args": [
+   "15",
+   "slim4nsdax896-d15"
+  ],
+  "console": "13:56:13 up 13 min,  0 users,  load average: 0.01, 0.26, 0.39\n3731\n    topResumedActivity=ActivityRecord{195543892 u0 com.boltbetz.staging/com.boltbetz.MainActivity t5}\nFailed to write while dumping service activity: Broken pipe",
+  "screencap": "C:/dev/agent-emu-work/clone-exp/out/slim4nsdax896-d15-screencap.png",
+  "fb_pipe_seq": 212,
+  "scanout": "C:/dev/agent-emu-work/clone-exp/out/slim4nsdax896-d15-scanout.png",
+  "scanout_seq": 212
+ },
+ "tap_ms_p50_p95_max": [
+  73,
+  170,
+  985
+ ]
+}

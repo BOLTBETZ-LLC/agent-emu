@@ -170,6 +170,9 @@ elif cmd == "template":
               "input keyevent KEYCODE_WAKEUP; wm dismiss-keyguard; settings put secure immersive_mode_confirmations confirmed")
     res["launch"] = gsh(port, "am start -W -n com.boltbetz.staging/com.boltbetz.MainActivity | grep -E \"Status|TotalTime\"", 120)
     time.sleep(30)
+    if not gsh(port, "pidof com.boltbetz.staging").strip():  # a cold first launch can time out; try once more
+        res["launch_retry"] = gsh(port, "am start -W -n com.boltbetz.staging/com.boltbetz.MainActivity | grep -E \"Status|TotalTime\"", 180)
+        time.sleep(30)
     if os.environ.get("AE_SWAPOFF"):  # no zram in clones: swap off before the snapshot
         res["swapoff"] = gsh(port, "swapoff /dev/block/zram0; grep -E \"SwapTotal|MemFree|MemAvailable\" /proc/meminfo", 300)
         time.sleep(10)

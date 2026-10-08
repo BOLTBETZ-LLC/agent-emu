@@ -649,6 +649,25 @@ Setup: second read-only pmem `app-pmem.img`. After install, the template binds b
 - Screens seen by eye (`privatize/slim4dax768-sheet.png`): the template scanout and all 3 clones show the offline dialog.
 - App code on DAX does not lower clone privatization. The app's code was already shared template file pages in a clone. The 768 MB guest, which the image needs, writes more fresh frames than slim4 at 640.
 
+### slim4nsdax (no swap + app code on DAX) clones at 896 (2026-10-08, `run-slim4nsdax`, READY = 896)
+
+- First attempt: the template's first `am start` timed out, and the snapshot was taken with Settings' FallbackHome on top, no app. Run discarded. The driver now retries the launch once if the app isn't running 30 s later. Second template: launch 573 ms on the first try, app pid 3398, SwapTotal 0, MemAvailable 24 MB.
+- **Privatized timeline (MB, page-state dumps):**
+
+| Clone | 30 s | 60 s | 120 s | 300 s | 330 s | 600 s |
+|---|---|---|---|---|---|---|
+| d13 | 172 | 191 | 214 | 239 | 384 | 388 |
+| d14 | 166 | 193 | 219 | 240 | 388 | 390 |
+| d15 | 183 | 194 | 215 | 234 | 391 | 406 |
+
+  End 399-414 MB. Same shape as slim4ns: ~240 MB before the relaunch, then +145-155 MB from the relaunch on free frames.
+- Plateau private WS 397-415 MB. Compression flat (832 → 829). App alive in all 3 at all 20 samples. Relaunch 0.9-1.4 s, taps p50/p95 73/170 ms.
+- **Stops (no other crosvm activity in any window):** d15 freed 541, d14 freed 516, so **marginal median ≈ 528 MB**. Last d13 freed 698 (shared once ≈ 290). Not ≤390, so no 10-clone run.
+- **Input HOME→first frame (2 warm-ups, 60 inputs): p50 31.9 ms, p95 39.5 ms**, 0 misses.
+- Screens seen by eye (`privatize/slim4nsdax896-sheet.png`): the template scanout and all 3 clones show the offline dialog.
+
+**Where the guest-side images landed (marginal per clone, stop-one median):** slim4 640 + zram 416 (10-clone proof); slim5 576 460; slim4ns 896 ~440; slim4dax 768 ~472; slim4nsdax 896 ~528. No-swap images need 896 MB to keep the app alive, and their relaunch lands on free frames, so they cost more as clones. App code on DAX does not help clones, because code pages were already shared template pages. Best clone config stays slim4 640 with zram, uncapped.
+
 ### Honest RAM of one squeezed Device (2026-10-08, `assets/13-compress/`)
 
 `compress_probe.py`: d0 (896 MB, slim3 pmem), proof app on its first screen, then the daemon `squeeze` with balloon 0 and caps 250/16. Phase A was 6 min with caps only; phase B was 6 min with caps plus `MEMORY_PRIORITY_VERY_LOW` and EcoQoS on all 8 crosvm processes. One tap every 10 s, one sample every 30 s. Host Available stayed between 5.4 and 11.3 GB in the window (no emergency), but other workers' Devices booted and stopped throughout (`other_brokers` in `result.json`), so every global number below carries their noise.
