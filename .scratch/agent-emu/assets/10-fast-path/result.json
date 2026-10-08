@@ -1,0 +1,170 @@
+{
+ "boot": {
+  "ready_s": 116.6,
+  "available_mb_before": 17510
+ },
+ "status": [
+  {
+   "frames_via": "fast",
+   "id": "d0",
+   "input_via": "fast",
+   "ready": true
+  }
+ ],
+ "input_devices": "N: Name=\"Power Button\"\nN: Name=\"Sleep Button\"\nN: Name=\"Crosvm Virtio Multitouch Touchscreen 0\"\nN: Name=\"Crosvm Virtio Keyboard 0\"\nPhysical size: 720x1080\n                ABS_MT_POSITION_X     : value 0, min 0, max 720, fuzz 0, flat 0, resolution 0\n                ABS_MT_POSITION_Y     : value 0, min 0, max 1080, fuzz 0, flat 0, resolution 0\n                ABS_MT_TRACKING_ID    : value 0, min 0, max 65535, fuzz 0, flat 0, resolution 0",
+ "try_again_at": [
+  390,
+  779
+ ],
+ "shots": {
+  "0-app": "C:/dev/agent-emu-work/results/daemon-fast/0-app.jpg",
+  "1-home": "C:/dev/agent-emu-work/results/daemon-fast/1-home.jpg",
+  "1-home-screencap": "C:/dev/agent-emu-work/results/daemon-fast/1-home-screencap.jpg",
+  "2-swipe-up": "C:/dev/agent-emu-work/results/daemon-fast/2-swipe-up.jpg",
+  "2-swipe-up-screencap": "C:/dev/agent-emu-work/results/daemon-fast/2-swipe-up-screencap.jpg",
+  "3-back": "C:/dev/agent-emu-work/results/daemon-fast/3-back.jpg",
+  "3-back-screencap": "C:/dev/agent-emu-work/results/daemon-fast/3-back-screencap.jpg",
+  "4-tap-icon": "C:/dev/agent-emu-work/results/daemon-fast/4-tap-icon.jpg",
+  "4-tap-icon-screencap": "C:/dev/agent-emu-work/results/daemon-fast/4-tap-icon-screencap.jpg",
+  "4b-tap-icon-3s": "C:/dev/agent-emu-work/results/daemon-fast/4b-tap-icon-3s.jpg",
+  "4b-tap-icon-3s-screencap": "C:/dev/agent-emu-work/results/daemon-fast/4b-tap-icon-3s-screencap.jpg",
+  "5-app": "C:/dev/agent-emu-work/results/daemon-fast/5-app.jpg",
+  "6-after-tap": "C:/dev/agent-emu-work/results/daemon-fast/6-after-tap.jpg",
+  "7-tap-open": "C:/dev/agent-emu-work/results/daemon-fast/7-tap-open.jpg"
+ },
+ "proof": {
+  "1-home": {
+   "input_via": "fast",
+   "input_ms": 0,
+   "first_frame_ms": 58,
+   "settled_ms": 242,
+   "settled": true,
+   "frames": 6
+  },
+  "2-swipe-up": {
+   "input_via": "fast",
+   "input_ms": 205,
+   "first_frame_ms": 205,
+   "settled_ms": 639,
+   "settled": true,
+   "frames": 15
+  },
+  "3-back": {
+   "input_via": "fast",
+   "input_ms": 0,
+   "first_frame_ms": null,
+   "settled_ms": 103,
+   "settled": true,
+   "frames": 0
+  },
+  "4-tap-icon": {
+   "input_via": "fast",
+   "input_ms": 0,
+   "first_frame_ms": 33,
+   "settled_ms": 285,
+   "settled": true,
+   "frames": 8
+  }
+ },
+ "screenshot_rt_ms": {
+  "p50": 12,
+  "p95": 13,
+  "min": 12,
+  "max": 13
+ },
+ "screenshot_capture_ms": {
+  "p50": 1,
+  "p95": 1,
+  "min": 1,
+  "max": 1
+ },
+ "screenshot_encode_ms": {
+  "p50": 10,
+  "p95": 10,
+  "min": 9,
+  "max": 10
+ },
+ "frame_meta": {
+  "age_ms": 0,
+  "bytes": 84876,
+  "capture_ms": 1,
+  "captured_ms": 1791430128487,
+  "device_height": 1080,
+  "device_width": 720,
+  "encode_ms": 10,
+  "generation": 1450,
+  "height": 1080,
+  "scale": 1.0,
+  "width": 720
+ },
+ "tap_input_ack_ms": {
+  "p50": 0,
+  "p95": 0,
+  "min": 0,
+  "max": 0
+ },
+ "tap_first_frame_ms": {
+  "p50": 27,
+  "p95": 27,
+  "min": 27,
+  "max": 27
+ },
+ "tap_first_frame_n": 1,
+ "tap_settled_rt_ms": {
+  "p50": 113,
+  "p95": 187,
+  "min": 111,
+  "max": 187
+ },
+ "tap_settled": 10,
+ "tap_frames": [
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  4,
+  0,
+  0,
+  1
+ ],
+ "tap_ack_rt_ms": {
+  "p50": 0,
+  "p95": 0,
+  "min": 0,
+  "max": 0
+ },
+ "home_first_frame_ms": {
+  "p50": 18,
+  "p95": 28,
+  "min": 13,
+  "max": 28
+ },
+ "home_settled_rt_ms": {
+  "p50": 398,
+  "p95": 674,
+  "min": 153,
+  "max": 674
+ },
+ "tap_open_first_frame_ms": {
+  "p50": 30,
+  "p95": 30,
+  "min": 30,
+  "max": 30
+ },
+ "tap_open_first_frame_n": 1,
+ "tap_open_settled_ms": {
+  "p50": 102,
+  "p95": 182,
+  "min": 101,
+  "max": 182
+ },
+ "tap_open_rt_ms": {
+  "p50": 112,
+  "p95": 192,
+  "min": 111,
+  "max": 192
+ },
+ "tap_open_settled": 10
+}

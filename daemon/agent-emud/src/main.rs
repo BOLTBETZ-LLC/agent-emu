@@ -4,6 +4,7 @@
 // Request:  {"id":1,"call":"tap","device":"d0","x":100,"y":200}
 // Reply:    {"id":1,"ok":true,"ms":12,...} or {"id":1,"ok":false,"error":"..."}
 mod device;
+mod fast;
 mod mcp;
 
 use base64::Engine;
@@ -72,17 +73,44 @@ async fn serve(addr: String) {
     }
 }
 
+enum Input {
+    Tap(i64, i64),
+    Swipe(i64, i64, i64, i64, i64),
+    Key(String),
+    Shell(String),
+}
+
+/// Fast path (virtio-input pipes) when open, else the guest console. Returns which one ran.
+async fn inject(d: &Device, input: Input) -> R<&'static str> {
+    let cmd = match (d.input.get(), input) {
+        (Some(i), Input::Tap(x, y)) => return i.tap(x as i32, y as i32).await.map(|_| "fast"),
+        (Some(i), Input::Swipe(x1, y1, x2, y2, ms)) => {
+            return i.swipe((x1 as i32, y1 as i32), (x2 as i32, y2 as i32), ms as u64).await.map(|_| "fast")
+        }
+        (Some(i), Input::Key(k)) if fast::linux_key(&k).is_some() => return i.key(fast::linux_key(&k).unwrap()).await.map(|_| "fast"),
+        (_, Input::Tap(x, y)) => format!("input tap {x} {y}"),
+        (_, Input::Swipe(x1, y1, x2, y2, ms)) => format!("input swipe {x1} {y1} {x2} {y2} {ms}"),
+        (_, Input::Key(k)) => format!("input keyevent {k}"),
+        (_, Input::Shell(c)) => c,
+    };
+    let (o, code) = d.con.exec(&cmd, Duration::from_secs(30)).await?;
+    if code != 0 {
+        return Err(format!("{cmd} exit {code}: {o}"));
+    }
+    Ok("console")
+}
+
 fn arg_i(req: &Value, k: &str) -> R<i64> {
     req[k].as_f64().map(|v| v.round() as i64).ok_or(format!("missing number `{k}`"))
 }
 
 fn frame_json(f: &device::Frame, size: Option<(u32, u32)>) -> R<Value> {
     let t = Instant::now();
-    let (jpg, w, h, dw, dh, scale) = device::encode(&f.png, size)?;
+    let (jpg, w, h, dw, dh, scale) = device::encode(&f.rgb, size)?;
     Ok(json!({
         "jpeg": base64::engine::general_purpose::STANDARD.encode(&jpg), "bytes": jpg.len(), "width": w, "height": h,
         "device_width": dw, "device_height": dh, "scale": scale, "captured_ms": f.captured_ms,
-        "generation": f.generation, "capture_ms": f.capture_ms, "encode_ms": t.elapsed().as_millis() as u64,
+        "generation": f.generation, "capture_ms": f.capture_ms, "age_ms": f.age_ms, "encode_ms": t.elapsed().as_millis() as u64,
     }))
 }
 
@@ -109,7 +137,8 @@ async fn handle(st: &State, conn: u64, req: &Value) -> R<Value> {
         }
         "status" => {
             let d = st.dev.lock().unwrap().clone();
-            return Ok(json!({"ok": true, "devices": d.map(|d| vec![json!({"id": d.id, "ready": d.ready.load(Ordering::SeqCst)})]).unwrap_or_default(),
+            return Ok(json!({"ok": true, "devices": d.map(|d| vec![json!({"id": d.id, "ready": d.ready.load(Ordering::SeqCst),
+                "frames_via": d.transport().0, "input_via": d.transport().1})]).unwrap_or_default(),
                 "lease": *st.lease.lock().unwrap() == Some(conn), "available_mb": device::available_mb()}));
         }
         _ => {}
@@ -128,7 +157,7 @@ async fn handle(st: &State, conn: u64, req: &Value) -> R<Value> {
     let input = match call {
         "screenshot" => {
             let size = req["size"].as_str().and_then(device::parse_size);
-            let f = d.capture().await?;
+            let f = d.capture_via(req["via"] == json!("console")).await?;
             let fj = frame_json(&f, size)?;
             *d.scale.lock().unwrap() = fj["scale"].as_f64().unwrap_or(1.0);
             return Ok(json!({"ok": true, "frame": fj}));
@@ -166,31 +195,31 @@ async fn handle(st: &State, conn: u64, req: &Value) -> R<Value> {
             let s = *d.scale.lock().unwrap();
             let p = |k: &str| arg_i(req, k).map(|v| (v as f64 * s).round() as i64);
             if call == "tap" {
-                format!("input tap {} {}", p("x")?, p("y")?)
+                Input::Tap(p("x")?, p("y")?)
             } else {
-                format!("input swipe {} {} {} {} {}", p("x1")?, p("y1")?, p("x2")?, p("y2")?, arg_i(req, "ms").unwrap_or(300))
+                Input::Swipe(p("x1")?, p("y1")?, p("x2")?, p("y2")?, arg_i(req, "ms").unwrap_or(300).max(0))
             }
         }
-        "type_text" => device::input_text_cmd(req["text"].as_str().ok_or("missing `text`")?),
-        "key" => format!("input keyevent {}", device::keycode(req["name"].as_str().ok_or("missing `name`")?)?),
+        "type_text" => Input::Shell(device::input_text_cmd(req["text"].as_str().ok_or("missing `text`")?)),
+        "key" => Input::Key(device::keycode(req["name"].as_str().ok_or("missing `name`")?)?),
         _ => return Err(format!("unknown call `{call}`")),
     };
     if matches!(*st.lease.lock().unwrap(), Some(c) if c != conn) {
         return Err("busy: Device is leased by another client".into());
     }
+    let s0 = d.frame_seq();
     let t = Instant::now();
-    let (o, code) = d.con.exec(&input, Duration::from_secs(30)).await?;
-    if code != 0 {
-        return Err(format!("{input} exit {code}: {o}"));
-    }
+    let via = inject(&d, input).await?;
     let input_ms = t.elapsed().as_millis() as u64;
     if req["screenshot"] == json!(false) {
-        return Ok(json!({"ok": true, "input_ms": input_ms}));
+        return Ok(json!({"ok": true, "input_ms": input_ms, "input_via": via}));
     }
     let deadline = Duration::from_millis(req["deadline_ms"].as_u64().unwrap_or(3000));
-    let (f, settled, frames) = d.settled(deadline).await?;
+    let quiet = Duration::from_millis(req["settle_ms"].as_u64().unwrap_or(100));
+    let (f, settled, frames, first) = d.settled(s0, t, quiet, deadline).await?;
     let size = req["size"].as_str().and_then(device::parse_size);
-    let mut rep = json!({"ok": true, "input_ms": input_ms, "settled": settled, "frames": frames, "frame": frame_json(&f, size)?});
+    let mut rep = json!({"ok": true, "input_ms": input_ms, "input_via": via, "settled": settled, "frames": frames,
+        "first_frame_ms": first, "settled_ms": t.elapsed().as_millis() as u64, "frame": frame_json(&f, size)?});
     if !settled {
         rep["reason"] = json!("frames_changing");
     }

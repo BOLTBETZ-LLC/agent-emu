@@ -1,10 +1,12 @@
 // One Device: per-Device dir, boot via boot-stage1.ps1, the guest console pipe, frames and inputs.
-// v1 transport is the guest shell on hvc1: inputs are `input ...`, frames are `screencap -p | base64`.
-// ponytail: console transport is ~1 s per frame; the fast path is gfxstream getScreenshot + virtio-input.
+// Fast path (fast.rs): frames from crosvm's scanout mapping, input into virtio-input over named pipes.
+// Fallback: the guest shell on hvc1 (`input ...`, `screencap -p | base64`), used when the fast path
+// did not open (older crosvm) and for type_text and keys the virtio keyboard lacks.
+use crate::fast::{self, Fb, Input};
 use base64::Engine;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, Mutex as StdMutex};
+use std::sync::{Arc, Mutex as StdMutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::io::{AsyncReadExt, AsyncWriteExt, WriteHalf};
 use tokio::net::windows::named_pipe::{ClientOptions, NamedPipeClient};
@@ -95,7 +97,7 @@ fn make_device(cfg: &Cfg, idx: u32) -> R<PathBuf> {
         f.set_len(sz).map_err(|e| e.to_string())?;
     }
     for f in ["kernel.log", "logcat.log", "crosvm.log", "console.log", "os_composite.img", "os_composite.img.filler",
-        "os_composite.img.footer", "os_composite.img.header"] {
+        "os_composite.img.footer", "os_composite.img.header", "fb.bin"] {
         let _ = std::fs::remove_file(d.join(f));
     }
     let st = std::process::Command::new(cfg.crosvm()).arg("create_composite").arg("os_composite.img")
@@ -188,22 +190,27 @@ fn parse_reply(buf: &[u8], tag: &str) -> Option<(String, i32)> {
 // ---------- frames and inputs ----------
 
 pub struct Frame {
-    pub png: Vec<u8>,
+    pub rgb: image::RgbImage,
     pub captured_ms: u64,
     pub generation: u64,
     pub capture_ms: u64,
+    /// ms since crosvm posted this frame (fast path only).
+    pub age_ms: Option<u64>,
 }
 
 /// JPEG q75, optionally fitted inside `size` (aspect kept). Returns (jpeg, w, h, device_w, device_h, scale).
-pub fn encode(png: &[u8], size: Option<(u32, u32)>) -> R<(Vec<u8>, u32, u32, u32, u32, f64)> {
-    let img = image::load_from_memory_with_format(png, image::ImageFormat::Png).map_err(|e| e.to_string())?;
-    let (dw, dh) = (img.width(), img.height());
+pub fn encode(rgb: &image::RgbImage, size: Option<(u32, u32)>) -> R<(Vec<u8>, u32, u32, u32, u32, f64)> {
+    let (dw, dh) = rgb.dimensions();
+    let scaled;
     let img = match size {
-        Some((w, h)) if w < dw || h < dh => img.resize(w, h, image::imageops::FilterType::Triangle),
-        _ => img,
+        Some((w, h)) if w < dw || h < dh => {
+            scaled = image::DynamicImage::ImageRgb8(rgb.clone()).resize(w, h, image::imageops::FilterType::Triangle).to_rgb8();
+            &scaled
+        }
+        _ => rgb,
     };
     let mut out = Vec::new();
-    image::codecs::jpeg::JpegEncoder::new_with_quality(&mut out, 75).encode_image(&img.to_rgb8()).map_err(|e| e.to_string())?;
+    image::codecs::jpeg::JpegEncoder::new_with_quality(&mut out, 75).encode_image(img).map_err(|e| e.to_string())?;
     Ok((out, img.width(), img.height(), dw, dh, dw as f64 / img.width() as f64))
 }
 
@@ -235,6 +242,9 @@ pub struct Device {
     last: StdMutex<Option<Vec<u8>>>,
     gen: AtomicU64,
     pub scale: StdMutex<f64>,
+    idx: u32,
+    pub input: OnceLock<Input>,
+    pub fb: OnceLock<Arc<Fb>>,
 }
 
 impl Device {
@@ -252,7 +262,9 @@ impl Device {
         let child = Command::new("powershell")
             .args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-File"]).arg(cfg.work.join("boot-stage1.ps1"))
             .env("AE_DIR", win(&dir)).env("AE_ID", idx.to_string()).env("AE_MEM", &cfg.mem).env("AE_CPUS", &cfg.cpus)
-            .env("AE_EXTRA", format!("--socket PIPE:ae-vm-{idx} --pmem path={},ro=true", pmem.to_string_lossy().replace('\\', "/")))
+            .env("AE_EXTRA", format!("--socket PIPE:ae-vm-{idx} --pmem path={},ro=true --input multi-touch[path={}] --input keyboard[path={}]",
+                pmem.to_string_lossy().replace('\\', "/"), fast::touch_pipe(idx), fast::kbd_pipe(idx)))
+            .env("AGENT_EMU_FB", win(&dir.join("fb.bin"))).env("AGENT_EMU_FB_PIPE", fast::fb_pipe(idx))
             .env("AE_KERNEL", "kernel-dax").env("AE_INITRD", "initrd-dax-pmem.img").env("AE_CROSVM", win(&cfg.crosvm()))
             .stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null())
             .creation_flags(CREATE_NO_WINDOW).spawn().map_err(|e| format!("spawn boot: {e}"))?;
@@ -266,6 +278,7 @@ impl Device {
         Ok(Arc::new(Device {
             id: format!("d{idx}"), dir, boot: Mutex::new(Some(child)), con, ready: AtomicBool::new(false),
             last: StdMutex::new(None), gen: AtomicU64::new(0), scale: StdMutex::new(1.0),
+            idx, input: OnceLock::new(), fb: OnceLock::new(),
         }))
     }
 
@@ -287,8 +300,28 @@ impl Device {
             tokio::time::sleep(Duration::from_secs(3)).await;
         }
         self.con.exec(SETUP, Duration::from_secs(60)).await?;
+        match Input::open(self.idx) {
+            Ok(i) => { let _ = self.input.set(i); }
+            Err(e) => eprintln!("{}: fast input off, console fallback: {e}", self.id),
+        }
+        match Fb::open(&self.dir.join("fb.bin"), &fast::fb_pipe(self.idx)) {
+            Ok(f) if f.seq() > 0 => { let _ = self.fb.set(Arc::new(f)); }
+            Ok(_) => eprintln!("{}: fast frames off: scanout mapping has no frame yet", self.id),
+            Err(e) => eprintln!("{}: fast frames off, console fallback: {e}", self.id),
+        }
         self.ready.store(true, Ordering::SeqCst);
         Ok(())
+    }
+
+    /// ("fast" | "console") for frames and for input.
+    pub fn transport(&self) -> (&'static str, &'static str) {
+        let t = |b: bool| if b { "fast" } else { "console" };
+        (t(self.fb.get().is_some()), t(self.input.get().is_some()))
+    }
+
+    /// Scanout frames posted so far (0 without the fast path).
+    pub fn frame_seq(&self) -> u64 {
+        self.fb.get().map_or(0, |f| f.seq())
     }
 
     pub async fn stop(&self) {
@@ -299,34 +332,85 @@ impl Device {
     }
 
     pub async fn capture(&self) -> R<Frame> {
+        self.capture_via(false).await
+    }
+
+    /// `console` forces guest `screencap` even when the scanout mapping is open.
+    pub async fn capture_via(&self, console: bool) -> R<Frame> {
         let (t0, captured_ms) = (Instant::now(), now_ms());
+        if let Some(fb) = self.fb.get().filter(|_| !console) {
+            let fb = fb.clone();
+            let r = tokio::task::spawn_blocking(move || fb.refresh().map(|_| fb.read())).await.map_err(|e| e.to_string())??
+                .ok_or("scanout mapping: no consistent frame")?;
+            return Ok(Frame { rgb: r.rgb, captured_ms, generation: r.seq, capture_ms: t0.elapsed().as_millis() as u64,
+                age_ms: Some(captured_ms.saturating_sub(r.flush_us / 1000)) });
+        }
         let (out, code) = self.con.exec("screencap -p | base64 -w 0", Duration::from_secs(30)).await?;
         if code != 0 {
             return Err(format!("screencap exit {code}: {}", out.chars().take(200).collect::<String>()));
         }
         let png = B64.decode(out.split_whitespace().collect::<String>()).map_err(|e| format!("screencap base64: {e}"))?;
-        let mut last = self.last.lock().unwrap();
-        if last.as_deref() != Some(&png[..]) {
-            self.gen.fetch_add(1, Ordering::SeqCst);
-            *last = Some(png.clone());
+        {
+            let mut last = self.last.lock().unwrap();
+            if last.as_deref() != Some(&png[..]) {
+                self.gen.fetch_add(1, Ordering::SeqCst);
+                *last = Some(png.clone());
+            }
         }
-        Ok(Frame { png, captured_ms, generation: self.gen.load(Ordering::SeqCst), capture_ms: t0.elapsed().as_millis() as u64 })
+        let rgb = image::load_from_memory_with_format(&png, image::ImageFormat::Png).map_err(|e| e.to_string())?.to_rgb8();
+        Ok(Frame { rgb, captured_ms, generation: self.gen.load(Ordering::SeqCst), capture_ms: t0.elapsed().as_millis() as u64, age_ms: None })
     }
 
-    /// Screenshots until two in a row are identical, or the deadline: (frame, settled, frames taken).
-    pub async fn settled(&self, deadline: Duration) -> R<(Frame, bool, u32)> {
+    /// Fast path: after an input started at `t_in` (scanout seq `s0` before it), wait until no new
+    /// frame is posted for `quiet`, or the deadline. Console path: screenshots until two in a row are
+    /// identical. Returns (frame, settled, new frames, ms from input to the first new frame).
+    pub async fn settled(&self, s0: u64, t_in: Instant, quiet: Duration, deadline: Duration) -> R<(Frame, bool, u32, Option<u64>)> {
+        if let Some(fb) = self.fb.get().cloned() {
+            let (settled, first) = tokio::task::spawn_blocking(move || wait_quiet(&fb, s0, t_in, quiet, deadline))
+                .await.map_err(|e| e.to_string())?;
+            let f = self.capture().await?;
+            let n = f.generation.saturating_sub(s0) as u32;
+            return Ok((f, settled, n, first));
+        }
+        let (f, settled, n) = self.settled_console(deadline).await?;
+        Ok((f, settled, n, None))
+    }
+
+    async fn settled_console(&self, deadline: Duration) -> R<(Frame, bool, u32)> {
         let end = Instant::now() + deadline;
         let mut prev = self.capture().await?;
         let mut n = 1;
         while Instant::now() < end {
             let f = self.capture().await?;
             n += 1;
-            if f.png == prev.png {
+            if f.rgb == prev.rgb {
                 return Ok((f, true, n));
             }
             prev = f;
         }
         Ok((prev, false, n))
+    }
+}
+
+/// Polls the scanout seq every ~1 ms: (settled, ms from `t_in` to the first frame after `s0`).
+fn wait_quiet(fb: &Fb, s0: u64, t_in: Instant, quiet: Duration, deadline: Duration) -> (bool, Option<u64>) {
+    let (mut last, mut changed) = (s0, t_in);
+    let mut first = None;
+    loop {
+        let now = Instant::now();
+        let s = fb.seq();
+        if s != last {
+            last = s;
+            changed = now;
+            first.get_or_insert((now - t_in).as_millis() as u64);
+        }
+        if now - changed >= quiet {
+            return (true, first);
+        }
+        if now - t_in >= deadline {
+            return (false, first);
+        }
+        std::thread::sleep(Duration::from_millis(1));
     }
 }
 
@@ -376,11 +460,9 @@ mod tests {
     #[test]
     fn encode_scales() {
         let img = image::RgbImage::from_pixel(720, 1280, image::Rgb([10, 20, 30]));
-        let mut png = Vec::new();
-        image::DynamicImage::ImageRgb8(img).write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png).unwrap();
-        let (jpg, w, h, dw, dh, scale) = encode(&png, Some((360, 640))).unwrap();
+        let (jpg, w, h, dw, dh, scale) = encode(&img, Some((360, 640))).unwrap();
         assert_eq!((w, h, dw, dh, scale), (360, 640, 720, 1280, 2.0));
         assert_eq!(&jpg[..2], &[0xFF, 0xD8]);
-        assert_eq!(encode(&png, None).unwrap().5, 1.0);
+        assert_eq!(encode(&img, None).unwrap().5, 1.0);
     }
 }

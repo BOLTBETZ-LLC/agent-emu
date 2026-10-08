@@ -49,3 +49,24 @@ Grilled with Aaron on 2026-10-07. Each line below is his pick. The speed and siz
 - **The tap's effect is not proven.** Before and after frames are identical (`assets/10-daemon-smoke/`, both seen by eye): offline, "Try Again" brings back the same dialog. The input ack is real.
 - Trap: `uiautomator` from the console shell fails (`libnativeloader.so not found`). The console shell predates apexd's mount namespace and lacks `*CLASSPATH`. Fix: `nsenter` into system_server's namespace and take its env.
 - Not built yet: Job Object, health check, restart, `long_press` / `gesture` / `zoom`, the app-idle helper, binary framing. Settle is "two identical frames", not the spec's "100 ms + app idle".
+
+## Measured: fast path (2026-10-08)
+
+crosvm `agent-emu-pmem` + daemon `daemon`: input goes into virtio-input over named pipes (`--input multi-touch[path=\.\pipe\ae-touch-N]`, `--input keyboard[path=\.\pipe\ae-kbd-N]`). Frames come from the 2D scanout: crosvm copies the scanout blob from guest RAM into `fb.bin` (shared mapping) on every flush and again on request over `\.\pipe\ae-fb-N`. The console stays as the fallback. 1 Device, 720x1080, 10 calls each:
+
+| Call | p50 | p95 |
+|---|---|---|
+| screenshot (client round trip) | 12 ms | 13 ms |
+| of which capture (refresh + read) | 1 ms | 1 ms |
+| of which JPEG q75 encode, 720x1080 | 10 ms | 10 ms |
+| tap, input ack | 0 ms | 0 ms |
+| tap with `screenshot:false` (client round trip) | 0 ms | 0 ms |
+| key HOME to first new frame | 18 ms | 28 ms |
+| key HOME to settled (100 ms with no frame) | 398 ms | 674 ms |
+| tap with no visible change to settled | 113 ms | 187 ms |
+
+- Visible proof: a virtio tap on the drawer icon opens WebView Browser Tester (`assets/10-fast-path/before-tap-drawer*.jpg`, `after-tap-app-open*.jpg`; the fast frame matches the guest's own `screencap`). Tap to first new frame was 33 ms on that tap.
+- "Settled" as defined in §8 (100 ms quiet) cannot be under 50 ms. Input to first response frame is under 50 ms at p95 for HOME.
+- Trap: the guest flushes a scanout blob before it finishes drawing, so a flush-time copy is one frame old. Copy at read time.
+- Trap: slim3 has no wallpaper and no SystemUI, so regions no layer covers keep old pixels in the scanout. `screencap` shows them black. Full-screen apps are unaffected.
+- Trap: crosvm's Windows virtio-input worker waited on the raw pipe handle, which is always signaled. It spun and logged `ERROR_NO_DATA` (232) without end (GBs of `crosvm.log`). Fixed by waiting on the read notifier.
