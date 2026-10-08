@@ -502,6 +502,25 @@ Raw data: `assets/13-clone/lc10-*.json`, `lc10-run.log`, `lc10-sheet.png`.
 - **Average at N=10:** the 8 clean stops + d16 taken at the median + last 495 → **~450 MB per Device**.
 - **Verdict: the light cap does not cross 400 MB.** It cuts the working set by ~100 MB per clone, but those pages move into the compression store at about the same real cost (marginal 460 capped vs 416 uncapped, inside noise). It also doubles input p95. Uncapped slim4 640 clones remain the better config. Getting under 400 needs fewer privatized guest pages (guest diet, or balloon/free-page reporting so guest-free pages return to the template), not host caps.
 
+### slim5 at 640, 3 clones (2026-10-08, `snapH`, uncapped): no gain over slim4; 10-clone run skipped
+
+Setup: slim5 image (`run-slim5`: HomeStub, tuned lmkd) at `--mem 640`, queue-fix crosvm-clone, diet cmdline, 11 consoles, one virtio-snd. Template setup now also runs `setprop log.tag.RIL S` and renices every `libcuttlefish-rild` thread to 19, as the daemon does. Readback in the template: 3 threads at nice 19, 1 still at 0. Gate: no other worker Devices, Available 14,495 MB. Raw data: `assets/13-clone/s5-*`.
+
+- Template: ready 122.8 s, launch 694 ms. Clones restored in 1.11-1.32 s.
+- **Plateau private WS 373-375 MB** (≈300 before the minute-5 relaunch). That is higher than slim4 640 (340-348). App alive in all 3 at all 20 samples. Relaunch 1.3-2.5 s, taps p50/p95 77/250 ms. Compression store flat (1,934 → 1,935).
+- **Stops:**
+
+| Stop | Private WS | Available freed | Hypervisor pages | Standby Δ |
+|---|---|---|---|---|
+| d15 | 378 | 469 | −1,536 | +37 |
+| d14 | 376 | 516 | −1,536 | +47 |
+| d13 (last) | 377 | 689 | −1,536 | +195 |
+
+- **Marginal median ~492 MB** (469 / 516). That is above the 390 MB bar, so the 10-clone run was not done. Shared once: 689 − 377 = 312 MB.
+- **Input to first frame (HOME, 2 warm-ups, 20 each on d13-d15): p50 34.9 ms, p95 41.1 ms, max 49.7, 0 misses.** This meets the 50 ms target. The spread is much tighter than slim4 (p95 50.5), consistent with the RIL no longer spinning a vCPU.
+- Screens seen by eye (`assets/13-clone/s5-sheet.png`): the template scanout and all 3 clone screencaps show the offline dialog. Final pids 3826 / 3826 / 3827 (lockstep).
+- **Conclusion:** at the same guest size, the slim5 image does not lower per-clone privatized memory. Best clone config stays slim4 640 uncapped: marginal median 416 MB, ~439 MB average at N=10. Reaching 400 needs the guest to privatize less: smaller `--mem` with clones (slim5 at 576), or balloon/free-page reporting that hands guest-free pages back to the template.
+
 ### Honest RAM of one squeezed Device (2026-10-08, `assets/13-compress/`)
 
 `compress_probe.py`: d0 (896 MB, slim3 pmem), proof app on its first screen, then the daemon `squeeze` with balloon 0 and caps 250/16. Phase A was 6 min with caps only; phase B was 6 min with caps plus `MEMORY_PRIORITY_VERY_LOW` and EcoQoS on all 8 crosvm processes. One tap every 10 s, one sample every 30 s. Host Available stayed between 5.4 and 11.3 GB in the window (no emergency), but other workers' Devices booted and stopped throughout (`other_brokers` in `result.json`), so every global number below carries their noise.

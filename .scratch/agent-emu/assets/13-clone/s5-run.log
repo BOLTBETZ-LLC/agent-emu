@@ -1,0 +1,23 @@
+02:31:50 gate others=0 avail=14495
+ "ready_s": 122.8,
+ "install": "Success",
+ "launch": "Status: ok\nTotalTime: 694",
+ "app_pid": "3490",
+echo RIL_NICE; ps -T -o NI= -p $(pidof libcuttlefish-rild) | sort ; ps -T -o NI= -p $(pidof libcuttlefish-rild) | sort                          <| uniq -c; echo __AE_51da libcuttlefish-rild) | sort | uniq -c; echo __AE_51da                         <f9bc__
+RIL_NICE
+      1   0
+      3  19
+__AE_51daf9bc__
+console:/ $ 
+ "snapshot": [
+  0,
+d13 "restore_s":1.32,"console_s":2.79
+d14 "restore_s":1.11,"console_s":2.62
+d15 "restore_s":1.11,"console_s":2.29
+PLATEAU EXIT 0
+LATENCY EXIT 0
+d15: private=378 ws=581 freed=469 hv=-1536 standby_d=37 noisy=False
+d14: private=376 ws=580 freed=516 hv=-1536 standby_d=47 noisy=False
+d13: private=377 ws=562 freed=689 hv=-1536 standby_d=195 noisy=False
+STOPSEQ EXIT 0
+DONE

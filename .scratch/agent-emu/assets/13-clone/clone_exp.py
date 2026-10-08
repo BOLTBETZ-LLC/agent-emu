@@ -15,6 +15,7 @@ PROFILE = os.environ.get("AE_PROFILE", "")
 SLIM4 = PROFILE in ("slim4", "slim5")  # slim5 = slim4 cuts + HomeStub image at 576 MB
 RUN = f"{W}/run-{PROFILE}" if SLIM4 else f"{W}/run"
 MEM = {"slim4": "640", "slim5": "576"}.get(PROFILE, "896")
+MEM = os.environ.get("AE_MEM_MB", MEM)
 DIET = dict(AE_PARAMS="virtio_blk.num_request_queues=1 virtio_blk.queue_depth=64 kfence.sample_interval=0 transparent_hugepage=never",
             AE_SINKS="11", AE_GPU_EXTRA="audio-device-mode=one-global") if SLIM4 else {}
 BOOT = f"{W}/boot-diet.ps1" if SLIM4 else f"{W}/boot-stage1.ps1"
@@ -153,7 +154,7 @@ elif cmd == "template":
     n_apk = int(open(f"{RUN}/apk.size").read())
     gsh(port, "insmod /system_dlkm/lib/modules/virtio_balloon.ko 2>/dev/null; true")
     res["install"] = gsh(port, f"head -c {n_apk} /dev/block/vdb > /data/local/tmp/p.apk && chmod 644 /data/local/tmp/p.apk && pm install -r /data/local/tmp/p.apk; rm -f /data/local/tmp/p.apk", 300)
-    gsh(port, "settings put global hide_error_dialogs 1; cmd connectivity airplane-mode enable; settings put global window_animation_scale 0; "
+    gsh(port, "settings put global hide_error_dialogs 1; setprop log.tag.RIL S; for t in $(ls /proc/$(pidof libcuttlefish-rild)/task 2>/dev/null); do renice -n 19 -p $t; done >/dev/null 2>&1; cmd connectivity airplane-mode enable; settings put global window_animation_scale 0; "
               "settings put global transition_animation_scale 0; settings put global animator_duration_scale 0; svc power stayon true; "
               "input keyevent KEYCODE_WAKEUP; wm dismiss-keyguard; settings put secure immersive_mode_confirmations confirmed")
     res["launch"] = gsh(port, "am start -W -n com.boltbetz.staging/com.boltbetz.MainActivity | grep -E \"Status|TotalTime\"", 120)
