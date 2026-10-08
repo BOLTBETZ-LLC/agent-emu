@@ -174,6 +174,10 @@ Each Device gets its own dir with hard-linked read-only images (one disk copy, o
   - Memory at OOM: anon about 280 MB, **slab_unreclaimable 177 MB**, pagetables 24 MB, free 22 MB.
   - Android 16 boot needs more than 768 MB even without SystemUI, with DAX system and low_ram.
   - Getting lower needs kernel and userspace diet work (slab users, zram sizing, fewer boot services), not just APK removal.
+- **fleet10-896 (10 Devices × 896 MB, pmem, 2 vCPU): did not complete.**
+  - Claude Code's low-memory reaper killed the fleet driver and the 30 s memory guard while all 10 guests were still booting (guest uptimes 12-37 s, none had reached `sys.boot_completed`). The guard's last reading was 6,208 MB available before the reap.
+  - All crosvm processes were stopped afterwards; Available recovered to 10,753 MB.
+  - **Not restarted.** The PC also runs other heavy sessions (a node process at 2.4 GB, several Claude sessions). 10 × ~1.1 GB plus the boot peaks exceeds what is free with them running.
 - **slim3 + pmem at `--mem 896`: PASS.** Ready at 143 s (slow, memory-bound), launch 691 ms, app alive, first screen seen by eye. Guest used 995 MB (with zram). The single-Device host delta was noise (WSL had just shut down).
 - **pmem + slim2 at `--mem 768`: boot timeout.** The guest was only 26 s into boot after 10 min of wall time. This image (with SystemUI and the launcher) needs about 1 GB even with DAX. Next cut: slim3 without SystemUI (252 MB RSS), like the ATD images.
 - **The next lever is guest RAM size.** DAX took system files out of the guest page cache, so try `--mem 768` and 640 with pmem. Then add a balloon per Device.
