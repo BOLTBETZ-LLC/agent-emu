@@ -232,3 +232,126 @@ Each Device gets its own dir with hard-linked read-only images (one disk copy, o
 - During the hold another session's jest run took host Available down to ~470 MB. Windows emptied the compression store to the pagefile (store 1,164 to 281 MB, pagefile 5.0% to 11.6%). **Under that pressure the Devices kept 320 MB each resident and the app stayed alive** (pids 5247, 5531). First screens seen by eye (`results/squeeze2/d20.png`, `d21.png`).
 - Latency: shell p50/p95 124/295 ms; tap on the offline "Try Again" button p50/p95 124/1,551 ms (that button re-checks the network before redrawing).
 - Bound on real RAM per Device: 320 MB WS + at most half of the 281 MB store left (shared with every other process) = **≤460 MB, likely close to 320**. Not yet a clean ≤400 proof: the compression share is not attributed per process.
+
+## Guest diet (2026-10-08)
+
+Goal: get the guest RAM floor well below 896 MB, with the proof app's first screen as the pass bar. All runs use 2 vCPU, pmem DAX system, DAX kernel 6.12.93 (no kernel rebuild) and Device 16. Driver: `C:/dev/agent-emu-work/fleet_diet.py` with `boot-diet.ps1`. Results: `C:/dev/agent-emu-work/results/diet/<tag>/` (meminfo, slabinfo, allocinfo, dumpsys meminfo, services, screenshot).
+
+**Result: the floor is 640 MB (was 896).** Ready 120.5 s, launch TotalTime 1,314 ms, app alive, first screen checked by eye (`results/diet/s4-640/first-screen-d16.png`). Guest `Used RAM: 801,063K (534,723K used pss + 266,340K kernel)`; 387 MB is swapped into 114 MB of zram. MemTotal 595 MB.
+
+| Guest RAM | Image | Result |
+|---|---|---|
+| 896 | slim3, stock settings | PASS (ready 159 s, launch 2,351 ms). Used RAM 1,015,692K (631,216K pss + 384,476K kernel) |
+| 896 | slim4 + all cuts | PASS (ready 126 s). Used RAM 897,336K (600,604K pss + 296,732K kernel) |
+| **640** | slim4 + all cuts | **PASS** (above) |
+| 576 | slim4 + all cuts | FAIL. The app launched (1,552 ms), then lmkd killed it as TOP during the settle: `low watermark is breached and thrashing (406%)`. Screen: "Phone is starting…" |
+| 512 | slim4 + all cuts | FAIL. lmkd killed the app as TOP 3 s after launch (`thrashing (392%)`) |
+| 448 | slim4 + all cuts | FAIL. Boot never completed. The kernel log stops at 106 s uptime (`rust_binder: Failed to allocate buffer`), with no OOM kill and no panic |
+
+### Where memory goes (slim3, 896 MB, app on screen)
+
+Resident, from `/proc/meminfo` and `dumpsys meminfo`:
+
+| Rank | User | MB |
+|---|---|---|
+| 1 | Kernel slab (SUnreclaim 211) | 236 |
+| 2 | Proof app PSS | 198 |
+| 3 | zram store (holds 508 MB of swapped anon) | 155 |
+| 4 | system_server PSS | 76 |
+| 5 | VmallocUsed | 57 |
+| 6 | Kept free by watermarks (`min_free_kbytes` 22528, from THP; `watermark_scale_factor` 174) | 52 |
+| 7 | PageTables (~400 processes) | 42 |
+| 8 | Shmem | 38 |
+| 9 | surfaceflinger | 35 |
+| 10 | mediaprovider 27, phone 19, permissioncontroller 15, LatinIME 14, android.process.media 14, devicelock 12, nfc 12, networkstack 12, gceservice 12, ext.services 11, se 10, satellite 10 | 188 |
+| 11 | KernelStack (1,567 threads) | 21 |
+
+**Slab hog: virtio, not debug options.** With `sysctl.vm.mem_profiling=1`, slim3 at 896 MB OOMed at 30 s. The OOM report's top allocations:
+
+```
+59.2 MiB  15143 drivers/virtio/virtio_ring.c:319 func:vring_alloc_queue
+36.2 MiB    122 drivers/virtio/virtio_ring.c:1897 func:vring_alloc_desc_extra
+36.2 MiB    122 drivers/virtio/virtio_ring.c:1058 func:vring_alloc_state_extra_split
+32.4 MiB    523 block/blk-mq.c:3695 func:blk_mq_alloc_rqs
+20.0 MiB   5120 drivers/char/virtio_console.c:442 [virtio_console] func:alloc_buf
+```
+
+- Cause: on Windows, crosvm creates block, gpu and snd as vhost-user frontends with `max_queue_size: None`, so every queue gets `Queue::MAX_SIZE` = 32768 entries (`src/sys/windows.rs` `create_vhost_user_{block,gpu,snd}_device`).
+- The block backend offers 16 queues per disk.
+- The GPU's default `audio-device-mode=per-surface` creates one virtio-snd device per display slot.
+- About 70 queues × 32768 entries comes to ~180 MB.
+- KFENCE (63 objects), page_owner, slub_debug and kmemleak are off or tiny in this config. `MEM_ALLOC_PROFILING` is compiled in but off by default.
+
+**Boot ran with no swap.** The Cuttlefish vendor rc runs `swapon_all` only on `sys-boot-completed-set`. The 896 OOM report shows `Total swap = 0kB`. That is why 768 OOMed at boot.
+
+### Cuts and measured savings
+
+| Cut | How | Measured |
+|---|---|---|
+| Block queues 16 → 1 per disk | cmdline `virtio_blk.num_request_queues=1` | together with the next row (allocinfo, same 896 boot with profiling): vring 59.2 → 8.1 MiB, desc_extra 36.2 → 4.9, state_extra 36.2 → 4.9, blk_mq 32.4 → 20.6. **About −125 MB.** SUnreclaim 211 → 151, Lost RAM 69 → 27, dumpsys kernel 384 → 326 MB |
+| One virtio-snd instead of one per display | crosvm `--gpu ...,audio-device-mode=one-global` | included in the row above |
+| Block tag depth | cmdline `virtio_blk.queue_depth=64` | not isolated. Combined with slim4 and the console cut: SUnreclaim 151 → 125 MB |
+| Consoles 20 → 11 | drop the sinks for `num=12..20` | 4 KB × 256 rx buffers per console, so about −9 MB. **Do not drop `num=11` (hvc10)**: the oemlock HAL needs it. Without it, system_server waits forever on `IOemLock` |
+| THP off | cmdline `transparent_hugepage=never` | `min_free_kbytes` 22528 → 3603 (−18.5 MB kept free); `watermark_scale_factor` 174 → 117 |
+| KFENCE off | cmdline `kfence.sample_interval=0` | pool is 63 objects, ≤1 MB, not measured on its own |
+| zram on before zygote, 100% size | `init.cutf_cvm.rc`: `swapon_all` moved to `on post-fs-data`; fstab `zramsize=75%` → `100%` | this is what lets boot pass below 896 MB. Not measured as MB |
+| Userspace (slim4) | image edits below | at 896 MB: used pss 631 → 601 MB, services 337 → 296 |
+| Total kernel side | all of the above | dumpsys kernel 384 → 297 MB at 896 MB; 266 MB at 640 MB |
+
+Not tested:
+- `swiotlb=noforce` and `init_on_alloc=0`: `init_on_alloc` costs CPU, not memory.
+- `page_poison=0`: page poisoning is not enabled.
+- A 32-bit-less build: only_phone is already 64-bit only.
+- `persist.sys.dalvik.vm.lib.2`: it is already `libart.so`, so there is nothing to gain.
+
+### slim4 image
+
+The source is `/root/slim/tf4`, a copy of the slim3 target_files tree. Script `stage2/slim4/edits.sh`, build `stage2/slim4/build.sh`, log `edits.log`/`build.log`. Edits:
+
+- **zram:** `swapon_all` moved to `on post-fs-data`, and `zramsize=100%`.
+- **Props:** `dalvik.vm.heapstartsize` 8m → 2m, `heapmaxfree` 8m → 2m, `ro.zygote.disable_gl_preload=true`, `ro.config.max_starting_bg=2`.
+- **Features removed:**
+  - feature files: wifi (+direct, passpoint), uwb, face, fingerprint, camera (all 5), live_wallpaper, window_magnification, credentials;
+  - from `handheld_core_hardware.xml`: bluetooth (this stops the slim3 bluetooth crash-loop dialog), camera, print, backup, companion_device_setup, app_widgets, voice_recognizers, controls, credentials, picture_in_picture.
+- **Vendor APEXes removed:** cf.bt, cf.nfc, uwb, threadnetwork, wifi, cf.wifi, cf.wpa_supplicant, gnss, cf.ir, contexthub, cas, drm.clearkey, neuralnetworks, tetheroffload. The face/fingerprint HAL rc, VINTF and binaries are removed too.
+- **APKs removed:**
+  - Browser2, LatinIME, PhotoTable, SettingsIntelligence;
+  - BasicDreams, BluetoothMidiService, BookmarkProvider, CameraExtensionsProxy, CarrierDefaultApp, PartnerBookmarksProvider, PrintRecommendationService, SecureElement, SimAppDialog, Stk;
+  - DeviceAsWebcam, Tag, E2eeContactKeysProvider, PrivateSpace, ONS;
+  - AvatarPicker, CFSatelliteService, ThemePicker, ThreadNetworkDemoApp, Launcher3QuickStep, AccessibilityMenu;
+  - vendor CuttlefishService (gceservice).
+- **Kept on purpose:** telephony core and rild, audio, camera provider (bootconfig selects it), secure_element apex (bootconfig selects it), oemlock, sensors, lights.
+- **Trap:** with Launcher3 gone, Settings' FallbackHome stays as HOME and costs 33-40 MB PSS. A tiny HOME stub would win that back.
+
+Images (`C:/dev/agent-emu-work/stage2/slim4/`):
+- `super.img` sha256 `ac45a8c0515e8729f0aaa4800e2278b399454e136d00267bf29d897aea8d727c`;
+- `system-pmem.img` (padded to 2 MiB) sha256 `428768961b167aa57babf64b55244b4c9167b6e3f26fe69d2d8bfbbba4a54edf`;
+- `vbmeta.img`, `vbmeta_system.img`, `vbmeta_system_dlkm.img`, `vbmeta_vendor_dlkm.img`.
+
+Run dir `C:/dev/agent-emu-work/run-slim4` (hard links). Boot flags:
+
+```
+python fleet_diet.py <tag> --run run-slim4 --mem 640 --sinks 11 \
+  --params "virtio_blk.num_request_queues=1 virtio_blk.queue_depth=64 kfence.sample_interval=0 transparent_hugepage=never" \
+  --gpu "audio-device-mode=one-global"
+```
+
+### What blocks going lower
+
+- **The app itself:** 198-230 MB PSS. It renders through ANGLE on SwiftShader (CPU Vulkan). At 576/512, lmkd kills it as TOP under thrashing.
+- **Kernel at 640:** ~266 MB, made up of:
+  - Slab 136 (SUnreclaim 112);
+  - zram store ~114;
+  - vmalloc 53;
+  - PageTables 29;
+  - KernelStack 17.
+- **Still 9 queues × 32768 entries:** 3 block, 2 gpu, 4 snd. The fix is in the crosvm fork, not the guest: pass `Some(256)` as `max_queue_size` in the three Windows vhost-user frontend constructors. Estimate ≥10 MB more, plus shorter blk-mq tags. Not built, because the shared crosvm-pmem binary is in use by other workers.
+- **system_server** ~110 MB PSS, plus ~400 processes and 1,567 threads.
+- **Next cuts, not tried:**
+  - the crosvm queue fix;
+  - a HOME stub in place of FallbackHome;
+  - dropping devicelock, adservices, ondevicepersonalization, federatedcompute and cellbroadcast (APEX jars: need care);
+  - `webview_zygote` off;
+  - lmkd tuned to spare TOP (`ro.lmk.thrashing_limit`).
+
+Host note: four of the boots were cut short by the 3,000 MB during-boot host guard, because other sessions (jest runs) drove host Available to 66-1,883 MB. The coordinator raised the boot floor to 6,000 MB during those windows.
