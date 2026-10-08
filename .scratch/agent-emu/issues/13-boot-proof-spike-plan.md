@@ -364,3 +364,23 @@ Host note: four of the boots were cut short by the 3,000 MB during-boot host gua
 - **Unique memory per CoW clone: 323-354 MB private working set** about 45 s in (privatized pages 312-344 MB), against ~900 MB-1.1 GB per booted Device. Still growing; steady state not measured yet. Available/Committed deltas are noise (jest runs moved Available 509 MB to 17 GB during the run).
 - Costs: `FILE_MAP_COPY` charges commit for the whole guest per clone (pagefile must cover N x guest RAM). Fixes needed: IA32_XSS/CET/PAT/TSC_AUX/TSC_DEADLINE in the WHPX vCPU snapshot, re-arming the TSC-deadline timer on restore, GPU 2D state kept across stop/snapshot, block in-process for CoW.
 - Open: host scanout `fb.bin` blank after restore (guest screencap works); TSC jumps by wall time since snapshot.
+
+### Honest RAM of one squeezed Device (2026-10-08, `assets/13-compress/`)
+
+`compress_probe.py`: d0 (896 MB, slim3 pmem), proof app on its first screen, then the daemon `squeeze` with balloon 0 and caps 250/16. Phase A was 6 min with caps only; phase B was 6 min with caps plus `MEMORY_PRIORITY_VERY_LOW` and EcoQoS on all 8 crosvm processes. One tap every 10 s, one sample every 30 s. Host Available stayed between 5.4 and 11.3 GB in the window (no emergency), but other workers' Devices booted and stopped throughout (`other_brokers` in `result.json`), so every global number below carries their noise.
+
+| Time | Phase | Device WS | Compression store WS | Pagefile used | Other Devices |
+|---|---|---|---|---|---|
+| 22:37:10 | app open | 1976 MB | 878 MB | 3126 MB | 2 |
+| 22:37:15 | caps on (+5 s) | 331 MB | **1038 MB (+160)** | 3123 MB | 2 |
+| 22:40:00 | A | 330 MB | 1362 MB | 2705 MB | 0 (3 stopped) |
+| 22:43:16 | A end | 330 MB | 1192 MB | 2534 MB | 2 (new) |
+| 22:46:00 | B | 329 MB | 1113 MB | 2364 MB | 3 |
+| 22:49:25 | B end | 329 MB | 1202 MB | 2295 MB | 4 |
+
+- **Per-Device RAM = ~330 MB WS + ~160-310 MB in the compression store = ~490-640 MB.** The +160 MB jump came within 5 s of the caps, before any other Device changed. +310 MB is the store at the end of A against the "app open" sample. 3 other Devices stopped during A, which should have shrunk the store, so +310 may still undercount.
+- About 1,645 MB left the WS. The pagefile did not grow (it fell 3126 → 2295 MB), so nothing went to disk. The rest was clean pmem/DAX file pages (the shared system image goes to the standby list for free) plus zero pages.
+- Private commit of the Device's processes is only ~71 MB. Guest RAM is a pagefile-backed section, so `PageFileUsage`/private bytes does not show it.
+- **Memory priority VERY_LOW + EcoQoS changed nothing measurable.** Both set successfully (read back as 1). The store stayed at 1110-1210 MB and the pagefile did not grow. Per the docs, memory priority only orders trimming ([SetProcessInformation](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-setprocessinformation)).
+- **No per-process way to send pages to the pagefile instead of compression was found.** The only switch is system-wide `Disable-MMAgent -MemoryCompression` ([docs](https://learn.microsoft.com/en-us/powershell/module/mmagent/disable-mmagent)); not changed. `OfferVirtualMemory` pages "will not be written to the paging file" and are discarded ([docs](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-offervirtualmemory)). That only fits guest pages the guest has freed (the balloon), and this 896 MB guest has ~13 MB free with the app up.
+- The app stayed alive throughout (pid 5241, `end.jpg`).

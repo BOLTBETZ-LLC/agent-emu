@@ -1,0 +1,472 @@
+{
+ "phase_s": 360,
+ "ready_s": 139.8,
+ "squeeze": {
+  "ws_before_mb": 1976,
+  "ws_after_mb": 331,
+  "squeeze_ms": 1564
+ },
+ "lowered": {
+  "44844": {
+   "mem_prio_set": true,
+   "ecoqos_set": true,
+   "mem_prio_now": 1
+  },
+  "44848": {
+   "mem_prio_set": true,
+   "ecoqos_set": true,
+   "mem_prio_now": 1
+  },
+  "37432": {
+   "mem_prio_set": true,
+   "ecoqos_set": true,
+   "mem_prio_now": 1
+  },
+  "25860": {
+   "mem_prio_set": true,
+   "ecoqos_set": true,
+   "mem_prio_now": 1
+  },
+  "31340": {
+   "mem_prio_set": true,
+   "ecoqos_set": true,
+   "mem_prio_now": 1
+  },
+  "46764": {
+   "mem_prio_set": true,
+   "ecoqos_set": true,
+   "mem_prio_now": 1
+  },
+  "30572": {
+   "mem_prio_set": true,
+   "ecoqos_set": true,
+   "mem_prio_now": 1
+  },
+  "41636": {
+   "mem_prio_set": true,
+   "ecoqos_set": true,
+   "mem_prio_now": 1
+  }
+ },
+ "rows": [
+  {
+   "t": "22:37:10",
+   "phase": "open",
+   "device_ws_mb": 1976,
+   "device_private_commit_mb": 71,
+   "available_mb": 6406,
+   "committed_mb": 46531,
+   "modified_list_mb": 313,
+   "pagefile_pct": 5.87,
+   "pagefile_used_mb": 3126,
+   "compression_ws_mb": 878,
+   "other_brokers": [
+    12400,
+    38016
+   ]
+  },
+  {
+   "t": "22:37:15",
+   "phase": "A_caps",
+   "device_ws_mb": 331,
+   "device_private_commit_mb": 71,
+   "available_mb": 7453,
+   "committed_mb": 46158,
+   "modified_list_mb": 257,
+   "pagefile_pct": 5.87,
+   "pagefile_used_mb": 3123,
+   "compression_ws_mb": 1038,
+   "other_brokers": [
+    12400,
+    38016
+   ]
+  },
+  {
+   "t": "22:37:48",
+   "phase": "A_caps",
+   "device_ws_mb": 331,
+   "device_private_commit_mb": 71,
+   "available_mb": 6960,
+   "committed_mb": 46851,
+   "modified_list_mb": 727,
+   "pagefile_pct": 5.82,
+   "pagefile_used_mb": 3097,
+   "compression_ws_mb": 1063,
+   "other_brokers": [
+    12400,
+    38016,
+    45116
+   ]
+  },
+  {
+   "t": "22:38:20",
+   "phase": "A_caps",
+   "device_ws_mb": 331,
+   "device_private_commit_mb": 70,
+   "available_mb": 6317,
+   "committed_mb": 47656,
+   "modified_list_mb": 593,
+   "pagefile_pct": 5.81,
+   "pagefile_used_mb": 3094,
+   "compression_ws_mb": 1043,
+   "other_brokers": [
+    12400,
+    38016,
+    45116
+   ]
+  },
+  {
+   "t": "22:38:53",
+   "phase": "A_caps",
+   "device_ws_mb": 330,
+   "device_private_commit_mb": 70,
+   "available_mb": 8681,
+   "committed_mb": 44780,
+   "modified_list_mb": 357,
+   "pagefile_pct": 5.75,
+   "pagefile_used_mb": 3060,
+   "compression_ws_mb": 1238,
+   "other_brokers": [
+    12400,
+    38016,
+    45116
+   ]
+  },
+  {
+   "t": "22:39:28",
+   "phase": "A_caps",
+   "device_ws_mb": 330,
+   "device_private_commit_mb": 71,
+   "available_mb": 6398,
+   "committed_mb": 44624,
+   "modified_list_mb": 384,
+   "pagefile_pct": 5.14,
+   "pagefile_used_mb": 2737,
+   "compression_ws_mb": 1228,
+   "other_brokers": [
+    45116
+   ]
+  },
+  {
+   "t": "22:40:00",
+   "phase": "A_caps",
+   "device_ws_mb": 330,
+   "device_private_commit_mb": 71,
+   "available_mb": 8679,
+   "committed_mb": 43650,
+   "modified_list_mb": 997,
+   "pagefile_pct": 5.08,
+   "pagefile_used_mb": 2705,
+   "compression_ws_mb": 1362,
+   "other_brokers": []
+  },
+  {
+   "t": "22:40:32",
+   "phase": "A_caps",
+   "device_ws_mb": 331,
+   "device_private_commit_mb": 70,
+   "available_mb": 11329,
+   "committed_mb": 40179,
+   "modified_list_mb": 231,
+   "pagefile_pct": 4.97,
+   "pagefile_used_mb": 2644,
+   "compression_ws_mb": 1294,
+   "other_brokers": []
+  },
+  {
+   "t": "22:41:04",
+   "phase": "A_caps",
+   "device_ws_mb": 330,
+   "device_private_commit_mb": 70,
+   "available_mb": 7427,
+   "committed_mb": 44222,
+   "modified_list_mb": 204,
+   "pagefile_pct": 4.84,
+   "pagefile_used_mb": 2577,
+   "compression_ws_mb": 1219,
+   "other_brokers": []
+  },
+  {
+   "t": "22:41:37",
+   "phase": "A_caps",
+   "device_ws_mb": 330,
+   "device_private_commit_mb": 70,
+   "available_mb": 7245,
+   "committed_mb": 44171,
+   "modified_list_mb": 551,
+   "pagefile_pct": 5.01,
+   "pagefile_used_mb": 2667,
+   "compression_ws_mb": 1275,
+   "other_brokers": []
+  },
+  {
+   "t": "22:42:11",
+   "phase": "A_caps",
+   "device_ws_mb": 330,
+   "device_private_commit_mb": 70,
+   "available_mb": 7114,
+   "committed_mb": 44717,
+   "modified_list_mb": 304,
+   "pagefile_pct": 5.02,
+   "pagefile_used_mb": 2670,
+   "compression_ws_mb": 1222,
+   "other_brokers": []
+  },
+  {
+   "t": "22:42:43",
+   "phase": "A_caps",
+   "device_ws_mb": 330,
+   "device_private_commit_mb": 71,
+   "available_mb": 7926,
+   "committed_mb": 43670,
+   "modified_list_mb": 144,
+   "pagefile_pct": 4.92,
+   "pagefile_used_mb": 2621,
+   "compression_ws_mb": 1189,
+   "other_brokers": []
+  },
+  {
+   "t": "22:43:16",
+   "phase": "A_caps",
+   "device_ws_mb": 330,
+   "device_private_commit_mb": 71,
+   "available_mb": 5404,
+   "committed_mb": 45731,
+   "modified_list_mb": 455,
+   "pagefile_pct": 4.76,
+   "pagefile_used_mb": 2534,
+   "compression_ws_mb": 1192,
+   "other_brokers": [
+    18588,
+    31124
+   ]
+  },
+  {
+   "t": "22:43:18",
+   "phase": "B_caps_lowprio",
+   "device_ws_mb": 330,
+   "device_private_commit_mb": 71,
+   "available_mb": 5417,
+   "committed_mb": 45673,
+   "modified_list_mb": 382,
+   "pagefile_pct": 4.76,
+   "pagefile_used_mb": 2534,
+   "compression_ws_mb": 1192,
+   "other_brokers": [
+    18588,
+    31124
+   ]
+  },
+  {
+   "t": "22:43:51",
+   "phase": "B_caps_lowprio",
+   "device_ws_mb": 330,
+   "device_private_commit_mb": 71,
+   "available_mb": 7111,
+   "committed_mb": 42652,
+   "modified_list_mb": 837,
+   "pagefile_pct": 4.54,
+   "pagefile_used_mb": 2416,
+   "compression_ws_mb": 1146,
+   "other_brokers": [
+    18588,
+    31124
+   ]
+  },
+  {
+   "t": "22:44:23",
+   "phase": "B_caps_lowprio",
+   "device_ws_mb": 330,
+   "device_private_commit_mb": 71,
+   "available_mb": 6681,
+   "committed_mb": 43483,
+   "modified_list_mb": 327,
+   "pagefile_pct": 4.49,
+   "pagefile_used_mb": 2393,
+   "compression_ws_mb": 1118,
+   "other_brokers": [
+    18588,
+    34932,
+    47816
+   ]
+  },
+  {
+   "t": "22:44:55",
+   "phase": "B_caps_lowprio",
+   "device_ws_mb": 329,
+   "device_private_commit_mb": 71,
+   "available_mb": 10179,
+   "committed_mb": 39838,
+   "modified_list_mb": 627,
+   "pagefile_pct": 4.46,
+   "pagefile_used_mb": 2375,
+   "compression_ws_mb": 1121,
+   "other_brokers": [
+    18588,
+    34932,
+    47816
+   ]
+  },
+  {
+   "t": "22:45:28",
+   "phase": "B_caps_lowprio",
+   "device_ws_mb": 329,
+   "device_private_commit_mb": 70,
+   "available_mb": 9965,
+   "committed_mb": 39630,
+   "modified_list_mb": 811,
+   "pagefile_pct": 4.44,
+   "pagefile_used_mb": 2364,
+   "compression_ws_mb": 1113,
+   "other_brokers": [
+    18588,
+    34932,
+    47816
+   ]
+  },
+  {
+   "t": "22:46:00",
+   "phase": "B_caps_lowprio",
+   "device_ws_mb": 329,
+   "device_private_commit_mb": 70,
+   "available_mb": 10208,
+   "committed_mb": 39562,
+   "modified_list_mb": 651,
+   "pagefile_pct": 4.44,
+   "pagefile_used_mb": 2364,
+   "compression_ws_mb": 1113,
+   "other_brokers": [
+    18588,
+    34932,
+    47816
+   ]
+  },
+  {
+   "t": "22:46:32",
+   "phase": "B_caps_lowprio",
+   "device_ws_mb": 329,
+   "device_private_commit_mb": 70,
+   "available_mb": 11131,
+   "committed_mb": 38938,
+   "modified_list_mb": 595,
+   "pagefile_pct": 4.35,
+   "pagefile_used_mb": 2315,
+   "compression_ws_mb": 1195,
+   "other_brokers": [
+    34932,
+    47816
+   ]
+  },
+  {
+   "t": "22:47:04",
+   "phase": "B_caps_lowprio",
+   "device_ws_mb": 329,
+   "device_private_commit_mb": 70,
+   "available_mb": 10220,
+   "committed_mb": 40855,
+   "modified_list_mb": 813,
+   "pagefile_pct": 4.31,
+   "pagefile_used_mb": 2293,
+   "compression_ws_mb": 1170,
+   "other_brokers": [
+    7684,
+    21216,
+    34932,
+    47816
+   ]
+  },
+  {
+   "t": "22:47:37",
+   "phase": "B_caps_lowprio",
+   "device_ws_mb": 329,
+   "device_private_commit_mb": 70,
+   "available_mb": 9893,
+   "committed_mb": 41697,
+   "modified_list_mb": 549,
+   "pagefile_pct": 4.31,
+   "pagefile_used_mb": 2293,
+   "compression_ws_mb": 1169,
+   "other_brokers": [
+    7684,
+    20584,
+    21216,
+    34932,
+    47816
+   ]
+  },
+  {
+   "t": "22:48:09",
+   "phase": "B_caps_lowprio",
+   "device_ws_mb": 329,
+   "device_private_commit_mb": 70,
+   "available_mb": 9998,
+   "committed_mb": 41654,
+   "modified_list_mb": 368,
+   "pagefile_pct": 4.31,
+   "pagefile_used_mb": 2293,
+   "compression_ws_mb": 1169,
+   "other_brokers": [
+    7684,
+    20584,
+    21216,
+    34932,
+    47816
+   ]
+  },
+  {
+   "t": "22:48:41",
+   "phase": "B_caps_lowprio",
+   "device_ws_mb": 329,
+   "device_private_commit_mb": 70,
+   "available_mb": 10951,
+   "committed_mb": 40894,
+   "modified_list_mb": 597,
+   "pagefile_pct": 4.31,
+   "pagefile_used_mb": 2295,
+   "compression_ws_mb": 1212,
+   "other_brokers": [
+    7684,
+    19260,
+    20584,
+    21216
+   ]
+  },
+  {
+   "t": "22:49:13",
+   "phase": "B_caps_lowprio",
+   "device_ws_mb": 329,
+   "device_private_commit_mb": 70,
+   "available_mb": 11127,
+   "committed_mb": 40900,
+   "modified_list_mb": 341,
+   "pagefile_pct": 4.31,
+   "pagefile_used_mb": 2295,
+   "compression_ws_mb": 1208,
+   "other_brokers": [
+    7684,
+    19260,
+    20584,
+    21216
+   ]
+  },
+  {
+   "t": "22:49:25",
+   "phase": "B_caps_lowprio",
+   "device_ws_mb": 329,
+   "device_private_commit_mb": 70,
+   "available_mb": 10236,
+   "committed_mb": 40882,
+   "modified_list_mb": 1322,
+   "pagefile_pct": 4.31,
+   "pagefile_used_mb": 2295,
+   "compression_ws_mb": 1202,
+   "other_brokers": [
+    7684,
+    19260,
+    20584,
+    21216
+   ]
+  }
+ ],
+ "app_pid": "5241"
+}
