@@ -208,10 +208,12 @@ pub fn balloon_actual(stats_json: &str) -> Option<u64> {
 }
 
 async fn crosvm(exe: &Path, args: &[&str]) -> R<String> {
-    let o = tokio::process::Command::new(exe).args(args).creation_flags(CREATE_NO_WINDOW).output().await
-        .map_err(|e| format!("crosvm {}: {e}", args[0]))?;
+    // The gfxstream crosvm cannot even load without the SDK's DLLs (it exits with no output), so control calls
+    // get the same PATH as its boot; the 2D crosvm needs only the Windows dirs in it.
+    let o = tokio::process::Command::new(exe).args(args).env("PATH", crate::device::gfx_path(&crate::device::sdk_emulator()))
+        .creation_flags(CREATE_NO_WINDOW).output().await.map_err(|e| format!("crosvm {}: {e}", args[0]))?;
     if !o.status.success() {
-        return Err(format!("crosvm {}: {}", args[0], String::from_utf8_lossy(&o.stderr).trim()));
+        return Err(format!("crosvm {}: exit {:?}: {}", args[0], o.status.code(), String::from_utf8_lossy(&o.stderr).trim()));
     }
     Ok(String::from_utf8_lossy(&o.stdout).into_owned())
 }
@@ -239,7 +241,7 @@ async fn guest_available(d: &Device) -> Option<u64> {
 
 /// Sets the balloon to `mb` and waits until it gets there (95%), stops moving for 5 s, or 90 s pass.
 /// Returns the balloon's actual size in bytes.
-async fn set_balloon(exe: &Path, pipe: &str, mb: u64) -> R<u64> {
+pub async fn set_balloon(exe: &Path, pipe: &str, mb: u64) -> R<u64> {
     let want = mb << 20;
     crosvm(exe, &["balloon", &want.to_string(), pipe]).await?;
     let (mut last, mut still) = (u64::MAX, Instant::now());
@@ -265,6 +267,8 @@ pub async fn squeeze(d: &Device, exe: &Path, boot_pid: u32, o: Opts) -> R<Value>
     let mut balloon = Value::Null;
     if o.balloon_mb > 0 {
         let pipe = format!(r"\\.\pipe\ae-vm-{}", d.idx());
+        // On top of the browser headroom when it is in the balloon (main.rs browser_balloon).
+        let off = if d.headroom_on.load(std::sync::atomic::Ordering::SeqCst) { d.headroom_mb.load(std::sync::atomic::Ordering::SeqCst) } else { 0 };
         // A balloon too big for the guest starves it: 896 MB guest at 350 MB gave MemAvailable 8.7 MB and
         // hung shells; inflating 150 MB in one go let lmkd kill the app under test. So ramp up 50 MB at
         // a time, read MemAvailable after each step, and step back once it is under 100 MB.
@@ -273,18 +277,19 @@ pub async fn squeeze(d: &Device, exe: &Path, boot_pid: u32, o: Opts) -> R<Value>
         steps.push(json!({"balloon_mb": 0, "guest_available_mb": avail_mb}));
         while target < o.balloon_mb && next_target(avail_mb, target + 50).is_none() {
             target = (target + 50).min(o.balloon_mb);
-            actual = set_balloon(exe, &pipe, target).await?;
+            actual = set_balloon(exe, &pipe, off + target).await?;
             avail_mb = guest_available(d).await;
             steps.push(json!({"balloon_mb": target, "guest_available_mb": avail_mb}));
             if let Some(t) = next_target(avail_mb, target) {
                 target = t;
-                actual = set_balloon(exe, &pipe, target).await?;
+                actual = set_balloon(exe, &pipe, off + target).await?;
                 avail_mb = guest_available(d).await;
                 steps.push(json!({"balloon_mb": target, "guest_available_mb": avail_mb}));
                 break;
             }
         }
-        balloon = json!({"requested_mb": o.balloon_mb, "final_mb": target, "actual_mb": actual >> 20,
+        d.balloon_base_mb.store(target, std::sync::atomic::Ordering::SeqCst);
+        balloon = json!({"requested_mb": o.balloon_mb, "final_mb": target, "headroom_mb": off, "actual_mb": actual >> 20,
             "guest_available_mb": avail_mb, "steps": steps, "wait_ms": t0.elapsed().as_millis() as u64});
     }
     let mut capped = vec![];

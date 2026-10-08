@@ -234,7 +234,12 @@ async fn start_device(st: &State, idx: u32, req: &Value) -> R<(Arc<Device>, f64)
     let id = format!("d{idx}");
     let t0 = Instant::now();
     let fail = |e: String| { emit(st, json!({"type": "error", "device": id, "call": "start", "error": e})); e };
-    let mem = req["mem"].as_u64().map(|m| m.to_string());
+    // browser_headroom_mb (default 256 when the browser disk exists): the guest gets this much more RAM, held in
+    // the balloon while the app is in front and given back while the browser is (a login Custom Tab needs it:
+    // at 768 MB the Auth0 page never loaded, at 1024 MB it did).
+    let headroom = req["browser_headroom_mb"].as_u64().unwrap_or(if device::browser(&st.cfg.work).is_some() { BROWSER_HEADROOM_MB } else { 0 });
+    let image_mem = device::image(req["image"].as_str().unwrap_or("")).ok().and_then(|i| i.1).and_then(|m| m.parse::<u64>().ok());
+    let mem = req["mem"].as_u64().or(image_mem.filter(|_| headroom > 0).map(|m| m + headroom)).map(|m| m.to_string());
     let net = req["net"].as_bool().unwrap_or(true);
     let cpus = req["cpus"].as_u64().map(|c| c.to_string());
     let image_name = req["image"].as_str().unwrap_or("");
@@ -255,7 +260,7 @@ async fn start_device(st: &State, idx: u32, req: &Value) -> R<(Arc<Device>, f64)
     // boot_cap_mb: hard working-set cap on the main crosvm process from launch until ready (0 = none).
     let boot_cap = req["boot_cap_mb"].as_u64().unwrap_or(BOOT_CAP_MB);
     let info = json!({"image": if image_name.is_empty() { "slim3n (default)" } else { image_name }, "mem": shown_mem,
-        "render": if gfx { "gfxstream" } else { "software" }, "refresh_hz": hz, "boot_cap_mb": boot_cap,
+        "render": if gfx { "gfxstream" } else { "software" }, "refresh_hz": hz, "boot_cap_mb": boot_cap, "browser_headroom_mb": headroom,
         "cpus": cpus.clone().unwrap_or(st.cfg.cpus.clone()), "net": net, "image_name": image_name,
         "screen": {"name": if screen.is_empty() { "iphone17promax" } else { screen }, "width": sw, "height": sh, "dpi": dpi}});
     let d = {
@@ -275,6 +280,7 @@ async fn start_device(st: &State, idx: u32, req: &Value) -> R<(Arc<Device>, f64)
         let others_ok = !st.devs.lock().unwrap().is_empty();
         emit(st, json!({"type": "device", "device": id, "phase": "spawning", "t_s": 0.0, "info": info}));
         let d = Device::spawn(&st.cfg, idx, image_name, screen, mem.as_deref(), cpus.as_deref(), net, others_ok, gfx, hz as u32).await.map_err(fail)?;
+        d.headroom_mb.store(headroom, Ordering::SeqCst);
         if boot_cap > 0 {
             tokio::spawn(boot_caps(d.clone(), boot_cap));
         }
@@ -308,6 +314,9 @@ async fn start_device(st: &State, idx: u32, req: &Value) -> R<(Arc<Device>, f64)
             }
             let _ = ev.send(json!({"type": "device", "device": d2.id, "browser": if ok { "ready" } else { "failed" }, "package": pkg,
                 "s": t.elapsed().as_secs_f64(), "out": r.map(|x| x.0).unwrap_or_else(|e| e), "ts": device::now_ms()}));
+            if ok && d2.headroom_mb.load(Ordering::SeqCst) > 0 {
+                browser_balloon(&d2, &pkg, &ev).await;
+            }
         });
     }
     Ok((d, t0.elapsed().as_secs_f64()))
@@ -352,6 +361,53 @@ async fn firefox_first_run(d: &Device) -> R<()> {
     }
     d.con.exec("am force-stop org.mozilla.firefox", Duration::from_secs(30)).await?;
     res
+}
+
+const BROWSER_HEADROOM_MB: u64 = 256;
+/// The app must be back in front this long before the headroom goes back into the balloon.
+const REINFLATE_AFTER: Duration = Duration::from_secs(10);
+
+/// Holds the Device's browser headroom in the balloon, except while `browser` is in front (seen from
+/// `wm_set_resumed_activity` lines in the host's copy of logcat, so the guest pays nothing for the watch).
+/// Runs until the Device stops.
+async fn browser_balloon(d: &Device, browser: &str, ev: &tokio::sync::broadcast::Sender<Value>) {
+    let pipe = format!(r"\\.\pipe\ae-vm-{}", d.idx());
+    let hr = d.headroom_mb.load(Ordering::SeqCst);
+    let pipe = pipe.as_str();
+    let set = |on: bool| async move {
+        let mb = d.balloon_base_mb.load(Ordering::SeqCst) + if on { hr } else { 0 };
+        let r = squeeze::set_balloon(&d.crosvm, &pipe, mb).await;
+        d.headroom_on.store(on, Ordering::SeqCst);
+        let _ = ev.send(json!({"type": "device", "device": d.id, "balloon": if on { "app" } else { "browser" }, "balloon_mb": mb,
+            "actual_mb": r.as_ref().map(|a| a >> 20).ok(), "error": r.err(), "ts": device::now_ms()}));
+    };
+    let _ = d.con.exec("insmod /system_dlkm/lib/modules/virtio_balloon.ko 2>/dev/null; true", Duration::from_secs(30)).await;
+    set(true).await;
+    let path = d.dir.join("logcat.log");
+    let mut cursor = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
+    let (mut front_browser, mut since) = (false, Instant::now());
+    while d.ready.load(Ordering::SeqCst) {
+        tokio::time::sleep(Duration::from_secs(1)).await;
+        if let Ok(mut f) = std::fs::File::open(&path) {
+            use std::io::{Read, Seek};
+            let mut buf = String::new();
+            if f.seek(std::io::SeekFrom::Start(cursor)).is_ok() && f.read_to_string(&mut buf).is_ok() {
+                cursor += buf.len() as u64;
+                if let Some(p) = buf.lines().filter_map(logs::resumed_package).last() {
+                    let b = p == browser;
+                    if b != front_browser {
+                        (front_browser, since) = (b, Instant::now());
+                    }
+                }
+            }
+        }
+        let on = d.headroom_on.load(Ordering::SeqCst);
+        if front_browser && on {
+            set(false).await;
+        } else if !front_browser && !on && since.elapsed() >= REINFLATE_AFTER {
+            set(true).await;
+        }
+    }
 }
 
 /// Default boot cap (MB) for the main crosvm process; helpers get BOOT_CAP_HELPER_MB.

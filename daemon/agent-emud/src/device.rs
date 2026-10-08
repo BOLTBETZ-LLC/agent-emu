@@ -466,6 +466,13 @@ pub struct Device {
     pub crosvm: PathBuf,
     /// (browser.img bytes, APK bytes, package) when the browser disk is attached.
     pub browser: Option<(u64, u64, String)>,
+    /// Browser headroom (MB): extra guest RAM held in the balloon while the app is in front, given back while a
+    /// browser (Auth0, Plaid Custom Tabs) is. 0 = none.
+    pub headroom_mb: AtomicU64,
+    /// The headroom is in the balloon now.
+    pub headroom_on: AtomicBool,
+    /// Balloon MB that `squeeze` set, on top of the headroom.
+    pub balloon_base_mb: AtomicU64,
 }
 
 impl Device {
@@ -548,6 +555,7 @@ impl Device {
             id: format!("d{idx}"), dir: dir.clone(), boot: Mutex::new(Some(child)), con, ready: AtomicBool::new(false),
             last: StdMutex::new(None), gen: AtomicU64::new(0), scale: StdMutex::new(1.0),
             idx, input: OnceLock::new(), fb: OnceLock::new(), events: crate::logs::Events::spawn(dir.join("logcat.log")), net, phone: is_phone(image_name), density: dpi, crosvm, browser,
+            headroom_mb: AtomicU64::new(0), headroom_on: AtomicBool::new(false), balloon_base_mb: AtomicU64::new(0),
         }))
     }
 

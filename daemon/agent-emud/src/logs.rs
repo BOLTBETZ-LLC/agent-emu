@@ -202,6 +202,13 @@ pub fn issues(path: &Path, f: &mut Filter, top: usize) -> Result<Vec<serde_json:
         "side": if app { "app" } else { "system" }, "count": n, "level": level, "tag": tag, "message": msg, "last": last})).collect())
 }
 
+/// Package of a `wm_set_resumed_activity: [0,<pkg>/<activity>,...]` line (the activity now in front).
+pub fn resumed_package(line: &str) -> Option<&str> {
+    let rest = &line[line.find("wm_set_resumed_activity: [")? + 26..];
+    let comp = rest.split(',').nth(1)?;
+    Some(comp.split('/').next()?.trim())
+}
+
 // ---------- crash and ANR events ----------
 
 /// Crash/ANR events parsed from the log as it is written. Each event has a `seq` (1, 2, ...).
@@ -317,6 +324,13 @@ impl Events {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn resumed_package_from_log() {
+        let l = "10-08 22:01:16.687   893  3811 I wm_set_resumed_activity: [0,org.mozilla.firefox/org.mozilla.fenix.customtabs.ExternalAppBrowserActivity,realStartActivityLocked - onActivityStateChanged]";
+        assert_eq!(resumed_package(l), Some("org.mozilla.firefox"));
+        assert_eq!(resumed_package("10-08 I wm_on_top_resumed_gained_called: [1,x,y]"), None);
+    }
 
     #[test]
     fn issues_group_repeats_and_split_app_from_system() {
