@@ -385,6 +385,39 @@ Host note: four of the boots were cut short by the 3,000 MB during-boot host gua
 - **No per-process way to send pages to the pagefile instead of compression was found.** The only switch is system-wide `Disable-MMAgent -MemoryCompression` ([docs](https://learn.microsoft.com/en-us/powershell/module/mmagent/disable-mmagent)); not changed. `OfferVirtualMemory` pages "will not be written to the paging file" and are discarded ([docs](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-offervirtualmemory)). That only fits guest pages the guest has freed (the balloon), and this 896 MB guest has ~13 MB free with the app up.
 - The app stayed alive throughout (pid 5241, `end.jpg`).
 
+## Lever D: older low-RAM image, Android 11 / API 30 (2026-10-08)
+
+Hypothesis: the proof app's minSdk is 24, so an older Cuttlefish image with `ro.config.low_ram=true` may run it in much less guest RAM than API 36. Scripts, cmdline and evidence: `assets/13-leverD/`.
+
+**Builds available (Build API v4, same key as the 15581820 fetcher):**
+
+| Branch | Target | Newest build | Artifacts |
+|---|---|---|---|
+| `aosp-android10-gsi` | `aosp_cf_x86_64_phone-userdebug` | 11690951 (2024-04-09) | listed, but every download 404s (purged) |
+| `aosp-android11-gsi` | `aosp_cf_x86_64_only_phone-userdebug` | **16396005** (2026-09-21) | `aosp_cf_x86_64_only_phone-img-16396005.zip` (616 MB), `ramdisk-debug.img`, `otatools.zip` |
+| `aosp-android12-gsi` | `aosp_cf_x86_64_only_phone-userdebug` | 16532920 (2026-10-07) | not fetched |
+
+No `*_go_phone` or other low-RAM Cuttlefish target exists on these branches. Chosen: **Android 11 only_phone 16396005** (oldest that downloads).
+
+**Boot recipe on crosvm-pmem / WHPX (direct kernel boot, its own 5.4 kernel), 4 fixes:**
+1. androidboot.* go on the kernel cmdline (no bootconfig on 5.4 / Android 11). Plain `ro.*` props are first-set-wins, so the vendor `fstab_suffix=f2fs` is rewritten in place, not appended.
+2. vbmeta and vbmeta_system padded to 64 KiB (libfs_avb reads 64 KiB: "Failed to read 65536 bytes from vbmeta_a").
+3. userdata: `fstab.f2fs` uses metadata encryption, and first boot fails (`vdc cryptfs mountFstab ... Failed: Status(-8)`), so /data never mounts. Fix: `fstab_suffix=ext4` and userdata formatted once from the guest with `mke2fs -t ext4 -b 4096 -O encrypt,verity`.
+4. Graphics: same set as API 36 (`gralloc=minigbm`, `hwcomposer=ranchu`, `egl=angle`, `vulkan=pastel`). The ranchu HWC crashes in `cuttlefish::GetDeviceConfig()` (no host config server) unless `ro.vendor.hwcomposer.display_finder_mode=drm`. Android 11 has no cmdline path for that prop, so the initrd uses `ramdisk-debug.img` (`force_debuggable`) plus a legacy-LZ4 cpio overlay of `first_stage_ramdisk/adb_debug.prop` that carries it, plus `ro.config.low_ram=true` (`prop_overlay.py`). Confirmed in the guest: `ro.config.low_ram=true`, `ro.force.debuggable=1`.
+
+**Results (2 vCPU, Device 30, low_ram, stock app set):**
+
+| `--mem` | Boot to completed | Launch | App alive | Guest MemAvailable (app up) | Guest Used RAM | App PSS | Host WS settled (all crosvm) | Host WS after cap 250/16 |
+|---|---|---|---|---|---|---|---|---|
+| **768** | **22 s** | 1,328 ms (`Status: ok`) | yes, after 90 s capped with taps | **170 MB** (vs 13 MB on API 36 slim3 at 896) | 779 MB incl. ~360 MB in zram | 203 MB (+146 MB swapped) | 1,461 MB (main 798, block 535, gpu 88) | **319 MB** (main 249) |
+| 512 | 65-108 s | `Can't find service: activity`, retry landed on launcher | **no** | 63-112 MB | 490 MB | n/a | 913-919 MB | 303 MB |
+
+- **768 first screen seen by eye:** "No Internet Connection / Try Again", before and after the cap (`a11-768-first-screen.png`, `a11-768-capped.png`).
+- **Compression store** went from 1,455 to 1,641 / 1,623 MB around the 768 cap (+168-186 MB). Other workers' Devices were running, so this is an upper bound for this Device. **Estimate per Device ≈ 319 WS + ≤186 compressed ≈ ≤505 MB**, under the 600 MB target but not a clean per-process attribution.
+- **512 blocker:** after boot_completed the kernel OOM killer (not lmkd) kills `com.android.phone` / NetworkStack. system_server then aborts on purpose (`IllegalStateException: Lost network stack`), restarts, and lmkd thrash-kills launcher and app. It happened the same way with softer lmkd (`ro.lmk.thrashing_limit=100`, PSI 200/700) and 13 apps disabled (`a11-512-settled.png` shows the lock screen after the restart).
+- **Next for 512:** remove telephony and NetworkStack pressure at image level (repack `target_files` with no `com.android.phone`, no launcher3 / QuickSearch, SystemUI kept), or try 640. Also the DAX/pmem path for this image: it needs a Kleaf 5.4 kernel with `FS_DAX` and an erofs system, because Android 11 system is ext4.
+- **Spec impact:** API 30 at 768 MB has ~157 MB more guest headroom than API 36 slim3 at 896 and boots in 22 s, which makes it a candidate base guest. It changes the API 36 decision in the map; that is Aaron's call.
+
 ### Guest diet round 2 (2026-10-08): 576 MB floor, squeezed to ≤551 MB host
 
 **Result:** slim5 + the queue-fixed crosvm passes at **576 MB**. The squeeze test ran on that Device: the app stayed alive for 5 min, and the estimated host cost is **551 MB at most**, under the 600 MB target. That figure is working set plus every MB the compression store grew.
@@ -433,3 +466,12 @@ Host note: four of the boots were cut short by the 3,000 MB during-boot host gua
 | **Unique host RAM** | **≤ 551 MB** = 262 WS + 289 store growth |
 
 The 289 MB store growth is all counted against this Device. That is an upper bound: the store is shared by the whole host, and other sessions were running (store steps at +142 s and +232 s). The Windows PSS limits from the earlier fleet notes still apply.
+
+### Lever D: Android 17 / API 37 build (2026-10-08, search and download only, no boot)
+
+- **Newest Android 17 x86_64 Cuttlefish phone:** branch `aosp-android-latest-release`, target `aosp_cf_x86_64_only_phone-userdebug`, build **16373615** (2026-09-17). Its `build.prop` says `ro.build.version.sdk=37`, `ro.build.version.release=17`, `ro.build.id=CP2A.260605.016`, `ro.product.first_api_level=37`. Our 15581820 is the same branch at API 36 (`BP4A.251205.006`).
+- Other branches checked: `aosp-main` stopped publishing Cuttlefish x86_64 builds (newest 13281750, 2025-03-27). `aosp-android17-release`, `aosp-android17` and `aosp-android16-qpr2-release` return no builds.
+- Downloaded to `C:\dev\agent-emu-work\leverD\aosp-android-latest-release-16373615\`: `aosp_cf_x86_64_only_phone-img-16373615.zip` (1,163,638,742 B), `aosp_cf_x86_64_only_phone-target_files-16373615.zip` (2,324,666,307 B), `otatools.zip` (531,408,470 B). boot, init_boot and vendor_boot are unpacked in `unpack/`.
+- **The DAX kernel carries over.** A17 Cuttlefish still ships the android16-6.12 GKI: the vendor ramdisk module vermagic is `6.12.74-android16-6-g3ec022196c4e-ab15076761`, and our DAX kernel is 6.12.93 on the same `common-android16-6.12` branch. Boot images are header v4, and the vendor cmdline (`... binder.impl=rust cma=0 ... init=/init bootconfig`) is byte-identical to 15581820. So the stage 1/2 initrd recipe (init_boot ramdisk + vendor ramdisk + bootconfig + DAX `initramfs.img` + pmem fstab overlay) applies as is. The same `system_dlkm` vermagic gap is expected until `system_dlkm` is swapped.
+- **The slim repack carries over.** `META/misc_info.txt` has the same keys the slim recipe edits (`erofs_default_compressor=lz4hc,9`, `erofs_sparse_flag=-s`, `avb_system_hashtree_enable=true`, every partition erofs). One addition: `erofs_default_compress_hints` should be cleared as well. Every slim4 removal target checked is present (Browser2, LatinIME, Launcher3QuickStep, SystemUI, CFSatelliteService, ThemePicker, AvatarPicker, PrivateSpace, DeviceAsWebcam, Stk). `stage2/slim4/edits.sh` + `build.sh` should run against this target_files with only the path and build id changed.
+- **Not done:** the repack needs the WSL Ubuntu VM, and it was held during the coordinator's 10-Device proof (the fleet host must not run the image-build VM at the same time). No A17 boot yet. Next: repack slim4-A17 in WSL after the proof, then boot at 640 MB with the diet flags and the DAX kernel.

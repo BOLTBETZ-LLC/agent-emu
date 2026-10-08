@@ -1,0 +1,39 @@
+{
+ "id": 30,
+ "launch": "cmd: Can't find service: activity",
+ "shot_settled": "C:/dev/agent-emu-work/leverD/results/a11-512c/settled.png",
+ "guest_settled": {
+  "meminfo": "MemTotal:         482736 kB\nMemFree:           26640 kB\nMemAvailable:      92968 kB\nCached:            86692 kB\nSwapTotal:        362048 kB\nSwapFree:         108796 kB",
+  "used": "Total RAM:   482,736K (status normal)\n Free RAM:    86,780K (        0K cached pss +    62,428K cached kernel +    24,352K free)\n Used RAM:   490,062K (  358,634K used pss +   131,428K kernel)",
+  "app_pid": "",
+  "app_pss": ""
+ },
+ "host_settled": "10991|1568",
+ "ws_settled_mb": {
+  "4424": 10,
+  "30196": 9,
+  "main": 541,
+  "33536": 339,
+  "43196": 10,
+  "50616": 10
+ },
+ "ws_settled_total_mb": 919,
+ "host_after_cap_0s": "11043|1568",
+ "host_after_cap_90s": "13310|1720",
+ "ws_capped_mb": {
+  "4424": 10,
+  "30196": 9,
+  "main": 249,
+  "33536": 15,
+  "43196": 10,
+  "50616": 10
+ },
+ "ws_capped_total_mb": 303,
+ "guest_capped": {
+  "meminfo": "MemTotal:         482736 kB\nMemFree:           35396 kB\nMemAvailable:      78672 kB\nCached:            74012 kB\nSwapTotal:        362048 kB\nSwapFree:         111696 kB",
+  "used": "Total RAM:   482,736K (status moderate)\n Free RAM:    88,748K (        0K cached pss +    44,152K cached kernel +    44,596K free)\n Used RAM:   491,668K (  360,116K used pss +   131,552K kernel)",
+  "app_pid": "",
+  "app_pss": ""
+ },
+ "shot_capped": "C:/dev/agent-emu-work/leverD/results/a11-512c/capped.png"
+}
