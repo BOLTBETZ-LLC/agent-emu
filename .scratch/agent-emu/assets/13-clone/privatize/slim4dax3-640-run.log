@@ -1,0 +1,20 @@
+avail 9875
+ "ready_s": 110.4,
+ "install": "Success",
+ "launch": "Status: ok\nTotalTime: 575",
+ "app_pid": "3415",
+MemFree:            9740 kB
+MemAvailable:      88752 kB
+SwapTotal:        594944 kB
+3415
+ "snapshot": [  0,
+d13 "restore_s":1.14,"console_s":2.85
+d14 "restore_s":1.15,"console_s":2.62
+d15 "restore_s":1.21,"console_s":2.26
+DRIVE EXIT 0
+LATENCY EXIT 0
+d15: private=363 ws=710 freed=186 hv=-2048 standby_d=77 noisy=False
+d14: private=379 ws=722 freed=298 hv=-2048 standby_d=260 noisy=False
+d13: private=383 ws=711 freed=-147 hv=-1985 standby_d=323 noisy=True
+STOPSEQ EXIT 0
+DONE

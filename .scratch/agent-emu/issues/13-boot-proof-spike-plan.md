@@ -691,6 +691,24 @@ Boot: five read-only pmems in the diet worker's order (system, app, system_ext, 
 - Screens seen by eye (`privatize/slim4dax2-640-sheet.png`): the template scanout and all 3 clones show the offline dialog.
 - Moving system_ext/product/vendor to DAX does not change clone privatization at the same guest size. Those were already read-only template pages in a clone.
 
+### slim4dax3 (dax2 + low-churn tuning) clones at 640 (2026-10-08, `run-slim4dax3`, READY = 640)
+
+The image sets `watermark_scale_factor` 10, `min_free_kbytes` 2048 and zram zstd in an init rc. Boot is the same as dax2 (five pmems, app bound from pmem1). Template: ready 110.4 s, launch 575 ms, MemAvailable 89 MB. 3 uncapped CoW clones, 10 min (tap every 20 s, relaunch at 5 min). Raw data: `assets/13-clone/privatize/slim4dax3-640-*`.
+
+- **Privatized timeline (MB, page-state dumps):**
+
+| Clone | 30 s | 60 s | 120 s | 300 s | 330 s | 600 s | end |
+|---|---|---|---|---|---|---|---|
+| d13 | 110 | 190 | 206 | 230 | 230 | 339 | 374 |
+| d14 | 163 | 194 | 212 | 238 | 311 | 340 | 370 |
+| d15 | 160 | 195 | 211 | 234 | 326 | 333 | 349 |
+
+  Lower before the relaunch (~230-238 MB at 300 s vs ~255-271 for dax2), about the same at 600 s.
+- **The app did not survive the relaunch in 2 of 3 clones.** d13 and d14 lost the app right after the minute-5 relaunch: logcat `Process com.boltbetz.staging (pid 3754) has died: fg TOP`, then lmkd kills with "min watermark is breached". Their end screens show "Phone is starting…". d15 kept it (pid 3747); its screen and the template scanout show the offline dialog. All seen by eye in `privatize/slim4dax3-640-sheet.png`.
+- **Stops are unusable:** non-last stops freed 186 / 298 MB, less than those clones' private WS (363 / 379). Host Available was being consumed by other sessions during the windows; d13 was flagged noisy. Private WS at stop time was 363-383 MB, above slim4 640 (343).
+- Input HOME→first frame (2 warm-ups, 60 inputs): p50 35.4 ms, p95 39.9 ms.
+- **Verdict:** the low-churn tuning lowers early privatization a little, but at 640 MB the relaunched app gets killed. Not a valid clone config. No 10-clone run.
+
 ### Honest RAM of one squeezed Device (2026-10-08, `assets/13-compress/`)
 
 `compress_probe.py`: d0 (896 MB, slim3 pmem), proof app on its first screen, then the daemon `squeeze` with balloon 0 and caps 250/16. Phase A was 6 min with caps only; phase B was 6 min with caps plus `MEMORY_PRIORITY_VERY_LOW` and EcoQoS on all 8 crosvm processes. One tap every 10 s, one sample every 30 s. Host Available stayed between 5.4 and 11.3 GB in the window (no emergency), but other workers' Devices booted and stopped throughout (`other_brokers` in `result.json`), so every global number below carries their noise.
