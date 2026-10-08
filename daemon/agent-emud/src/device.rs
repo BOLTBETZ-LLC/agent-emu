@@ -29,10 +29,17 @@ const PARTS: &str = "misc:misc.img:writable frp:frp.img:writable boot_a:boot.img
 // SurfaceFlinger 1008 = "disable HW overlays": every frame is composed by the GPU into a target that
 // is cleared first. Without it slim3 (no wallpaper, no SystemUI) leaves old pixels in the scanout
 // wherever no window draws.
-const SETUP: &str = "cmd connectivity airplane-mode enable; settings put global window_animation_scale 0; \
+// hide_error_dialogs: slim3 has no Bluetooth HAL peer, so com.android.bluetooth aborts in a loop and
+// its "keeps stopping" dialog can cover the app. Never `pm disable-user` it: the next airplane-mode
+// change makes BluetoothManagerService unbind a service it never bound, and system_server crash-loops.
+// log.tag.RIL S: the RIL logs "Can't connect to port:9600d" (no modem simulator) ~40 MB a minute.
+const SETUP: &str = "settings put global hide_error_dialogs 1; \
+    am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS; setprop log.tag.RIL S; \
+    cmd connectivity airplane-mode enable; settings put global window_animation_scale 0; \
     settings put global transition_animation_scale 0; settings put global animator_duration_scale 0; \
     svc power stayon true; input keyevent KEYCODE_WAKEUP; wm dismiss-keyguard; \
-    settings put secure immersive_mode_confirmations confirmed;     service call SurfaceFlinger 1008 i32 1; \
+    settings put secure immersive_mode_confirmations confirmed; \
+    service call SurfaceFlinger 1008 i32 1; \
     ip link set buried_eth0 up; ip addr add 10.0.2.15/24 dev buried_eth0; \
     ip route add 10.0.2.0/24 dev buried_eth0 table legacy_system";
 
