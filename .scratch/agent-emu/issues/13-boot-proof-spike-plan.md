@@ -579,3 +579,42 @@ All 10 were stopped at the end by their own `ae-vm-<id>` pipes. 0 crosvm process
 - All 10 end screenshots are byte-identical (md5 `b1cb85e5...`), and identical to the single-Device `squeeze-576/end-d16.png`. Each was captured over its own console port (7100+id), and the last sample shows 10 different app pids (3382-3514). So these are 10 separate live guests. Software rendering of the same static screen gives the same bytes every time.
 - **Goal met (target ≤600 MB, raised from 400 on 2026-10-08):** 10 Android 16 Devices at once, proof app on its first screen, **~445 MB unique host RAM per Device** (worst case, all compression growth charged to them). The Available-recovery figure (496 MB) is also under 600.
 - Not met: the original 400 MB target.
+
+### Shared binary gets the queue fix; system_server prop trims (2026-10-08)
+
+**Queue fix on the main line:**
+- `crosvm-pmem` branch `agent-emu-pmem` fast-forwarded to `9858134a6` (the 256-entry queues for the Windows block, gpu and snd frontends).
+- The shared `crosvm-pmem/target/release/crosvm.exe` was rebuilt once: incremental, 34.5 s, no crosvm running from it at the time.
+- The previous binary is kept at `C:/dev/agent-emu-work/crosvm-pmem-prev-9ade87258.exe`.
+- Confirm boot, slim5 at 576 MB on the shared binary (`results/diet/shared-576/`):
+  - ready 127.7 s, launch 1,868 ms, app alive after a 90 s settle;
+  - offline dialog seen by eye;
+  - Used RAM 729,626K (449,330K pss + 280,296K kernel).
+
+**system_server trims (slim6 = slim5 + props):**
+- There are only three `config.disable_*` props in this build's `services.jar` dex strings: cameraservice, networktime and systemtextclassifier.
+- Added to `VENDOR/build.prop`:
+  - `config.disable_cameraservice=true`
+  - `config.disable_networktime=true`
+  - `config.disable_systemtextclassifier=true`
+  - `ro.backup.disable=true`
+  - `ro.system_settings.service.odp_enabled=false`
+  - `ro.system_settings.service.backgound_install_control_enabled=false`
+  - `ro.lockscreen.disable.default=true`
+- Script: `stage2/slim6/edits.sh` and `build.sh`. Images: `stage2/slim6/`. Run dir: `run-slim6`.
+- Result at 576 MB (`results/diet/s6-576/`): ready 126.5 s, launch 1,667 ms, app alive, offline dialog seen by eye.
+- `dumpsys -l` went from 296 to 291 services. Gone: `background_install_control`, `media.camera.proxy`, `network_time_update_service`, `textclassification`, `artd`. `backup` is still listed.
+- **Memory saving: none measurable.**
+
+| Run (576 MB) | system_server PSS | Used RAM |
+|---|---|---|
+| slim5 (s5-576keep) | 65,883K | 747,599K |
+| slim5 on the shared binary (shared-576) | 64,156K | 729,626K |
+| slim6 (s6-576) | 78,779K | 743,885K |
+
+- Two slim5 runs differ by 18 MB of Used RAM, so the noise is larger than any effect of these props. The five services are small binder stubs.
+- **What would actually shrink system_server:** a framework-res overlay that turns off resource-gated services, or building `services.jar` from source with the unused services cut. Neither can be done by repacking target_files.
+- **Bigger wins for the same effort are separate processes:**
+  - devicelock 12.6 MB, cellbroadcast 9.2, rkpd 8.6, adservices 7.6, odp 6.1, federatedcompute 6.1, calendar provider 6.8, acore 10.2 PSS at 896 MB;
+  - each needs its APEX or APK disabled with care, because some carry boot or system-server jars.
+- slim5 stays the reference image. slim6 is kept, but it buys nothing measurable.
