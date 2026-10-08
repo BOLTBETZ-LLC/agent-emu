@@ -11,6 +11,7 @@ const PROCESS_SET_QUOTA: u32 = 0x0100;
 const PROCESS_QUERY_INFORMATION: u32 = 0x0400;
 const QUOTA_LIMITS_HARDWS_MIN_DISABLE: u32 = 0x2;
 const QUOTA_LIMITS_HARDWS_MAX_ENABLE: u32 = 0x4;
+const QUOTA_LIMITS_HARDWS_MAX_DISABLE: u32 = 0x8;
 
 extern "system" {
     fn OpenProcess(access: u32, inherit: i32, pid: u32) -> isize;
@@ -166,6 +167,47 @@ pub fn cap(pid: u32, mb: u64) -> Result<(), String> {
     }
 }
 
+/// Removes `pid`'s hard working-set limits: min 50 MB and max 4 GB as soft values, both hard limits off.
+/// (-1/-1 would trim the working set instead.)
+pub fn uncap(pid: u32) -> Result<(), String> {
+    // SAFETY: as in `cap`.
+    unsafe {
+        let h = OpenProcess(PROCESS_SET_QUOTA | PROCESS_QUERY_INFORMATION, 0, pid);
+        if h == 0 {
+            return Err(format!("OpenProcess {pid}: {}", std::io::Error::last_os_error()));
+        }
+        let ok = SetProcessWorkingSetSizeEx(h, 50 << 20, 4096 << 20, QUOTA_LIMITS_HARDWS_MIN_DISABLE | QUOTA_LIMITS_HARDWS_MAX_DISABLE);
+        let err = std::io::Error::last_os_error();
+        CloseHandle(h);
+        if ok == 0 { Err(format!("uncap {pid}: {err}")) } else { Ok(()) }
+    }
+}
+
+/// Applies the Device's remembered caps to its cached crosvm processes.
+pub fn apply_caps(d: &Device) -> Result<Vec<u32>, String> {
+    let Some((main, helper)) = *d.caps.lock().unwrap() else { return Ok(vec![]) };
+    let mut done = vec![];
+    for &(pid, is_main) in d.pids.lock().unwrap().iter() {
+        let mb = if is_main { main } else { helper };
+        if mb > 0 {
+            cap(pid, mb)?;
+            done.push(pid);
+        }
+    }
+    d.capped.store(true, std::sync::atomic::Ordering::SeqCst);
+    Ok(done)
+}
+
+/// Lifts the caps on the Device's cached crosvm processes (no process listing: input pays nothing extra).
+pub fn lift_caps(d: &Device) {
+    for &(pid, _) in d.pids.lock().unwrap().iter() {
+        if let Err(e) = uncap(pid) {
+            eprintln!("{}: {e}", d.id);
+        }
+    }
+    d.capped.store(false, std::sync::atomic::Ordering::SeqCst);
+}
+
 /// The hard max working set in MB, or None when the process has no hard max.
 pub fn cap_of(pid: u32) -> Option<u64> {
     // SAFETY: as in `cap`.
@@ -292,17 +334,15 @@ pub async fn squeeze(d: &Device, exe: &Path, boot_pid: u32, o: Opts) -> R<Value>
         balloon = json!({"requested_mb": o.balloon_mb, "final_mb": target, "headroom_mb": off, "actual_mb": actual >> 20,
             "guest_available_mb": avail_mb, "steps": steps, "wait_ms": t0.elapsed().as_millis() as u64});
     }
-    let mut capped = vec![];
-    for p in procs(boot_pid).await? {
-        let mb = if p.main { o.cap_main_mb } else { o.cap_helper_mb };
-        if mb > 0 {
-            cap(p.pid, mb)?;
-            capped.push(p.pid);
-        }
-    }
+    // Remember the caps; apply them now only if nobody is using the Device (else the idle check applies them
+    // after a minute without input).
+    *d.pids.lock().unwrap() = procs(boot_pid).await?.iter().map(|p| (p.pid, p.main)).collect();
+    *d.caps.lock().unwrap() = Some((o.cap_main_mb, o.cap_helper_mb));
+    let deferred = d.in_use();
+    let capped = if deferred { vec![] } else { apply_caps(d)? };
     let after = memory(boot_pid).await?;
     Ok(json!({"ok": true, "opts": {"balloon_mb": o.balloon_mb, "cap_main_mb": o.cap_main_mb, "cap_helper_mb": o.cap_helper_mb},
-        "balloon": balloon, "capped": capped, "ws_before_mb": before["ws_mb"], "ws_after_mb": after["ws_mb"],
+        "balloon": balloon, "capped": capped, "caps_deferred": deferred, "ws_before_mb": before["ws_mb"], "ws_after_mb": after["ws_mb"],
         "processes": after["processes"], "squeeze_ms": t0.elapsed().as_millis() as u64}))
 }
 

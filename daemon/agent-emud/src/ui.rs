@@ -231,6 +231,8 @@ pub fn frame_record(jpeg: &[u8], seq: u64, w: u32, h: u32) -> Vec<u8> {
 /// multipart for an <img>).
 pub struct StreamOpts {
     max_width: Option<u32>,
+    /// /mux: width the `full` (focused) phone is shown at; its frames are scaled to it before encoding.
+    full_width: Option<u32>,
     scale: Option<f64>,
     gap: Duration,
     quality: u8,
@@ -253,7 +255,8 @@ impl StreamOpts {
             "mjpeg" => true,
             f => return Err(format!("unknown format `{f}` (raw, mjpeg)")),
         };
-        Ok(StreamOpts { max_width: num("max_width")?.filter(|&w| w > 0.0).map(|w| w.max(16.0) as u32), scale,
+        Ok(StreamOpts { max_width: num("max_width")?.filter(|&w| w > 0.0).map(|w| w.max(16.0) as u32),
+            full_width: num("full_width")?.filter(|&w| w > 0.0).map(|w| w.max(16.0) as u32), scale,
             gap: fps.map_or(Duration::ZERO, |f| Duration::from_secs_f64(1.0 / f)), quality: num("quality")?.unwrap_or(75.0).clamp(1.0, 100.0) as u8, mjpeg })
     }
 
@@ -310,6 +313,8 @@ async fn mux(st: &Arc<State>, sock: &mut TcpStream, req: &Req, cors: &str) -> R<
 /// when the receiver goes away, or (`end_on_stop`) when a Device it streamed stops or 10 min pass without one.
 async fn feed(st: &State, id: &str, n: Option<u32>, o: &StreamOpts, full: bool, end_on_stop: bool, tx: tokio::sync::mpsc::Sender<Vec<u8>>) {
     let (mut last, mut sent, t0, mut seen) = (u64::MAX, Instant::now() - Duration::from_secs(10), Instant::now(), false);
+    // A focused stream (/frames, or the /mux `full` phone) means someone is looking at and using this phone.
+    let focused = full || n.is_none();
     let count = |by: i32| if let Some(s) = st.devs.lock().unwrap().get_mut(id) { s.streams = s.streams.saturating_add_signed(by); };
     while !tx.is_closed() {
         let Ok(d) = crate::ready_device(st, id) else {
@@ -324,6 +329,10 @@ async fn feed(st: &State, id: &str, n: Option<u32>, o: &StreamOpts, full: bool, 
         if !seen {
             seen = true;
             count(1);
+            if focused {
+                d.focus.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                d.touch();
+            }
         }
         let s = d.frame_seq();
         if (s != last && sent.elapsed() >= o.gap) || sent.elapsed() > Duration::from_secs(2) {
@@ -331,7 +340,10 @@ async fn feed(st: &State, id: &str, n: Option<u32>, o: &StreamOpts, full: bool, 
             let f = if s != last { d.capture_posted().await } else { d.capture().await };
             // Encode off the async threads, so phones encode in parallel and never stall another's feed.
             let (q, mjpeg) = (o.quality, o.mjpeg);
-            let fit = f.as_ref().ok().and_then(|f| if full { None } else { o.size(f.rgb.width(), f.rgb.height()) });
+            let fit = f.as_ref().ok().and_then(|f| {
+                let (w, h) = f.rgb.dimensions();
+                if full { o.full_width.filter(|&fw| fw < w).map(|fw| (fw, h)) } else { o.size(w, h) }
+            });
             let rec = match f {
                 Ok(f) => tokio::task::spawn_blocking(move || record(&f, fit, q, mjpeg, n)).await.unwrap_or_else(|e| Err(e.to_string())),
                 Err(e) => Err(e),
@@ -360,6 +372,12 @@ async fn feed(st: &State, id: &str, n: Option<u32>, o: &StreamOpts, full: bool, 
     }
     if seen {
         count(-1);
+        if focused {
+            if let Ok(d) = crate::ready_device(st, id) {
+                d.last_active_ms.store(device::now_ms(), std::sync::atomic::Ordering::SeqCst);
+                d.focus.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+            }
+        }
     }
 }
 

@@ -87,6 +87,7 @@ fn main() {
 async fn serve(addr: String) {
     let st = Arc::new(new_state(Cfg::from_env()));
     tokio::spawn(metrics(st.clone()));
+    tokio::spawn(recap_idle(st.clone()));
     let ui_addr = std::env::var("AE_UI_ADDR").unwrap_or_else(|_| "127.0.0.1:7401".into());
     tokio::spawn(ui::serve(st.clone(), ui_addr));
     let l = TcpListener::bind(&addr).await.expect("bind");
@@ -410,6 +411,23 @@ async fn browser_balloon(d: &Device, browser: &str, ev: &tokio::sync::broadcast:
     }
 }
 
+/// Every 5 s: Devices whose caps were lifted for input get them back after a minute with no input and no
+/// focused stream.
+async fn recap_idle(st: Arc<State>) {
+    loop {
+        tokio::time::sleep(Duration::from_secs(5)).await;
+        let devs: Vec<Arc<Device>> = st.devs.lock().unwrap().values().map(|s| s.dev.clone()).collect();
+        for d in devs {
+            if d.ready.load(Ordering::SeqCst) && !d.capped.load(Ordering::SeqCst) && d.caps.lock().unwrap().is_some() && !d.in_use() {
+                match squeeze::apply_caps(&d) {
+                    Ok(_) => emit(&st, json!({"type": "device", "device": d.id, "memory_mode": "squeezed"})),
+                    Err(e) => eprintln!("{}: re-cap: {e}", d.id),
+                }
+            }
+        }
+    }
+}
+
 /// Default boot cap (MB) for the main crosvm process; helpers get BOOT_CAP_HELPER_MB.
 const BOOT_CAP_MB: u64 = 600;
 const BOOT_CAP_HELPER_MB: u64 = 32;
@@ -428,8 +446,13 @@ async fn boot_caps(d: Arc<Device>, mb: u64) {
                     if let Err(e) = squeeze::cap(p.pid, if p.main { mb } else { BOOT_CAP_HELPER_MB }) {
                         eprintln!("{}: boot cap: {e}", d.id);
                     }
+                    d.pids.lock().unwrap().push((p.pid, p.main));
                 }
             }
+            if d.caps.lock().unwrap().is_none() {
+                *d.caps.lock().unwrap() = Some((mb, BOOT_CAP_HELPER_MB));
+            }
+            d.capped.store(true, Ordering::SeqCst);
         }
         if d.ready.load(Ordering::SeqCst) {
             return;
@@ -529,6 +552,7 @@ async fn metrics(st: Arc<State>) {
             let m = mem.get(id);
             // "idle": the guest posted no frame this second (nothing changed on screen), so 0 fps is not slowness.
             rows.push(json!({"id": id, "phase": s.0, "ready": s.0 == "ready", "uptime_s": s.5, "activity": if sc > 0.0 { "rendering" } else { "idle" },
+                "memory_mode": if d.capped.load(Ordering::SeqCst) { "squeezed" } else { "active" },
                 "scanout_fps": (sc * 10.0).round() / 10.0,
                 "sent_fps": (se * 10.0).round() / 10.0, "streams": s.2, "input_p50_ms": s.3, "input_n": s.4,
                 "ws_mb": m.map(|m| m.0), "own_mb": m.map(|m| m.1), "shared_mb": m.map(|m| m.2)}));
@@ -719,6 +743,9 @@ async fn handle(st: &Arc<State>, conn: u64, req: &Value) -> R<Value> {
             rep["auto_squeeze"] = auto_squeeze(&st.cfg, &d, o).await.unwrap_or_else(|e| json!({"ok": false, "error": e}));
         }
         return Ok(rep);
+    }
+    if matches!(call, "tap" | "swipe" | "key" | "type_text") {
+        d.touch();
     }
     let input = match call {
         "screenshot" => {

@@ -67,7 +67,7 @@ impl Cfg {
         Cfg {
             work: PathBuf::from(e("AE_WORK", "C:/dev/agent-emu-work")),
             mem: e("AE_MEM", "896"),
-            cpus: e("AE_CPUS", "2"),
+            cpus: e("AE_CPUS", "4"),
             min_avail_mb: e("AE_MIN_AVAIL_MB", "1500").parse().unwrap_or(1500),
             crosvm_dir: e("AE_CROSVM_DIR", "crosvm-pmem"),
         }
@@ -473,7 +473,20 @@ pub struct Device {
     pub headroom_on: AtomicBool,
     /// Balloon MB that `squeeze` set, on top of the headroom.
     pub balloon_base_mb: AtomicU64,
+    /// Working-set caps (main, helper MB) that squeeze or the boot cap set, and whether they are on now.
+    /// Input lifts them at once; they come back after IDLE_MS with no input and no focused stream.
+    pub caps: StdMutex<Option<(u64, u64)>>,
+    pub capped: AtomicBool,
+    /// The Device's crosvm processes (pid, is main), cached when caps are first set, so lifting them costs no
+    /// process listing.
+    pub pids: StdMutex<Vec<(u32, bool)>>,
+    pub last_active_ms: AtomicU64,
+    /// Open focused streams (/frames, or /mux `full`).
+    pub focus: std::sync::atomic::AtomicU32,
 }
+
+/// A Device with input or a focused stream within this long is in use: its caps stay off.
+pub const IDLE_MS: u64 = 60_000;
 
 impl Device {
     /// Check the host, build the Device dir, spawn boot-stage1.ps1 and open the console pipe.
@@ -556,6 +569,8 @@ impl Device {
             last: StdMutex::new(None), gen: AtomicU64::new(0), scale: StdMutex::new(1.0),
             idx, input: OnceLock::new(), fb: OnceLock::new(), events: crate::logs::Events::spawn(dir.join("logcat.log")), net, phone: is_phone(image_name), density: dpi, crosvm, browser,
             headroom_mb: AtomicU64::new(0), headroom_on: AtomicBool::new(false), balloon_base_mb: AtomicU64::new(0),
+            caps: StdMutex::new(None), capped: AtomicBool::new(false), pids: StdMutex::new(vec![]), last_active_ms: AtomicU64::new(0),
+            focus: Default::default(),
         }))
     }
 
@@ -613,6 +628,19 @@ impl Device {
         }
         self.ready.store(true, Ordering::SeqCst);
         Ok(())
+    }
+
+    /// Someone is using this Device now: input or a focused stream. Lifts its caps (paging the app back in
+    /// under a 250 MB cap stalled taps 0.6-4 s, 2026-10-08).
+    pub fn touch(&self) {
+        self.last_active_ms.store(now_ms(), Ordering::SeqCst);
+        if self.capped.load(Ordering::SeqCst) {
+            crate::squeeze::lift_caps(self);
+        }
+    }
+
+    pub fn in_use(&self) -> bool {
+        self.focus.load(Ordering::SeqCst) > 0 || now_ms().saturating_sub(self.last_active_ms.load(Ordering::SeqCst)) < IDLE_MS
     }
 
     /// ("fast" | "console") for frames and for input.
