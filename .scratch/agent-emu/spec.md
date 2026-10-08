@@ -9,7 +9,7 @@ It is a fork of public crosvm running on WHPX (Windows Hypervisor Platform), wit
 The guest is AOSP API 36 (Android 16), no GMS, headless, rendered on the host GPU through gfxstream.
 The system image is one read-only file, shared by every Device through virtio-pmem DAX, so its pages count once for the Fleet.
 Agents drive Devices through a binary API with MCP on top: computer-use control first, then the structured agent API.
-Finish line: the proof app (EAS `183b566c-2d7c-448a-ad2e-fb1ec459374d`, v1.4.0 (22), staging) reaches its first screen, logged out, with ≤400 MB unique memory per Device, 10 Devices at once, on Aaron's PC (32 GB RAM, Core Ultra 7 265, RTX 5060 Ti 16 GB, Windows 11 Home).
+Finish line: the proof app (EAS `183b566c-2d7c-448a-ad2e-fb1ec459374d`, v1.4.0 (22), staging) reaches its first screen, logged out, with ≤600 MB unique memory per Device (raised from 400 by Aaron, 2026-10-08), 10 Devices at once, on Aaron's PC (32 GB RAM, Core Ultra 7 265, RTX 5060 Ti 16 GB, Windows 11 Home).
 Computer-use round trip target: under 50 ms.
 Fork is designed in (8 seams) but not built.
 Biggest risk, unproven: whether crosvm on WHPX boots API 36 at all. The spike (build step 1) tests that first.

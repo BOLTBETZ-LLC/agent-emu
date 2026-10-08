@@ -4,7 +4,7 @@ Label: wayfinder:map
 
 ## Destination
 
-A build-ready spec for a slim Android emulator built for agents to test apps. The spec is done when nothing is left to decide before building a version where the proof app reaches its first screen with no more than 400 MB of unique RAM per Device, and 10 Devices run at once on Aaron's Windows 11 PC.
+A build-ready spec for a slim Android emulator built for agents to test apps. The spec is done when nothing is left to decide before building a version where the proof app reaches its first screen with no more than 600 MB of unique RAM per Device (raised from 400 by Aaron, 2026-10-08), and 10 Devices run at once on Aaron's Windows 11 PC.
 
 ## Notes
 
