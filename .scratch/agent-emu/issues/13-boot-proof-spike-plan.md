@@ -207,3 +207,13 @@ Each Device gets its own dir with hard-linked read-only images (one disk copy, o
 - The compression store grew only ~33 MB; trimmed pages mostly went to standby (reclaimable), not compression.
 - What this proves: **one Device runs the proof app with ≤400 MB of resident host memory**, with the medians unchanged and longer latency tails.
 - What it does not prove yet: that a Fleet of capped Devices costs ≤400 MB each in host RAM under real pressure, when standby pages are evicted and touched pages come back from the pagefile. Next: a capped Fleet run.
+
+### fleetcap6: 6 capped Devices at once (2026-10-08, `fleet_cap.py`, ids 20-25, slim3, pmem, 896 MB, 2 vCPU, cap main 330 / helpers 32)
+
+- All 6 booted (ready at 149-246 s, staggered) and launched the app (`Status: ok`, TotalTime 2,370-2,796 ms).
+- Screens seen by eye (`results/fleetcap6/first-screen-d2*.png`): all 6 show the proof app's first screen ("No Internet Connection", airplane mode). **d24 and d25 have a "Bluetooth keeps stopping" dialog over the app**; `fleet_cap.py` does not apply the daemon's dialog suppression.
+- Working set after the cap: **435 MB per Device** (all crosvm processes, every Device the same).
+- **But the compression store grew from 409 to 1,493 MB** in the 60 s after the cap (other workers' Devices were steady). That is ~180 MB per Device of guest pages that left the working set only to be compressed in RAM.
+- **Honest host RAM per capped Device: ~615 MB** (435 WS + ~180 compressed). Not ≤400 yet.
+- The Available delta is unusable here: two other workers started and stopped Devices during the run.
+- Next: inflate the balloon before capping, so pages the guest gives back are unmapped and discarded instead of compressed, and tighten the caps (`fleet_squeeze.py`).
