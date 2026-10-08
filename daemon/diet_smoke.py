@@ -2,13 +2,15 @@
 # one virtio-snd), open the proof app (screenshot), 20 taps on a blank area (tap -> first frame), squeeze
 # 250/16, compression-store growth over the next 60 s, memory, 20 more taps, screenshot. Host Available is logged every 30 s; the daemon stops a boot
 # under 4000 MB. Stops d0.
-# usage: [AE_SMOKE_MEM=704] python diet_smoke.py [out_dir]
+# usage: [AE_SMOKE_IMAGE=slim5] [AE_SMOKE_MEM=640] [AE_SMOKE_NET=0] python diet_smoke.py [out_dir]
+# With AE_SMOKE_NET=0 the install still works (it reads the APK from a block device over the console).
 import base64, json, os, socket, subprocess, sys, threading, time
 
 D = os.path.dirname(os.path.abspath(__file__)); EXE = f"{D}/target/release/agent-emud.exe"; W = "C:/dev/agent-emu-work"
 OUT = sys.argv[1] if len(sys.argv) > 1 else f"{W}/results/diet-daemon"; os.makedirs(OUT, exist_ok=True)
 PKG = "com.boltbetz.staging"; BLANK = (360, 120)  # dimmed area above the offline dialog
-INSTALL = (f"head -c {int(open(f'{W}/run-slim4/apk.size').read())} /dev/block/vdb > /data/local/tmp/p.apk && "
+RUN = {"slim3": "run", "slim4": "run-slim4", "slim5": "run-slim5"}[os.environ.get("AE_SMOKE_IMAGE", "slim4")]
+INSTALL = (f"head -c {int(open(f'{W}/{RUN}/apk.size').read())} /dev/block/vdb > /data/local/tmp/p.apk && "
            "chmod 644 /data/local/tmp/p.apk && pm install -r /data/local/tmp/p.apk; rm -f /data/local/tmp/p.apk")
 
 def log(*a): print(time.strftime("%H:%M:%S"), *a, flush=True)
@@ -44,7 +46,10 @@ env = dict(os.environ, AE_ALLOW_OTHER_CROSVM="1")
 dmn = subprocess.Popen([EXE], env=env, stdout=open(f"{OUT}/daemon.log", "w"), stderr=subprocess.STDOUT)
 res = {"available_before_mb": avail()}
 try:
-    time.sleep(1); r = call("start", image="slim4", **({"mem": int(os.environ["AE_SMOKE_MEM"])} if os.environ.get("AE_SMOKE_MEM") else {})); res["ready_s"] = round(r["ready_s"], 1); log("ready", res["ready_s"])
+    time.sleep(1); opts = {"image": os.environ.get("AE_SMOKE_IMAGE", "slim4"), "net": os.environ.get("AE_SMOKE_NET", "1") != "0"}
+    if os.environ.get("AE_SMOKE_MEM"): opts["mem"] = int(os.environ["AE_SMOKE_MEM"])
+    res["start_opts"] = opts
+    r = call("start", **opts); res["ready_s"] = round(r["ready_s"], 1); log("ready", res["ready_s"])
     res["guest"] = call("shell", cmd="cat /proc/cmdline | tr ' ' '\n' | grep -E 'virtio_blk|transparent|kfence'; grep MemTotal /proc/meminfo; ls /dev/hvc* | wc -l")["out"]
     res["install"] = call("shell", cmd=INSTALL, timeout_s=300)["out"]
     res["launch"] = call("shell", cmd=f"am start -W -n {PKG}/com.boltbetz.MainActivity | grep -E 'Status|TotalTime'")["out"]

@@ -52,6 +52,9 @@ pub struct Cfg {
     pub mem: String,
     pub cpus: String,
     pub min_avail_mb: u64,
+    /// crosvm checkout under `work` whose release build boots Devices (AE_CROSVM_DIR): crosvm-pmem, or
+    /// crosvm-diet (256-entry vhost-user queues, branch agent-emu-diet).
+    pub crosvm_dir: String,
 }
 
 impl Cfg {
@@ -62,10 +65,11 @@ impl Cfg {
             mem: e("AE_MEM", "896"),
             cpus: e("AE_CPUS", "2"),
             min_avail_mb: e("AE_MIN_AVAIL_MB", "4000").parse().unwrap_or(4000),
+            crosvm_dir: e("AE_CROSVM_DIR", "crosvm-pmem"),
         }
     }
     pub fn crosvm(&self) -> PathBuf {
-        self.work.join("crosvm-pmem/target/release/crosvm.exe")
+        self.work.join(&self.crosvm_dir).join("target/release/crosvm.exe")
     }
 }
 
@@ -119,7 +123,9 @@ pub fn image(name: &str) -> R<(&'static str, Option<&'static str>)> {
         // virtio-input, fb). Through the daemon at 640, lmkd killed the app as TOP 3 of 3 times (low on
         // swap, thrashing); at 704 it stays up. `start {mem}` overrides.
         "slim4" => Ok(("run-slim4", Some("704"))),
-        _ => Err(format!("unknown image `{name}` (slim3, slim4)")),
+        // slim5: slim4 plus a home stub and tuned lmkd. 640 MB until tested through the daemon.
+        "slim5" => Ok(("run-slim5", Some("640"))),
+        _ => Err(format!("unknown image `{name}` (slim3, slim4, slim5)")),
     }
 }
 
@@ -304,7 +310,9 @@ pub struct Device {
 
 impl Device {
     /// Check the host, build the Device dir, spawn boot-stage1.ps1 and open the console pipe.
-    pub async fn spawn(cfg: &Cfg, idx: u32, image_name: &str, mem: Option<&str>) -> R<Arc<Device>> {
+    /// `net: false` boots without virtio-net (so without adb); only the console, fast input and frame
+    /// paths remain. Untested.
+    pub async fn spawn(cfg: &Cfg, idx: u32, image_name: &str, mem: Option<&str>, net: bool) -> R<Arc<Device>> {
         let (run, image_mem) = image(image_name)?;
         let mem = mem.or(image_mem).unwrap_or(&cfg.mem).to_string();
         let avail = available_mb();
@@ -317,7 +325,14 @@ impl Device {
         }
         let dir = make_device(cfg, idx, run)?;
         let pmem = cfg.work.join(run).join("system-pmem.img");
-        let child = Command::new("powershell")
+        let mut cmd = Command::new("powershell");
+        if net {
+            // slirp forwards 127.0.0.1:6520+N to adbd at 10.0.2.15:5555 (SETUP gives the guest NIC that address).
+            cmd.env("AGENT_EMU_ADB_PORT", (6520 + idx).to_string());
+        } else {
+            cmd.env("AGENT_EMU_NO_NET", "1").env_remove("AGENT_EMU_ADB_PORT");
+        }
+        let child = cmd
             .args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-File"]).arg(boot_script())
             .env("AE_PARAMS", DIET_PARAMS).env("AE_SINKS", DIET_SINKS).env("AE_GPU_EXTRA", DIET_GPU)
             .env("AE_DIR", win(&dir)).env("AE_ID", idx.to_string()).env("AE_MEM", &mem).env("AE_CPUS", &cfg.cpus)
@@ -326,8 +341,6 @@ impl Device {
             // No desktop window: crosvm's 2D GPU uses the stub display; frames still come from fb.bin.
             .env("AGENT_EMU_HEADLESS", "1")
             .env("AGENT_EMU_FB", win(&dir.join("fb.bin"))).env("AGENT_EMU_FB_PIPE", fast::fb_pipe(idx))
-            // slirp forwards 127.0.0.1:6520+N to adbd at 10.0.2.15:5555 (SETUP gives the guest NIC that address).
-            .env("AGENT_EMU_ADB_PORT", (6520 + idx).to_string())
             .env("AE_KERNEL", "kernel-dax").env("AE_INITRD", "initrd-dax-pmem.img").env("AE_CROSVM", win(&cfg.crosvm()))
             .stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null())
             .creation_flags(CREATE_NO_WINDOW).spawn().map_err(|e| format!("spawn boot: {e}"))?;
@@ -526,7 +539,10 @@ mod tests {
     fn images() {
         assert_eq!(image("slim4").unwrap(), ("run-slim4", Some("704")));
         assert_eq!(image("").unwrap(), ("run", None));
+        assert_eq!(image("slim5").unwrap(), ("run-slim5", Some("640")));
         assert!(image("slim9").is_err());
+        let cfg = Cfg { work: PathBuf::from("W"), mem: "896".into(), cpus: "2".into(), min_avail_mb: 4000, crosvm_dir: "crosvm-diet".into() };
+        assert_eq!(cfg.crosvm(), PathBuf::from("W/crosvm-diet/target/release/crosvm.exe"));
         assert!(DIET_PARAMS.contains("virtio_blk.num_request_queues=1") && DIET_PARAMS.contains("transparent_hugepage=never"));
     }
 

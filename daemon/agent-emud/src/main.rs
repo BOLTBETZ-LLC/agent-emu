@@ -27,6 +27,8 @@ struct State {
     lease: StdMutex<Option<u64>>,
     /// Squeeze defaults for the running Device, from `start` (lever B).
     squeeze: StdMutex<squeeze::Opts>,
+    /// Set by `start {auto_squeeze: true}`; the first successful `app launch` consumes it.
+    auto_squeeze: std::sync::atomic::AtomicBool,
 }
 
 fn main() {
@@ -40,7 +42,7 @@ fn main() {
 
 async fn serve(addr: String) {
     let st = Arc::new(State { cfg: Cfg::from_env(), dev: StdMutex::new(None), lifecycle: Mutex::new(()), lease: StdMutex::new(None),
-        squeeze: StdMutex::new(squeeze::Opts::DEFAULT) });
+        squeeze: StdMutex::new(squeeze::Opts::DEFAULT), auto_squeeze: Default::default() });
     let l = TcpListener::bind(&addr).await.expect("bind");
     eprintln!("agent-emud listening on {addr}");
     let conns = AtomicU64::new(1);
@@ -141,6 +143,35 @@ async fn log_filter(d: &Device, req: &Value) -> logs::Filter {
     logs::Filter { name, pids, since_ms: req["since"].as_u64(), year: logs::this_year() }
 }
 
+/// After the app's first screen: hide system dialogs again, wait until no frame for 2 s (30 s at most),
+/// then squeeze with the Device's start options.
+async fn auto_squeeze(st: &State, d: &Device) -> R<Value> {
+    d.con.exec("settings put global hide_error_dialogs 1; am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS >/dev/null",
+        Duration::from_secs(20)).await?;
+    let quiet = quiet_for(|| d.frame_seq(), Duration::from_secs(2), Duration::from_secs(30)).await;
+    let pid = d.boot_pid().await.ok_or("Device has no boot process")?;
+    let o = *st.squeeze.lock().unwrap();
+    let mut r = squeeze::squeeze(d, &st.cfg.crosvm(), pid, o).await?;
+    r["screen_quiet"] = json!(quiet);
+    Ok(r)
+}
+
+/// True once `seq` has not changed for `quiet`; false if it is still changing at `max`.
+async fn quiet_for(seq: impl Fn() -> u64, quiet: Duration, max: Duration) -> bool {
+    let end = Instant::now() + max;
+    let (mut last, mut since) = (seq(), Instant::now());
+    while Instant::now() < end {
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let s = seq();
+        if s != last {
+            (last, since) = (s, Instant::now());
+        } else if since.elapsed() >= quiet {
+            return true;
+        }
+    }
+    false
+}
+
 fn ready_device(st: &State, devid: &str) -> R<Arc<Device>> {
     let d = st.dev.lock().unwrap().clone().filter(|d| d.id == devid).ok_or(format!("no Device `{devid}`"))?;
     if !d.ready.load(Ordering::SeqCst) {
@@ -187,8 +218,10 @@ async fn handle(st: &State, conn: u64, req: &Value) -> R<Value> {
             let t0 = Instant::now();
             let avail = device::available_mb();
             *st.squeeze.lock().unwrap() = squeeze::Opts::from(req, squeeze::Opts::DEFAULT);
+            st.auto_squeeze.store(req["auto_squeeze"] == json!(true), Ordering::SeqCst);
             let mem = req["mem"].as_u64().map(|m| m.to_string());
-            let d = Device::spawn(&st.cfg, idx, req["image"].as_str().unwrap_or(""), mem.as_deref()).await?;
+            let net = req["net"].as_bool().unwrap_or(true);
+            let d = Device::spawn(&st.cfg, idx, req["image"].as_str().unwrap_or(""), mem.as_deref(), net).await?;
             *st.dev.lock().unwrap() = Some(d.clone());
             if let Err(e) = d.wait_boot(Duration::from_secs(900), st.cfg.min_avail_mb).await {
                 d.stop().await;
@@ -220,7 +253,11 @@ async fn handle(st: &State, conn: u64, req: &Value) -> R<Value> {
         if matches!(*st.lease.lock().unwrap(), Some(c) if c != conn) {
             return Err("busy: Device is leased by another client".into());
         }
-        return controls::handle(&d, call, req).await;
+        let mut rep = controls::handle(&d, call, req).await?;
+        if call == "app" && req["launch"].is_string() && st.auto_squeeze.swap(false, Ordering::SeqCst) {
+            rep["auto_squeeze"] = auto_squeeze(st, &d).await.unwrap_or_else(|e| json!({"ok": false, "error": e}));
+        }
+        return Ok(rep);
     }
     let input = match call {
         "screenshot" => {
@@ -332,4 +369,17 @@ async fn handle(st: &State, conn: u64, req: &Value) -> R<Value> {
         rep["reason"] = json!(if first.is_none() && via == "fast" { "no_frame" } else { "frames_changing" });
     }
     Ok(rep)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn quiet_waits_for_no_new_frames() {
+        assert!(quiet_for(|| 7, Duration::from_millis(200), Duration::from_millis(1000)).await);
+        let t = Instant::now();
+        let busy = move || t.elapsed().as_millis() as u64 / 50; // a new frame every 50 ms
+        assert!(!quiet_for(busy, Duration::from_millis(200), Duration::from_millis(600)).await);
+    }
 }
