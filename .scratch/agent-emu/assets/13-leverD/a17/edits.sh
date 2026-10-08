@@ -81,3 +81,5 @@ mkdir -p SYSTEM/app/HomeStub && cp /mnt/c/dev/agent-emu-work/leverD/a17/HomeStub
 printf 'system/app/HomeStub 0 0 755 capabilities=0x0\nsystem/app/HomeStub/HomeStub.apk 0 0 644 capabilities=0x0\n' >> META/filesystem_config.txt
 log "HomeStub added"
 log "DONE"
+
+# A17: sensors multi-HAL blocks boot (see edits-sensors.sh); run it after this script.

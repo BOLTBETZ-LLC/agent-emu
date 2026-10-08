@@ -19,7 +19,10 @@ link(f"{W}/run/apk.img", f"{R}/apk.img"); shutil.copy(f"{W}/run/apk.size", f"{R}
 extra = re.search(r'EXTRA = """(.*?)"""', open(f"{W}/prep-stage1.py").read(), re.S).group(1)
 bc = open(f"{U}/vendor_boot/bootconfig", "rb").read().rstrip(b"\0")
 if bc and not bc.endswith(b"\n"): bc += b"\n"
-bc += extra.encode(); bc += b"\0" * (-len(bc) % 4)
+bc += extra.encode()
+# A17 vendor bootconfig dropped this key, but the image ships two camera provider APEXes: apexd-bootstrap aborts without it.
+if b"emulated.camera.provider.hal=" not in bc: bc += b"androidboot.vendor.apex.com.google.emulated.camera.provider.hal=com.google.emulated.camera.provider.hal" + bytes([10])
+bc += b"\0" * (-len(bc) % 4)
 tmp = f"{R}/initrd-dax.img"
 with open(tmp, "wb") as f:
     for p in (f"{U}/init_boot/ramdisk", f"{U}/vendor_boot/vendor_ramdisk00", f"{W}/stage2/kernel/initramfs.img"): f.write(open(p, "rb").read())

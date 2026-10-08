@@ -1,0 +1,116 @@
+{
+ "id": 31,
+ "launch": "Status: ok\nTotalTime: 0",
+ "shot_settled": "C:/dev/agent-emu-work/leverD/results/a17-640x3-cap/d31/settled.png",
+ "guest_settled": {
+  "meminfo": "MemTotal:         594952 kB\nMemFree:           15056 kB\nMemAvailable:      38700 kB\nCached:            94760 kB\nSwapTotal:        594948 kB\nSwapFree:          95912 kB",
+  "used": "Total RAM:   594,952K (status normal)\n Free RAM:   202,315K (  104,895K cached pss +    75,372K cached kernel +    22,048K free)\n Used RAM:   774,787K (  472,291K used pss +   302,496K kernel)",
+  "app_pid": "3302",
+  "app_pss": "TOTAL PSS:   191475            TOTAL RSS:    34088       TOTAL SWAP PSS:   166699"
+ },
+ "host_settled": "6986|1971",
+ "ws_settled_mb": {
+  "31484": 13,
+  "47924": 13,
+  "main": 1152,
+  "46516": 342,
+  "35016": 61,
+  "17800": 13
+ },
+ "ws_settled_total_mb": 1594,
+ "host_after_cap_0s": "8101|2325",
+ "hold": [
+  {
+   "t": 21,
+   "host": "8037|2489",
+   "ws_mb": 269
+  },
+  {
+   "t": 54,
+   "host": "6358|2507",
+   "ws_mb": 269
+  },
+  {
+   "t": 88,
+   "host": "6652|2491",
+   "ws_mb": 269
+  },
+  {
+   "t": 122,
+   "host": "7015|2505",
+   "ws_mb": 269
+  },
+  {
+   "t": 155,
+   "host": "8503|2448",
+   "ws_mb": 268
+  },
+  {
+   "t": 188,
+   "host": "8847|2448",
+   "ws_mb": 268
+  },
+  {
+   "t": 221,
+   "host": "9184|2450",
+   "ws_mb": 268
+  },
+  {
+   "t": 254,
+   "host": "9489|2449",
+   "ws_mb": 268
+  },
+  {
+   "t": 287,
+   "host": "9758|2449",
+   "ws_mb": 269
+  }
+ ],
+ "tap_ms": [
+  421,
+  334,
+  196,
+  160,
+  136,
+  578,
+  194,
+  127,
+  838,
+  131,
+  163,
+  761,
+  144,
+  134,
+  154,
+  127,
+  212,
+  150,
+  137,
+  400,
+  120,
+  174,
+  101,
+  89,
+  289,
+  135,
+  113,
+  199
+ ],
+ "host_after_cap_90s": "11573|2495",
+ "ws_capped_mb": {
+  "31484": 13,
+  "47924": 13,
+  "main": 199,
+  "46516": 15,
+  "35016": 15,
+  "17800": 13
+ },
+ "ws_capped_total_mb": 268,
+ "guest_capped": {
+  "meminfo": "MemTotal:         594952 kB\nMemFree:           16124 kB\nMemAvailable:      20516 kB\nCached:            75464 kB\nSwapTotal:        594948 kB\nSwapFree:         109664 kB",
+  "used": "Total RAM:   594,952K (status normal)\n Free RAM:   198,812K (  110,620K cached pss +    70,820K cached kernel +    17,372K free)\n Used RAM:   770,196K (  469,392K used pss +   300,804K kernel)",
+  "app_pid": "3302",
+  "app_pss": "TOTAL PSS:   206171            TOTAL RSS:    63600       TOTAL SWAP PSS:   150210"
+ },
+ "shot_capped": "C:/dev/agent-emu-work/leverD/results/a17-640x3-cap/d31/capped.png"
+}

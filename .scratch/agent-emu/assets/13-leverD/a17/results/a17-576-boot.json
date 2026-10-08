@@ -1,0 +1,26 @@
+{
+ "tag": "a17-576",
+ "n": 1,
+ "mem": "576",
+ "cpus": "2",
+ "run": "C:/dev/agent-emu-work/leverD/a17/run-a17",
+ "params": "virtio_blk.num_request_queues=1 virtio_blk.queue_depth=64 kfence.sample_interval=0 transparent_hugepage=never",
+ "sinks": "20",
+ "crosvm": "crosvm-diet",
+ "gpu": "audio-device-mode=one-global",
+ "devices": [
+  {
+   "id": 30,
+   "dir": "C:/dev/agent-emu-work/leverD/a17/fleet/d30",
+   "ready_s": 120.4,
+   "install": "Success",
+   "launch": "Status: ok\nTotalTime: 1808",
+   "app_pid": "3375",
+   "guest_used": "Free RAM:   149,075K (   67,447K cached pss +    67,740K cached kernel +    13,888K free)\n Used RAM:   761,555K (  471,027K used pss +   290,528K kernel)\n Lost RAM:    -2,014K\n     ZRAM:   154,340K physical used for   509,868K in swap (  530,184K total swap)",
+   "uptime": "157.97 206.02",
+   "screenshot": "C:/dev/agent-emu-work/leverD/results/a17-576/first-screen-d30.png"
+  }
+ ],
+ "available_before_mb": 10971,
+ "available_after_mb": 10940
+}

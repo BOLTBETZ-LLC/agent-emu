@@ -1,0 +1,109 @@
+EDIT: misc_info:
+avb_system_hashtree_enable=false
+erofs_default_compressor=none
+erofs_share_dup_blocks=true
+69:ro.zygote=zygote64
+78:ro.config.notification_sound=OnTheHunt.ogg
+79:ro.config.alarm_alert=Alarm_Classic.ogg
+85:dalvik.vm.heapstartsize=2m
+86:dalvik.vm.heapgrowthlimit=128m
+87:dalvik.vm.heapsize=256m
+88:dalvik.vm.heaptargetutilization=0.75
+89:dalvik.vm.heapminfree=512k
+90:dalvik.vm.heapmaxfree=2m
+150:ro.config.low_ram=true
+151:ro.lmk.critical_upgrade=false
+152:ro.lmk.upgrade_pressure=40
+153:ro.lmk.downgrade_pressure=60
+154:ro.lmk.kill_heaviest_task=false
+155:ro.lmk.thrashing_limit=1000
+156:ro.lmk.psi_partial_stall_ms=200
+157:ro.lmk.psi_complete_stall_ms=700
+158:ro.lmk.swap_free_low_percentage=2
+159:ro.zygote.disable_gl_preload=true
+160:ro.config.max_starting_bg=2
+161:config.disable_systemui=true
+EDIT: slim APKs
+  rm SYSTEM/app/Traceur
+  rm SYSTEM/app/PrintSpooler
+  rm SYSTEM/app/WallpaperBackup
+  rm SYSTEM/app/EasterEgg
+  rm SYSTEM/app/HTMLViewer
+  rm SYSTEM/priv-app/DeviceDiagnostics
+  rm SYSTEM/priv-app/CellBroadcastLegacyApp
+  rm SYSTEM/priv-app/ManagedProvisioning
+  rm SYSTEM/priv-app/DynamicSystemInstallationService
+  rm SYSTEM/priv-app/DocumentsUI
+  rm SYSTEM/priv-app/LiveWallpapersPicker
+  rm SYSTEM/priv-app/BuiltInPrintService
+  rm SYSTEM/priv-app/MusicFX
+  rm SYSTEM/priv-app/VpnDialogs
+  rm SYSTEM/priv-app/CallLogBackup
+  rm SYSTEM/priv-app/BackupRestoreConfirmation
+  rm SYSTEM/priv-app/SharedStorageBackup
+  rm SYSTEM/priv-app/SoundPicker
+  rm SYSTEM/priv-app/MtpService
+  rm SYSTEM_EXT/priv-app/EmergencyInfo
+  rm SYSTEM_EXT/priv-app/StorageManager
+  rm SYSTEM_EXT/priv-app/WallpaperCropper
+  rm PRODUCT/app/messaging
+  rm PRODUCT/app/Calendar
+  rm PRODUCT/app/Camera2
+  rm PRODUCT/app/QuickSearchBox
+  rm PRODUCT/app/DeskClock
+  rm PRODUCT/app/Gallery2
+  rm PRODUCT/app/Music
+  rm PRODUCT/priv-app/Contacts
+  rm PRODUCT/priv-app/ImsServiceEntitlement
+  rm PRODUCT/priv-app/StatementService
+  rm PRODUCT/priv-app/Dialer
+EDIT: SystemUI
+  rm SYSTEM_EXT/priv-app/SystemUI
+  rm VENDOR/overlay/SystemUI__aosp_cf_x86_64_only_phone__auto_generated_rro_vendor.apk
+EDIT: swapon_all moved to post-fs-data
+/dev/block/zram0 none swap defaults zramsize=100%
+EDIT: features removed
+EDIT: vendor HAL apexes
+  rm VENDOR/apex/com.google.cf.bt.apex
+  rm VENDOR/apex/com.google.cf.nfc.apex
+  rm VENDOR/apex/com.android.hardware.uwb.apex
+  rm VENDOR/apex/com.android.hardware.threadnetwork.apex
+  rm VENDOR/apex/com.android.hardware.wifi.apex
+  rm VENDOR/apex/com.google.cf.wifi.apex
+  rm VENDOR/apex/com.google.cf.wpa_supplicant.apex
+  rm VENDOR/apex/com.android.hardware.gnss.apex
+  rm VENDOR/apex/com.google.cf.ir.apex
+  rm VENDOR/apex/com.android.hardware.contexthub.apex
+  rm VENDOR/apex/com.android.hardware.cas.apex
+  rm VENDOR/apex/com.android.hardware.drm.clearkey.apex
+  rm VENDOR/apex/com.android.hardware.neuralnetworks.apex
+  rm VENDOR/apex/com.android.hardware.tetheroffload.apex
+EDIT: slim4 APKs
+  rm PRODUCT/app/Browser2
+  rm PRODUCT/app/LatinIME
+  rm PRODUCT/app/PhotoTable
+  rm PRODUCT/priv-app/SettingsIntelligence
+  rm SYSTEM/app/BasicDreams
+  rm SYSTEM/app/BluetoothMidiService
+  rm SYSTEM/app/BookmarkProvider
+  rm SYSTEM/app/CameraExtensionsProxy
+  rm SYSTEM/app/CarrierDefaultApp
+  rm SYSTEM/app/PartnerBookmarksProvider
+  rm SYSTEM/app/PrintRecommendationService
+  rm SYSTEM/app/SecureElement
+  rm SYSTEM/app/SimAppDialog
+  rm SYSTEM/app/Stk
+  rm SYSTEM/priv-app/DeviceAsWebcam
+  rm SYSTEM/priv-app/Tag
+  rm SYSTEM/priv-app/E2eeContactKeysProvider
+  rm SYSTEM/priv-app/PrivateSpace
+  rm SYSTEM/priv-app/ONS
+  rm SYSTEM_EXT/priv-app/AvatarPicker
+  rm SYSTEM_EXT/priv-app/CFSatelliteService
+  rm SYSTEM_EXT/priv-app/ThemePicker
+  rm SYSTEM_EXT/priv-app/ThreadNetworkDemoApp
+  rm SYSTEM_EXT/priv-app/Launcher3QuickStep
+  rm SYSTEM_EXT/app/AccessibilityMenu
+  rm VENDOR/priv-app/CuttlefishService
+EDIT: HomeStub added
+EDIT: DONE

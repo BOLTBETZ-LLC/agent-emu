@@ -671,3 +671,25 @@ All 10 were stopped at the end by their own `ae-vm-<id>` pipes. 0 crosvm process
   - devicelock 12.6 MB, cellbroadcast 9.2, rkpd 8.6, adservices 7.6, odp 6.1, federatedcompute 6.1, calendar provider 6.8, acore 10.2 PSS at 896 MB;
   - each needs its APEX or APK disabled with care, because some carry boot or system-server jars.
 - slim5 stays the reference image. slim6 is kept, but it buys nothing measurable.
+
+### Lever D: Android 17 slim5 on crosvm/WHPX: PASS at 640 and 576 MB, 3 Devices at ~440 MB each (2026-10-08)
+
+Image: `aosp-android-latest-release` / `aosp_cf_x86_64_only_phone-userdebug` **16373615** (Android 17, API 37), repacked with `assets/13-leverD/a17/edits.sh` + `edits-sensors.sh` + `build.sh` (WSL, ~2 min). super sha256 `2868068f...` before the sensors fix. Kernel: our DAX `kernel-dax` (6.12.93), pmem `/system` with `dax=always`, `crosvm-diet` binary, 2 vCPU. Diet cmdline `virtio_blk.num_request_queues=1 virtio_blk.queue_depth=64 kfence.sample_interval=0 transparent_hugepage=never`, gpu `audio-device-mode=one-global`. Evidence: `assets/13-leverD/a17/results/`.
+
+**Two Android 17 fixes:**
+1. apexd-bootstrap aborted (`reboot,bootloader,bootstrap-apexd-failed`): the A17 vendor bootconfig no longer selects one of the two camera provider APEXes. Fix: `androidboot.vendor.apex.com.google.emulated.camera.provider.hal=com.google.emulated.camera.provider.hal`, added in `prep_run_a17.py`.
+2. system_server restarted every ~3.5 min, because `ISensors/default` never registered: the Cuttlefish sensors sub-HAL waits for the host sensor simulator. With 11 consoles it aborted on `Could not connect to sensors control: No such device`; with 20 it hangs. Fix: drop the sensors multi-HAL (rc, VINTF fragment, binary, sub-HAL .so, sensor feature xmls) in `edits-sensors.sh`. Boot runs with 20 console sinks; 11 is untested after the fix.
+
+All 33 slim APKs, all slim4 targets and SystemUI were present in A17 (0 `MISSING` in `edits.log`). zram moved to post-fs-data at 100%.
+
+| Run | Ready (boot_completed) | Launch | App alive after 5 min capped with taps | Host WS settled | Host WS capped 200/16 (5 min, flat) | Compression store | Tap shell p50/max |
+|---|---|---|---|---|---|---|---|
+| **640 MB, 1 Device** | 113 s | 954 ms | yes (pid 3372), first screen seen by eye before and after | 1,605 MB (main 1,149) | **258 MB** | 2,076 → 2,250 at cap → 2,046 end (net −30; others running) | 172 / 571 ms |
+| **576 MB, 1 Device** | 120 s | 1,808 ms | yes (pid 3375), seen by eye | 1,526 MB | **270 MB** | 1,878 → 2,107 (+229 upper bound) | 239 / 1,002 ms |
+| **640 MB, 3 Devices at once (30-32)** | 117 / 125 / 130 s | 913 / 1,038 / 1,384 ms | all 3 (pids 3355, 3302, 3251), all 3 seen by eye after the hold | 1,594-1,614 MB each | **258 / 268 / 268 MB** | 1,971 before cap → 2,449-2,495 end: **+478-524 MB for 3 = ~160-175 per Device** | 160-197 / 771-838 ms |
+
+- **Honest RAM per Device (3-Device run): ~265 MB WS + ~170 MB compression ≈ 435-440 MB**, under the 600 MB target. The compression delta also includes other workers' activity, so it is an upper bound. The host stayed above 5,400 MB Available the whole time.
+- At 640 the guest shows `Used RAM 779,140K (479,744K pss + 299,396K kernel)`, with 490 MB swapped into 148 MB of zram. At 576, guest SwapFree is down to 37 MB after the hold: it works, but with little margin. Use 640 as the default.
+- Android 16 slim4 failed at 576 (lmkd killed TOP). Android 17 slim5-a17 passes at 576. That is likely the slim5 lmkd set and the HOME stub, not Android 17 itself; not isolated.
+- Trap: `su 0 sh -c 'am ...'` logs `app_process` aborts (`BOOTCLASSPATH and DEX2OATBOOTCLASSPATH must not be empty`). That is the shell environment under su, not the app.
+- Not done: 10 Devices on Android 17, console sinks trimmed back to 11, and `system_dlkm` swapped to the DAX kernel's modules.

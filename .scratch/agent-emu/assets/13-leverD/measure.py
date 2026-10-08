@@ -42,8 +42,11 @@ r["shot_settled"] = shot("settled"); r["guest_settled"] = guest(); pr = procs()
 r["host_settled"] = host(); r["ws_settled_mb"] = ws(pr); r["ws_settled_total_mb"] = sum(r["ws_settled_mb"].values())
 for p, cl in pr:
     h = k32.OpenProcess(0x0100 | 0x0400, False, p); k32.SetProcessWorkingSetSizeEx(h, 1 << 20, (int(os.environ.get("CAP_MAIN", "250")) if "run-main" in cl else int(os.environ.get("CAP_HELPER", "16"))) << 20, 0x4 | 0x2); k32.CloseHandle(h)
-r["host_after_cap_0s"] = host(); time.sleep(60)
-for _ in range(6): gsh("input tap 360 780"); time.sleep(5)  # keep it busy while capped
+r["host_after_cap_0s"] = host(); r["hold"] = []; end = time.time() + int(os.environ.get("HOLD", "90"))
+while time.time() < end:  # keep it busy while capped: a tap every ~10 s, sample host every 30 s
+    t = time.time(); gsh("input tap 360 780"); r.setdefault("tap_ms", []).append(round((time.time() - t) * 1000))
+    if len(r["tap_ms"]) % 3 == 0: r["hold"].append({"t": round(time.time() - end + int(os.environ.get("HOLD", "90"))), "host": host(), "ws_mb": sum(ws(pr).values())})
+    time.sleep(10)
 r["host_after_cap_90s"] = host(); r["ws_capped_mb"] = ws(pr); r["ws_capped_total_mb"] = sum(r["ws_capped_mb"].values())
 r["guest_capped"] = guest(); r["shot_capped"] = shot("capped")
 json.dump(r, open(f"{O}/result.json", "w"), indent=1); print(json.dumps(r, indent=1))

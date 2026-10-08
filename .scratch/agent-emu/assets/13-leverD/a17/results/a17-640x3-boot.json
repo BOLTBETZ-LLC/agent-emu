@@ -1,0 +1,48 @@
+{
+ "tag": "a17-640x3",
+ "n": 3,
+ "mem": "640",
+ "cpus": "2",
+ "run": "C:/dev/agent-emu-work/leverD/a17/run-a17",
+ "params": "virtio_blk.num_request_queues=1 virtio_blk.queue_depth=64 kfence.sample_interval=0 transparent_hugepage=never",
+ "sinks": "20",
+ "crosvm": "crosvm-diet",
+ "gpu": "audio-device-mode=one-global",
+ "devices": [
+  {
+   "id": 30,
+   "dir": "C:/dev/agent-emu-work/leverD/a17/fleet/d30",
+   "ready_s": 117.5,
+   "install": "Success",
+   "launch": "Status: ok\nTotalTime: 913",
+   "app_pid": "3355",
+   "guest_used": "Free RAM:   212,809K (  119,885K cached pss +    72,792K cached kernel +    20,132K free)\n Used RAM:   766,374K (  466,174K used pss +   300,200K kernel)\n Lost RAM:   -12,392K\n     ZRAM:   148,004K physical used for   495,208K in swap (  594,952K total swap)",
+   "uptime": "164.97 228.92",
+   "screenshot": "C:/dev/agent-emu-work/leverD/results/a17-640x3/first-screen-d30.png"
+  },
+  {
+   "id": 31,
+   "dir": "C:/dev/agent-emu-work/leverD/a17/fleet/d31",
+   "ready_s": 125.1,
+   "install": "Success",
+   "launch": "Status: ok\nTotalTime: 1038",
+   "app_pid": "3302",
+   "guest_used": "Free RAM:   213,362K (  119,254K cached pss +    72,984K cached kernel +    21,124K free)\n Used RAM:   763,490K (  461,346K used pss +   302,144K kernel)\n Lost RAM:   -13,928K\n     ZRAM:   147,268K physical used for   490,628K in swap (  594,948K total swap)",
+   "uptime": "166.96 238.75",
+   "screenshot": "C:/dev/agent-emu-work/leverD/results/a17-640x3/first-screen-d31.png"
+  },
+  {
+   "id": 32,
+   "dir": "C:/dev/agent-emu-work/leverD/a17/fleet/d32",
+   "ready_s": 130.5,
+   "install": "Success",
+   "launch": "Status: ok\nTotalTime: 1384",
+   "app_pid": "3251",
+   "guest_used": "Free RAM:   196,644K (  106,940K cached pss +    73,200K cached kernel +    16,504K free)\n Used RAM:   759,039K (  459,963K used pss +   299,076K kernel)\n Lost RAM:    -7,849K\n     ZRAM:   137,320K physical used for   465,400K in swap (  594,952K total swap)",
+   "uptime": "168.45 239.86",
+   "screenshot": "C:/dev/agent-emu-work/leverD/results/a17-640x3/first-screen-d32.png"
+  }
+ ],
+ "available_before_mb": 10213,
+ "available_after_mb": 7024
+}

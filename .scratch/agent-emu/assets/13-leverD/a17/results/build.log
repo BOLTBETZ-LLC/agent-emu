@@ -1,0 +1,35 @@
+== start 2026-10-08T00:04:24-07:00
+== rerun
+== start 2026-10-08T00:14:28-07:00
+first add_img failed (expected at vbmeta_system): /root/slim17/ota/bin/avbtool: Given image does not look like a vbmeta image.
+total 9455644
+drwxrwxrwx 1 root root       4096 Oct  8 00:15 .
+drwxrwxrwx 1 root root       4096 Oct  7 23:24 ..
+-rwxrwxrwx 1 root root        206 Oct  8 00:14 build.log
+-rwxrwxrwx 1 root root       3872 Oct  8 00:04 edits.log
+-rwxrwxrwx 1 root root 8589934592 Oct  8 00:15 super.img
+-rwxrwxrwx 1 root root 1092616192 Oct  8 00:15 system-pmem.img
+-rwxrwxrwx 1 root root      12288 Oct  8 00:15 vbmeta.img
+-rwxrwxrwx 1 root root       4096 Oct  8 00:15 vbmeta_system.img
+-rwxrwxrwx 1 root root       4096 Oct  8 00:15 vbmeta_system_dlkm.img
+-rwxrwxrwx 1 root root       4096 Oct  8 00:15 vbmeta_vendor_dlkm.img
+2868068fceb3e53abf3a42cc3e6888f23554914dadf30338a6776a55c7f5d2c0  /mnt/c/dev/agent-emu-work/leverD/a17/out/super.img
+015837a06ef11df4817910889af841d440bcae0947ed372292c0c58b718b86c9  /mnt/c/dev/agent-emu-work/leverD/a17/out/system-pmem.img
+== EXIT 0 2026-10-08T00:16:27-07:00
+== rebuild sensors-less
+== start 2026-10-08T00:55:51-07:00
+first add_img failed (expected at vbmeta_system): /root/slim17/ota/bin/avbtool: Given image does not look like a vbmeta image.
+total 9455648
+drwxrwxrwx 1 root root       4096 Oct  8 00:15 .
+drwxrwxrwx 1 root root       4096 Oct  8 00:55 ..
+-rwxrwxrwx 1 root root       1278 Oct  8 00:56 build.log
+-rwxrwxrwx 1 root root       3872 Oct  8 00:04 edits.log
+-rwxrwxrwx 3 root root 8589934592 Oct  8 00:56 super.img
+-rwxrwxrwx 2 root root 1092616192 Oct  8 00:56 system-pmem.img
+-rwxrwxrwx 3 root root      12288 Oct  8 00:56 vbmeta.img
+-rwxrwxrwx 3 root root       4096 Oct  8 00:56 vbmeta_system.img
+-rwxrwxrwx 3 root root       4096 Oct  8 00:56 vbmeta_system_dlkm.img
+-rwxrwxrwx 3 root root       4096 Oct  8 00:56 vbmeta_vendor_dlkm.img
+0662afe0c6a3ed9c0903de03b11aac970f460e01c28f7f3f80a2d8f2eb2708cb  /mnt/c/dev/agent-emu-work/leverD/a17/out/super.img
+6efeca65fa99478e8704ff4c7705c06eb8d0fdd6e6bcfee945e0ca3700398b64  /mnt/c/dev/agent-emu-work/leverD/a17/out/system-pmem.img
+== EXIT 0 2026-10-08T00:57:46-07:00
