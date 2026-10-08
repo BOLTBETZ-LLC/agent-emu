@@ -569,6 +569,27 @@ Method: `AGENT_EMU_COW_DUMP` makes crosvm write each clone page's state (not res
 - The relaunch at minute 5 costs ~42 MB per clone in every config. Without it, slim4 640 sits at ~300 MB privatized (≈ 375 MB marginal by the same +73 offset). That is a protocol choice, not a fix.
 - The rest is the guest rotating its frames under memory pressure. Under 400 needs a guest that fits its working set without swap churn at a small `--mem`: diet lever C, smaller app heap, or zram tuned to churn less. Host-side mapping tricks can't fix it.
 
+### Free-page reporting back to the template (2026-10-08, crosvm-clone `378cea2fd`)
+
+- **Windows cannot drop one private page of a mapped view.** `privatize/revert_probe.py`: on a private page of a `FILE_MAP_COPY` view, `VirtualAlloc(MEM_RESET)`, `DiscardVirtualMemory` and `OfferVirtualMemory` fail with 1224 (`ERROR_USER_MAPPED_FILE`), `VirtualFree(DECOMMIT)` fails with 87, and `VirtualUnlock` only trims; the page stays private.
+- **Built instead:**
+  - clone RAM = 64 KiB copy-on-write views inside a placeholder reservation (`VirtualAlloc2` + `MapViewOfFile3`, resolved from kernelbase);
+  - a reported free range on a clone gets every whole, aligned 64 KiB chunk unmapped from the partition, its view replaced (`UnmapViewOfFile2` + `MapViewOfFile3`), and mapped again;
+  - unit test: a reverted chunk reads template bytes again and its private page count drops;
+  - guest: `page_reporting.page_reporting_order=4` (64 KiB; the param exists in 6.12 `mm/page_reporting.c`) and `--balloon-page-reporting`.
+- **Stock Windows crosvm page reporting crashes the guest.** The WHPX inflate path unmaps the reported GPA, the guest reuses the page, and crosvm main exits 0xe0800005 at ~3 s of boot. That is why `--balloon-page-reporting` "did nothing" in the earlier memory runs. Templates now use `AGENT_EMU_BALLOON_NOOP`, which only acks reports.
+- **It works mechanically, but the guest takes the pages straight back** (1 clone each, 10 min, relaunch at 5 min):
+
+| Template | Chunks handed back | Privatized @300 s | @600 s | Note |
+|---|---|---|---|---|
+| (i) slim4 640, zram on | 1,383 (86 MB) | 292 | **342** | same as without reporting (342) |
+| (ii) slim4 768, swapoff before snapshot | — | — | — | `swapoff` OOM-killed (MemAvailable 0), swap stayed on, variant invalid |
+| (iii) slim4 896, swapoff before snapshot | — | — | — | same, `swapoff` killed |
+| (M) slim4 1024, swap off right after boot, before the app | 1,252 (78 MB) | 327 | 460 | relaunch +135 MB on fresh frames |
+
+- A reported block is free only until the guest allocates again, and the page allocator reuses it within seconds under this load. The net privatized set does not shrink.
+- No variant reached ≤ 390 MB, so I ran no 3-clone or 10-clone run. Reporting stays available but is not a lever here. The guest's write footprint over 10 min (~300-340 MB at 576-640) is the floor for this app and protocol.
+
 ### Honest RAM of one squeezed Device (2026-10-08, `assets/13-compress/`)
 
 `compress_probe.py`: d0 (896 MB, slim3 pmem), proof app on its first screen, then the daemon `squeeze` with balloon 0 and caps 250/16. Phase A was 6 min with caps only; phase B was 6 min with caps plus `MEMORY_PRIORITY_VERY_LOW` and EcoQoS on all 8 crosvm processes. One tap every 10 s, one sample every 30 s. Host Available stayed between 5.4 and 11.3 GB in the window (no emergency), but other workers' Devices booted and stopped throughout (`other_brokers` in `result.json`), so every global number below carries their noise.
