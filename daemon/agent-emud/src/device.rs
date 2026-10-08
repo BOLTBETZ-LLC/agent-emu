@@ -106,6 +106,25 @@ pub fn gfx_path(emu: &Path) -> String {
 
 /// Copies initrd `src` to `dst` with its bootconfig trailer switched to gfxstream through ANGLE
 /// (Cuttlefish gpu_mode=gfxstream_guest_angle) and lcd_density `dpi`. Other keys stay in order.
+/// Inserts cpio archive `cpio` into initrd `f` just before its bootconfig trailer (the later archive's
+/// files win), each part padded to 512 bytes.
+pub fn initrd_overlay(f: &Path, cpio: &Path) -> R<()> {
+    let d = std::fs::read(f).map_err(|e| format!("{}: {e}", f.display()))?;
+    let c = std::fs::read(cpio).map_err(|e| format!("{}: {e}", cpio.display()))?;
+    let n = d.len();
+    if !d.ends_with(b"#BOOTCONFIG\n") || n < 20 {
+        return Err(format!("{}: no bootconfig trailer", f.display()));
+    }
+    let size = u32::from_le_bytes(d[n - 20..n - 16].try_into().unwrap()) as usize;
+    let cut = n.checked_sub(20 + size).ok_or("bootconfig size past the start of the file")?;
+    let mut o = d[..cut].to_vec();
+    o.resize(o.len().div_ceil(512) * 512, 0);
+    o.extend_from_slice(&c);
+    o.resize(o.len().div_ceil(512) * 512, 0);
+    o.extend_from_slice(&d[cut..]);
+    std::fs::write(f, o).map_err(|e| format!("{}: {e}", f.display()))
+}
+
 pub fn gfx_initrd(src: &Path, dst: &Path, dpi: u32) -> R<()> {
     let d = std::fs::read(src).map_err(|e| format!("{}: {e}", src.display()))?;
     const MAGIC: &[u8] = b"#BOOTCONFIG\n";
@@ -206,8 +225,9 @@ pub fn image(name: &str) -> R<(&'static str, Option<&'static str>)> {
         // virtio-input, fb). Through the daemon at 640, lmkd killed the app as TOP 3 of 3 times (low on
         // swap, thrashing); at 704 it stays up. `start {mem}` overrides.
         "slim4" => Ok(("run-slim4", Some("704"))),
-        // slim5: slim4 plus a home stub and tuned lmkd. 640 MB until tested through the daemon.
-        "slim5" => Ok(("run-slim5", Some("640"))),
+        // slim5: slim4 plus a home stub and tuned lmkd. 768 MB: at native 1320x2868 with gfxstream, lmkd killed
+        // BoltBetz at 640 even with the no-backing virtio-gpu module (issue 13, GPU native-res RAM).
+        "slim5" => Ok(("run-slim5", Some("768"))),
         _ => Err(format!("unknown image `{name}` (phone, phone-n, slim3, slim3n, slim4, slim5)")),
     }
 }
@@ -215,14 +235,15 @@ pub fn image(name: &str) -> R<(&'static str, Option<&'static str>)> {
 /// Guest display (width px, height px, density dpi) for screen profile `name`.
 /// "" | "iphone17promax" (default): Apple's iPhone 17 Pro Max, 6.9", "2868-by-1320-pixel resolution at 460 ppi"
 /// (support.apple.com/en-us/125091, read 2026-10-08), so 440 x 956 points at 3x. Density makes the Android layout the same
-/// 440 dp wide: the full phone at native pixels (1320 / 480 dpi * 160 = 440 dp); the lean images at half,
-/// 656 x 1424 at 238 dpi = 441 x 957 dp (crosvm rounds the width down to a multiple of 8, so not 660).
+/// 440 dp wide: native pixels (1320 / 480 dpi * 160 = 440 dp). "-half" is 656 x 1424 at 238 dpi = 441 x 957 dp
+/// (crosvm rounds the width down to a multiple of 8, so not 660).
 /// "legacy" (or "small"): the old 720 x 1080 at 320 dpi (360 dp wide).
 /// "-native" / "-3q" / "-half" pick 1, 3/4 or 1/2 of the native pixels, all at the same 440 dp layout.
 pub fn screen(name: &str, phone: bool) -> R<(u32, u32, u32)> {
     match (name, phone) {
         ("" | "iphone17promax", true) => screen("iphone17promax-native", true),
-        ("" | "iphone17promax", false) => screen("iphone17promax-half", false),
+        // Lean images too: gfxstream draws native pixels on the host GPU (slim5 at 768 MB, 630 MB host, issue 13).
+        ("" | "iphone17promax", false) => screen("iphone17promax-native", false),
         ("iphone17promax-native", _) => Ok((1320, 2868, 480)),
         ("iphone17promax-3q", _) => Ok((984, 2140, 358)),
         ("iphone17promax-half", _) => Ok((656, 1424, 238)),
@@ -456,6 +477,13 @@ impl Device {
                 }
             }
             gfx_initrd(&dir.join(initrd), &dir.join("initrd-gfx.img"), dpi)?;
+            if !is_phone(image_name) {
+                // DAX-kernel images: virtio-gpu that skips guest pages for GPU-only buffers (GPU-INTEGRATION.md).
+                let kmod = cfg.work.join("gpu/kmod/virtio-gpu-nobacking.cpio");
+                if kmod.exists() {
+                    initrd_overlay(&dir.join("initrd-gfx.img"), &kmod)?;
+                }
+            }
             cmd.env("AE_PATH", gfx_path(&emu)).env("AE_GPU_BACKEND", GFX_GPU).env("AE_INITRD", "initrd-gfx.img");
             exe
         } else {
@@ -748,7 +776,12 @@ mod tests {
             androidboot.hardware.vulkan=ranchu\nandroidboot.hardware.gltransport=virtio-gpu-asg\nandroidboot.cpuvulkan.version=0\n\
             androidboot.opengles.version=196609\nandroidboot.lcd_density=238\n");
         assert!(gfx_initrd(&t.with_extension("out2"), &t.with_extension("x"), 1).is_err());
-        for e in ["in", "out"] { std::fs::remove_file(t.with_extension(e)).ok(); }
+        std::fs::write(t.with_extension("cpio"), b"070701CPIO").unwrap();
+        initrd_overlay(&t.with_extension("out"), &t.with_extension("cpio")).unwrap();
+        let v = std::fs::read(t.with_extension("out")).unwrap();
+        assert!(v.ends_with(&o[n - 20 - size..]) && v.windows(10).any(|w| w == b"070701CPIO"), "cpio before the bootconfig");
+        assert_eq!(v.iter().position(|&b| b == b'0').unwrap() % 512, 0);
+        for e in ["in", "out", "cpio"] { std::fs::remove_file(t.with_extension(e)).ok(); }
         assert!(gfx_path(Path::new("E:/emu")).starts_with(r"E:\emu\lib64\gles_angle;E:\emu\lib64;E:\emu;"));
     }
 
@@ -769,7 +802,7 @@ mod tests {
         assert_eq!(image("slim4").unwrap(), ("run-slim4", Some("704")));
         assert_eq!(image("").unwrap(), ("run-slim3n", None));
         assert_eq!(image("slim3").unwrap(), ("run", None));
-        assert_eq!(image("slim5").unwrap(), ("run-slim5", Some("640")));
+        assert_eq!(image("slim5").unwrap(), ("run-slim5", Some("768")));
         assert!(image("slim9").is_err());
         assert_eq!(image("phone").unwrap(), ("run-full", Some("2048")));
         assert_eq!(image("phone-n").unwrap(), ("run-phone-n", Some("2048")));
