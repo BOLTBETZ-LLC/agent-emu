@@ -12,7 +12,7 @@ import base64, json, os, re, shutil, socket, subprocess, sys, time, uuid
 W = "C:/dev/agent-emu-work"
 # AE_PROFILE=slim4: run-slim4 images, 640 MB, guest diet cmdline cuts, 11 consoles, one virtio-snd.
 PROFILE = os.environ.get("AE_PROFILE", "")
-SLIM4 = PROFILE in ("slim4", "slim5", "slim4ns", "slim4dax", "slim4nsdax")  # slim5 = slim4 cuts + HomeStub image at 576 MB
+SLIM4 = PROFILE in ("slim4", "slim5", "slim4ns", "slim4dax", "slim4nsdax", "slim4dax2", "slim4nsdax2", "slim4dax3", "slim4nsdax3")  # slim5 = slim4 cuts + HomeStub image at 576 MB
 RUN = f"{W}/run-{PROFILE}" if SLIM4 else f"{W}/run"
 MEM = {"slim4": "640", "slim5": "576"}.get(PROFILE, "896")
 MEM = os.environ.get("AE_MEM_MB", MEM)
@@ -20,7 +20,7 @@ DIET = dict(AE_PARAMS="virtio_blk.num_request_queues=1 virtio_blk.queue_depth=64
             AE_SINKS="11", AE_GPU_EXTRA="audio-device-mode=one-global") if SLIM4 else {}
 BOOT = f"{W}/boot-diet.ps1" if SLIM4 else f"{W}/boot-stage1.ps1"
 # *dax profiles: app code on a second read-only pmem (DAX); bound after install (diet worker's soakrun.sh).
-APPDAX = PROFILE.endswith("dax")
+APPDAX = "dax" in PROFILE
 APPDAX_BIND = ('setprop sys.agentemu.appdax.done 0; setprop sys.agentemu.appdax 1; for i in $(seq 1 60); do '
                '[ "$(getprop sys.agentemu.appdax.done)" = 1 ] && break; sleep 1; done; echo done=$(getprop sys.agentemu.appdax.done); '
                'grep -E "appdax|base" /proc/mounts | cut -d" " -f1-4')
@@ -103,6 +103,8 @@ def start(i, extra="", env_extra=None):
     d = ddir(i)
     extra = (f"--socket PIPE:ae-vm-{i} --pmem path={RUN}/system-pmem.img,ro=true "
              + (f"--pmem path={RUN}/app-pmem.img,ro=true " if APPDAX else "")
+             # dax2 images: system_ext, product, vendor on pmem too, after app (pmem2..4), as the diet worker boots them
+             + "".join(f"--pmem path={RUN}/{n}-pmem.img,ro=true " for n in ("system_ext", "product", "vendor") if os.path.exists(f"{RUN}/{n}-pmem.img"))
              + f"--input multi-touch[path=\\\\.\\pipe\\ae-touch-{i}] --input keyboard[path=\\\\.\\pipe\\ae-kbd-{i}] " + os.environ.get("AE_MORE_ARGS", "") + " " + extra).strip()
     env = dict(os.environ, AE_DIR=d.replace("/", "\\"), AE_ID=str(i), AE_MEM=MEM, AE_CPUS="2", AE_EXTRA=extra,
                AE_KERNEL="kernel-dax", AE_INITRD="initrd-dax-pmem.img", AE_CROSVM=CROSVM.replace("/", "\\"),

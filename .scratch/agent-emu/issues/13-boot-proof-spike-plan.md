@@ -668,6 +668,29 @@ Setup: second read-only pmem `app-pmem.img`. After install, the template binds b
 
 **Where the guest-side images landed (marginal per clone, stop-one median):** slim4 640 + zram 416 (10-clone proof); slim5 576 460; slim4ns 896 ~440; slim4dax 768 ~472; slim4nsdax 896 ~528. No-swap images need 896 MB to keep the app alive, and their relaunch lands on free frames, so they cost more as clones. App code on DAX does not help clones, because code pages were already shared template pages. Best clone config stays slim4 640 with zram, uncapped.
 
+### slim4dax2 (system_ext/product/vendor + app on DAX) clones at 640 (2026-10-08, `run-slim4dax2`, READY = 640)
+
+Boot: five read-only pmems in the diet worker's order (system, app, system_ext, product, vendor). App bound from pmem1 after install. zram on. Template `snap-slim4dax2`: ready 111.2 s, launch 474 ms, MemAvailable 49 MB. 3 uncapped CoW clones, 10 min (tap every 20 s, relaunch at 5 min). Raw data: `assets/13-clone/privatize/slim4dax2-640-*`.
+
+- **Privatized timeline (MB, page-state dumps):**
+
+| Clone | 30 s | 60 s | 120 s | 300 s | 330 s | 600 s |
+|---|---|---|---|---|---|---|
+| d13 | 193 | 253 | 260 | 271 | 271 | 333 |
+| d14 | 221 | 237 | 240 | 255 | 329 | 331 |
+| d15 | 233 | 239 | 244 | 256 | 329 | 331 |
+
+  End 337-339 MB, the same as slim4 640 with partitions in super (342).
+- Plateau private WS 339-342 MB. App alive in all 3 at all 20 samples. Relaunch 0.8-1.3 s, taps p50/p95 77/234 ms.
+- **Stops: all three windows were contaminated by other workers:**
+  - d15: hypervisor pages +8,868, i.e. another partition started (freed −458);
+  - d14: standby +357 MB (freed 680);
+  - d13: flagged noisy (freed 1,555).
+  - No usable marginal. With privatized and private WS equal to slim4 640, the expected marginal is ~410-416, so a clean re-measure could not reach ≤390. Not rerun.
+- **Input HOME→first frame (2 warm-ups, 60 inputs): p50 33.4 ms, p95 48.8 ms**, 0 misses.
+- Screens seen by eye (`privatize/slim4dax2-640-sheet.png`): the template scanout and all 3 clones show the offline dialog.
+- Moving system_ext/product/vendor to DAX does not change clone privatization at the same guest size. Those were already read-only template pages in a clone.
+
 ### Honest RAM of one squeezed Device (2026-10-08, `assets/13-compress/`)
 
 `compress_probe.py`: d0 (896 MB, slim3 pmem), proof app on its first screen, then the daemon `squeeze` with balloon 0 and caps 250/16. Phase A was 6 min with caps only; phase B was 6 min with caps plus `MEMORY_PRIORITY_VERY_LOW` and EcoQoS on all 8 crosvm processes. One tap every 10 s, one sample every 30 s. Host Available stayed between 5.4 and 11.3 GB in the window (no emergency), but other workers' Devices booted and stopped throughout (`other_brokers` in `result.json`), so every global number below carries their noise.
