@@ -80,7 +80,9 @@ Driver: `assets/13-memory/measure.py`. Each run is a fresh boot, then install, o
 | 4096 | ~17-20 s | 335 ms | 3,202 MB | 872 MB | 150 MB | ~3.4 GB | 1,765 MB | 295 MB |
 | 2048 (+`--balloon-page-reporting`) | 23 s | 414 ms | 2,067 MB | 1,228 MB | 149 MB | ~2.25 GB | 1,536 MB | 305 MB |
 | 1024 | 48 s | 2,946 ms | 1,043 MB | 658 MB | 87 MB | **~1.15 GB** | 1,180 MB (zram swap 183 MB) | 196 MB |
+| 768 | not reached in 10 min (stopped at ~576 s guest uptime, lmkd thrashing) | n/a | n/a | n/a | n/a | n/a | n/a | n/a |
 
+- **Floor for this image: about 1 GB.** At 768 MB, full only_phone (with SystemUI, launcher and the full app set) never settles. Going lower needs the slim guest.
 - **Guest RAM is always fully resident on the host.** The main process working set is about the full `--mem`. Shrinking guest RAM is the only lever that has worked so far.
 - **`--balloon-page-reporting` did nothing:** no balloon activity in the crosvm log. The guest only has about 50-100 MB of high-order free pages, and the rest is cache. On WHPX, crosvm releases memory with `WHvUnmapGpaRange` + `OfferVirtualMemory`, and offered pages stay in the working set until Windows is under memory pressure.
 - **The block process cache** is Windows file cache of the shared `super.img`. It should count once for the Fleet when every Device reads the same file (not yet measured with 2 Devices).
