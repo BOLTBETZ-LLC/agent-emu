@@ -269,6 +269,8 @@ impl Device {
             .env("AE_DIR", win(&dir)).env("AE_ID", idx.to_string()).env("AE_MEM", &cfg.mem).env("AE_CPUS", &cfg.cpus)
             .env("AE_EXTRA", format!("--socket PIPE:ae-vm-{idx} --pmem path={},ro=true --input multi-touch[path={}] --input keyboard[path={}]",
                 pmem.to_string_lossy().replace('\\', "/"), fast::touch_pipe(idx), fast::kbd_pipe(idx)))
+            // No desktop window: crosvm's 2D GPU uses the stub display; frames still come from fb.bin.
+            .env("AGENT_EMU_HEADLESS", "1")
             .env("AGENT_EMU_FB", win(&dir.join("fb.bin"))).env("AGENT_EMU_FB_PIPE", fast::fb_pipe(idx))
             // slirp forwards 127.0.0.1:6520+N to adbd at 10.0.2.15:5555 (SETUP gives the guest NIC that address).
             .env("AGENT_EMU_ADB_PORT", (6520 + idx).to_string())
