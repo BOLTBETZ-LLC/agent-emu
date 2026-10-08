@@ -312,7 +312,8 @@ impl Device {
     /// Check the host, build the Device dir, spawn boot-stage1.ps1 and open the console pipe.
     /// `net: false` boots without virtio-net (so without adb); only the console, fast input and frame
     /// paths remain. Untested.
-    pub async fn spawn(cfg: &Cfg, idx: u32, image_name: &str, mem: Option<&str>, net: bool) -> R<Arc<Device>> {
+    /// `others_ok`: skip the "no other crosvm running" check (the caller already runs Devices).
+    pub async fn spawn(cfg: &Cfg, idx: u32, image_name: &str, mem: Option<&str>, net: bool, others_ok: bool) -> R<Arc<Device>> {
         let (run, image_mem) = image(image_name)?;
         let mem = mem.or(image_mem).unwrap_or(&cfg.mem).to_string();
         let avail = available_mb();
@@ -320,7 +321,7 @@ impl Device {
             return Err(format!("host Available {avail} MB < {} MB; not booting", cfg.min_avail_mb));
         }
         // AE_ALLOW_OTHER_CROSVM=1: another worker's Device may run beside this one (distinct id/pipes/ports).
-        if std::env::var_os("AE_ALLOW_OTHER_CROSVM").is_none() && crosvm_running().await {
+        if !others_ok && std::env::var_os("AE_ALLOW_OTHER_CROSVM").is_none() && crosvm_running().await {
             return Err("a crosvm.exe is already running; one Device at a time".into());
         }
         let dir = make_device(cfg, idx, run)?;

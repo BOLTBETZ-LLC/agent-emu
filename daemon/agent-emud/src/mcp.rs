@@ -40,6 +40,20 @@ fn tools() -> Value {
         tool("release", "Give up the lease.", json!({}), &[], false),
     ]);
     v.as_array_mut().unwrap().extend(crate::controls::tools());
+    // Fleet calls act on many Devices, so they take no `device`.
+    v.as_array_mut().unwrap().extend([
+        json!({"name": "fleet", "description": "Boot n Devices one at a time (ids d<base>..), each to the app's first screen \
+            (install from the image, app launch, screen quiet), squeezed unless auto_squeeze is false. The next boot is refused \
+            when host Available is under the floor. Returns per-Device ready time and working set, plus a fleet total.",
+            "inputSchema": {"type": "object", "required": ["n"], "properties": {
+                "n": num, "base": {"type": "number", "description": "first Device index, default 0"},
+                "image": {"type": "string", "description": "slim3 | slim4 | slim5"}, "mem": num,
+                "net": {"type": "boolean", "description": "false = no virtio-net and no adb (untested)"},
+                "auto_squeeze": {"type": "boolean", "description": "default true"},
+                "app": {"type": "string", "description": "package to launch, default com.boltbetz.staging"},
+                "balloon_mb": num, "cap_main_mb": num, "cap_helper_mb": num}}}),
+        json!({"name": "fleet_stop", "description": "Stop every Device this daemon runs.", "inputSchema": {"type": "object", "properties": {}}}),
+    ]);
     v
 }
 
@@ -144,7 +158,12 @@ mod tests {
     #[test]
     fn every_tool_takes_device() {
         for t in tools().as_array().unwrap() {
+            if t["name"].as_str().unwrap().starts_with("fleet") {
+                continue;
+            }
             assert_eq!(t["inputSchema"]["required"][0], "device", "{}", t["name"]);
         }
+        let names: Vec<_> = tools().as_array().unwrap().iter().map(|t| t["name"].clone()).collect();
+        assert!(names.contains(&json!("fleet")) && names.contains(&json!("fleet_stop")));
     }
 }
