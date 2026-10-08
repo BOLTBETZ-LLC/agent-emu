@@ -1,0 +1,15 @@
+BASELINE 14584 committed=33245 pagefile=2.20 memcomp=2011 other_crosvm=8
+d13 avail_before=14586 "available_mb":14567,"restore_s":1.11,"console_s":3.28
+d14 avail_before=13842 "available_mb":13768,"restore_s":1.11,"console_s":3.11
+d15 avail_before=13401 "available_mb":13285,"restore_s":1.1,"console_s":2.98
+d16 avail_before=13139 "available_mb":13161,"restore_s":0.95,"console_s":2.52
+d17 avail_before=12433 "available_mb":12342,"restore_s":1.33,"console_s":2.86
+d18 avail_before=12156 "available_mb":12136,"restore_s":1.32,"console_s":3.43
+d19 avail_before=11696 "available_mb":11547,"restore_s":1.12,"console_s":3.75
+d20 avail_before=10522 "available_mb":10405,"restore_s":1.11,"console_s":3.56
+d21 avail_before=9942 "available_mb":9930,"restore_s":1.58,"console_s":3.72
+d22 avail_before=9582 "available_mb":9572,"restore_s":1.12,"console_s":3.28
+RESTORED 00:37:57
+DRIVE EXIT 0
+LATENCY EXIT 0
+DONE

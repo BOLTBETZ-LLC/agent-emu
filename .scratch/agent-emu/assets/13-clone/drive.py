@@ -8,7 +8,7 @@ import argparse, ctypes, ctypes.wintypes as wt, json, os, re, socket, subprocess
 X = "C:/dev/agent-emu-work/clone-exp"
 ap = argparse.ArgumentParser(); ap.add_argument("tag"); ap.add_argument("--ids", default="13,14,15")
 ap.add_argument("--minutes", type=float, default=10); ap.add_argument("--relaunch-at", type=float, default=5)
-ap.add_argument("--cap-main", type=int, default=0); ap.add_argument("--cap-helper", type=int, default=16)
+ap.add_argument("--tap-every", type=float, default=10); ap.add_argument("--cap-main", type=int, default=0); ap.add_argument("--cap-helper", type=int, default=16)
 a = ap.parse_args(); IDS = [int(i) for i in a.ids.split(",")]
 OUT = f"{X}/out/{a.tag}"; os.makedirs(OUT, exist_ok=True)
 k32 = ctypes.WinDLL("kernel32", use_last_error=True); k32.OpenProcess.restype = wt.HANDLE
@@ -17,8 +17,9 @@ k32.SetProcessWorkingSetSizeEx.argtypes = [wt.HANDLE, ctypes.c_size_t, ctypes.c_
 PS = r"""
 $all = Get-CimInstance Win32_Process -Filter "Name='crosvm.exe'"
 $perf = Get-CimInstance Win32_PerfFormattedData_PerfProc_Process | Where-Object { $_.Name -like 'crosvm*' }
-$c = (Get-Counter '\Memory\Available MBytes','\Paging File(_total)\% Usage').CounterSamples
-$o = @{ available_mb = [int]$c[0].CookedValue; pagefile_pct = [math]::Round($c[1].CookedValue, 2);
+$c = (Get-Counter '\Memory\Available MBytes','\Paging File(_total)\% Usage','\Memory\Committed Bytes').CounterSamples
+$o = @{ available_mb = [int]$c[0].CookedValue; pagefile_pct = [math]::Round($c[1].CookedValue, 2); committed_mb = [int]($c[2].CookedValue / 1MB);
+        other_crosvm = @($all | Where-Object { $_.CommandLine -notmatch 'crosvm-clone' }).Count;
         memcomp_ws_mb = [int]((Get-Process 'Memory Compression').WorkingSet64 / 1MB); dev = @{} }
 foreach ($b in ($all | Where-Object { $_.CommandLine -match 'ae-vm-\d+ ' -and $_.CommandLine -match 'crosvm-clone' })) {
   $id = [regex]::Match($b.CommandLine, 'ae-vm-(\d+) ').Groups[1].Value
@@ -69,34 +70,38 @@ def cap(procs, main, helper):
 
 
 res = {"args": vars(a), "samples": [], "taps": []}
-s0 = sample(); res["host_before"] = {k: s0[k] for k in ("available_mb", "pagefile_pct", "memcomp_ws_mb")}
+s0 = sample(); res["host_before"] = {k: s0[k] for k in ("available_mb", "pagefile_pct", "memcomp_ws_mb", "committed_mb", "other_crosvm")}
 if a.cap_main:
     for i in IDS: cap(s0["dev"][str(i)]["procs"], a.cap_main, a.cap_helper)
     res["capped"] = {"main_mb": a.cap_main, "helper_mb": a.cap_helper}
-t0 = time.time(); live = list(IDS); relaunched = False; next_sample = t0
+t0 = time.time(); live = list(IDS); relaunched = False; next_sample = t0; next_tap = t0
 while time.time() - t0 < a.minutes * 60:
     if not relaunched and time.time() - t0 >= a.relaunch_at * 60:
         for i in live:
             ms, o = gsh(7100 + i, "am force-stop com.boltbetz.staging; am start -W -n com.boltbetz.staging/com.boltbetz.MainActivity | grep -E \"Status|TotalTime\"", 120)
             res.setdefault("relaunch", {})[i] = o
         relaunched = True
-    for i in live:
-        try:
-            ms, _ = gsh(7100 + i, "input tap 360 780", 30); res["taps"].append({"id": i, "t": round(time.time() - t0), "ms": ms})
-        except OSError as e:
-            res["taps"].append({"id": i, "t": round(time.time() - t0), "err": str(e)})
+    if time.time() >= next_tap:
+        next_tap += a.tap_every
+        for i in live:
+            try:
+                ms, _ = gsh(7100 + i, "input tap 360 780", 30); res["taps"].append({"id": i, "t": round(time.time() - t0), "ms": ms})
+            except OSError as e:
+                res["taps"].append({"id": i, "t": round(time.time() - t0), "err": str(e)})
     if time.time() >= next_sample:
         s = sample(); row = {"t": round(time.time() - t0), "available_mb": s["available_mb"], "pagefile_pct": s["pagefile_pct"],
-                             "memcomp_ws_mb": s["memcomp_ws_mb"]}
+                             "memcomp_ws_mb": s["memcomp_ws_mb"], "committed_mb": s["committed_mb"]}
         for i in live:
             d = s["dev"].get(str(i), {})
-            row[f"d{i}"] = {"privatized_mb": privatized_mb(i), "private_ws_mb": d.get("private_ws_mb"), "ws_mb": d.get("ws_mb")}
+            try: pid = gsh(7100 + i, "pidof com.boltbetz.staging", 20)[1]
+            except OSError as e: pid = f"err {e}"
+            row[f"d{i}"] = {"privatized_mb": privatized_mb(i), "private_ws_mb": d.get("private_ws_mb"), "ws_mb": d.get("ws_mb"), "app_pid": pid}
         res["samples"].append(row); print(json.dumps(row), flush=True)
         if s["available_mb"] < 3000 and live:  # stop the newest of mine
             n = live.pop(); subprocess.run([sys.executable, f"{X}/clone_exp.py", "stop", str(n)], capture_output=True)
             res.setdefault("guard_stopped", []).append({"id": n, "t": row["t"], "available_mb": s["available_mb"]})
         next_sample += 30
-    time.sleep(10)
+    time.sleep(2)
 res["alive"] = {i: gsh(7100 + i, "pidof com.boltbetz.staging")[1] for i in live}
 for i in live:
     r = subprocess.run([sys.executable, f"{X}/clone_exp.py", "check", str(i), f"{a.tag}-d{i}"], capture_output=True, text=True, timeout=400)

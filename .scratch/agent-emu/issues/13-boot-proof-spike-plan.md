@@ -386,6 +386,34 @@ Each run: 3 CoW clones (d13-d15) of one template, tap "Try Again" every 10 s, on
 - Open: restored clones log `ErrRutabaga ... TransferToHost2d/ResourceFlush ... resource_w 0` (60 times in slim4 d13, 0 in the template). Screens are unaffected.
 - Open: `FILE_MAP_COPY` commit charge is the full guest RAM per clone.
 
+### 10-clone proof (2026-10-08, slim4 640, uncapped, crosvm-clone `a45835a2e`)
+
+10 CoW clones (d13-d22) of one slim4 640 template (`snapG`: diet cmdline cuts, 11 consoles, one virtio-snd, 256-entry queues, `AGENT_EMU_INPROC`). Restored one after another, then held for 10 min: a tap every ~20 s on each clone, one relaunch per clone at minute 5, samples every 30 s. Raw data: `assets/13-clone/clone10.json`, `clone10-latency.json`, `clone10-restore.log`.
+
+- **Baseline:** Available 14,584 MB, Committed 33,245 MB, compression store 2,011 MB, pagefile 2.20%. 8 other crosvm processes were running (another worker); during the hold that rose to 14.
+- **Restore:** all 10 came up, 0.95-1.58 s each, console answering after 2.5-3.8 s. The 4,000 MB boot floor and the 3,000 MB stop guard never fired.
+- **Plateau private WS per clone: 332-343 MB**, flat from 5.5 to 10 min (~260-289 before the relaunch). Total WS 496-516 MB. Privatized guest pages 324-335 MB.
+- **App alive in all 10 at every sample** (20 samples × 10). Relaunch 1.2-2.6 s. Console taps p50/p95/max 92/249/1,449 ms, 0 errors.
+- Final app pids 3740, 3737, 3735, 3733, 3732, 3726, 3722, 3722, 3716, 3713: **9 distinct values; d19 and d20 both report 3722.** The clones start from one snapshot and relaunched in lockstep, so a pid collision is expected. They are 10 separate crosvm processes on separate console ports.
+- **Screens, all 20 seen by eye:** every screencap and every host scanout (`fb.bin`) shows the proof app's offline dialog ("No Internet Connection", Try Again). Contact sheets: `assets/13-clone/clone10-sheet-screencap.png`, `clone10-sheet-scanout.png`.
+- **Input to first frame, fast path** (virtio-input HOME key over `ae-kbd-<id>`, then the first new flush in `fb.bin`, polled every 1 ms; d13-d15, 20 each, 0 misses):
+  - p50 **36.4 ms**, p95 **75.6 ms**. That misses the 50 ms p95 target.
+  - The first input of each series is the outlier (75.6 / 81.2 / 77.4 ms). Without those three, the 57 inputs give p50 34.9 ms and p95 49.0 ms.
+
+**Unique RAM per clone:**
+
+| Measure | Per clone |
+|---|---|
+| Private WS at plateau | 332-343 MB |
+| + compression growth / 10 (worst case) | +0: store went 2,011 → 1,868 MB during the hold, and did not drop when the clones stopped (1,869 → 1,988) |
+| Template share | resident shared template pages 48-61 MB per clone (crosvm's own count). The whole 640 MB mem file / 10 = 64 MB at worst |
+| Available freed by stopping all 10 (clean: other crosvm count steady at 14) | 5,976 MB / 10 = **598 MB** |
+| Available drop baseline → end of hold (noisy: the other worker added 6 crosvm processes) | 6,864 MB / 10 = 686 MB |
+| Committed freed on stop | 8,127 MB / 10 = 813 MB (`FILE_MAP_COPY` charges the whole 640 MB view) |
+
+- The gap between private WS (~338) and Available freed (~598) is ~260 MB per clone outside the process working sets. It is likely hypervisor and kernel cost per partition (WHPX/VID, page tables) plus the template share counted once. Not attributed yet.
+- Pass against the 600 MB target by the Available measure (598 MB). It does not pass the 400 MB target.
+
 ### Honest RAM of one squeezed Device (2026-10-08, `assets/13-compress/`)
 
 `compress_probe.py`: d0 (896 MB, slim3 pmem), proof app on its first screen, then the daemon `squeeze` with balloon 0 and caps 250/16. Phase A was 6 min with caps only; phase B was 6 min with caps plus `MEMORY_PRIORITY_VERY_LOW` and EcoQoS on all 8 crosvm processes. One tap every 10 s, one sample every 30 s. Host Available stayed between 5.4 and 11.3 GB in the window (no emergency), but other workers' Devices booted and stopped throughout (`other_brokers` in `result.json`), so every global number below carries their noise.
