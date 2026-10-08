@@ -118,4 +118,8 @@ Driver: `assets/13-memory/measure.py`. Each run is a fresh boot, then install, o
 - Disabling `com.android.phone` / `com.android.server.telecom` crashes system_server (`Can't find service: activity`). Never trim the telephony core.
 - The trimmed image cold-booted at 768 MB (`--keep-data`) still crawls: guest uptime 48 s after about 10 min of wall time. Runtime trimming is not enough.
 - **Next:** repack a slim, low-RAM image from `target_files`: drop APKs at the image level, set `ro.config.low_ram=true` and smaller dalvik heaps, and switch system to uncompressed chunk erofs (the DAX prep). A worker is running it in WSL. Output: `C:\devgent-emu-work\stage2\slim\`.
-- **Balloon:** `crosvm balloon` over the control pipe returns `os error 126` straight away, with no balloon log line on the device side. Still open.
+- **Balloon: fixed and working.**
+  - `os error 126` is `ENOTCONN` in the MSVC libc. It meant the balloon device was never activated, because the guest never loaded `virtio_balloon.ko`: it sits in `/system_dlkm`, but nothing in this image loads it.
+  - Fix: `insmod /system_dlkm/lib/modules/virtio_balloon.ko` after boot (the driver now does this; the spec needs it in the image's module load list).
+  - Result at 2 GB with a 1 GiB inflate requested: the guest inflated 466 MB within about 90 s (it inflates as fast as the guest can reclaim). The host main process went from 2,068 to 1,601 MB WS. The app stayed alive.
+  - WHPX unmap + `OfferVirtualMemory` does take pages out of the working set.

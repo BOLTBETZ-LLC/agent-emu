@@ -5,7 +5,7 @@ import argparse, base64, json, os, re, socket, subprocess, sys, time, uuid
 
 W = "C:/dev/agent-emu-work"; R = f"{W}/run"
 ap = argparse.ArgumentParser(); ap.add_argument("tag"); ap.add_argument("--mem", default="4096")
-ap.add_argument("--extra", default=""); ap.add_argument("--settle", type=int, default=30)
+ap.add_argument("--extra", default=""); ap.add_argument("--trim", action="store_true"); ap.add_argument("--balloon-mb", type=int, default=0); ap.add_argument("--keep-data", action="store_true"); ap.add_argument("--settle", type=int, default=30)
 a = ap.parse_args()
 O = f"{W}/results/{a.tag}"; os.makedirs(O, exist_ok=True)
 res = {"tag": a.tag, "mem": a.mem, "extra": a.extra}
@@ -46,8 +46,9 @@ def host_mem():
 ps("Get-Process crosvm -ErrorAction SilentlyContinue | Stop-Process -Force; "
    "Get-CimInstance Win32_Process -Filter \"Name='powershell.exe'\" | Where-Object { $_.CommandLine -like '*console_bridge*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }")
 time.sleep(3)
-for n, sz in (("frp", 1 << 20), ("metadata", 64 << 20), ("userdata", 8 << 30), ("misc", 1 << 20)):
-    open(f"{R}/{n}.img", "wb").truncate(sz)
+if not a.keep_data:
+    for n, sz in (("frp", 1 << 20), ("metadata", 64 << 20), ("userdata", 8 << 30), ("misc", 1 << 20)):
+        open(f"{R}/{n}.img", "wb").truncate(sz)
 for f in ("kernel.log", "logcat.log", "crosvm.log", "console.log"):
     try: os.remove(f"{R}/{f}")
     except FileNotFoundError: pass
@@ -73,7 +74,13 @@ while gsh("getprop sys.boot_completed; getprop dev.bootcomplete", 30).split() !=
     if time.time() - t0 > 400: res["error"] = "pm never ready"; break
     time.sleep(2)
 res["pm_ready_s"] = round(time.time() - t0, 1)
+gsh("insmod /system_dlkm/lib/modules/virtio_balloon.ko 2>/dev/null; true")
 
+if a.trim:
+    pk = [l.strip() for l in open(f"{W}/trim.txt") if l.strip()]
+    out = gsh("; ".join(f"pm disable-user --user 0 {p} >/dev/null 2>&1" for p in pk) + "; am kill-all; echo trimmed", 300)
+    res["trim"] = f"{len(pk)} packages, {out.splitlines()[-1] if out else ''}"
+    time.sleep(10)
 # 3. install + launch offline
 n = int(open(f"{R}/apk.size").read())
 res["install"] = gsh(f"head -c {n} /dev/block/vdb > /data/local/tmp/p.apk && chmod 644 /data/local/tmp/p.apk && pm install -r /data/local/tmp/p.apk; rm -f /data/local/tmp/p.apk", 300)
@@ -83,6 +90,14 @@ res["launch"] = gsh("am start -W -n com.boltbetz.staging/com.boltbetz.MainActivi
 time.sleep(a.settle)
 res["app_pid"] = gsh("pidof com.boltbetz.staging")
 
+if a.balloon_mb:
+    subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", f"{W}/balloon.ps1", str(a.balloon_mb << 20)], capture_output=True)
+    for _ in range(36):
+        time.sleep(5)
+        pages = int((re.search(r"balloon_inflate (\d+)", gsh("grep balloon_inflate /proc/vmstat")) or [0, 0])[1])
+        if pages * 4096 >= (a.balloon_mb << 20) * 0.95: break
+    res["balloon_inflated_mb"] = pages * 4096 >> 20
+    res["app_pid_after_balloon"] = gsh("pidof com.boltbetz.staging")
 # 4. screenshot
 t = gsh("screencap -p /data/local/tmp/s.png; echo B64START; base64 -w 0 /data/local/tmp/s.png; echo; echo B64END", 300)
 m = re.search(r"B64START\n(.*?)\nB64END", t, re.S)
