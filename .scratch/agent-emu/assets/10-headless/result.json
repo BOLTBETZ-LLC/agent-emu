@@ -1,0 +1,30 @@
+{
+ "ready_s": 138.8,
+ "status": [
+  {
+   "frames_via": "fast",
+   "id": "d0",
+   "input_via": "fast",
+   "ready": true
+  }
+ ],
+ "windows": {
+  "crosvm_processes": 8,
+  "windows": []
+ },
+ "install": "Success",
+ "before": {
+  "home_first_frame_ms": 94,
+  "fast_vs_screencap": {
+   "mean": 128.87,
+   "pct_px_off": 66.96
+  }
+ },
+ "after": {
+  "home_first_frame_ms": 50,
+  "fast_vs_screencap": {
+   "mean": 0.0,
+   "pct_px_off": 0.0
+  }
+ }
+}

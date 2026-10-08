@@ -26,10 +26,13 @@ const PARTS: &str = "misc:misc.img:writable frp:frp.img:writable boot_a:boot.img
     vbmeta_system_dlkm_a:vbmeta_system_dlkm.img vbmeta_system_dlkm_b:vbmeta_system_dlkm.img \
     vbmeta_vendor_dlkm_a:vbmeta_vendor_dlkm.img vbmeta_vendor_dlkm_b:vbmeta_vendor_dlkm.img super:super.img \
     userdata:userdata.img:writable metadata:metadata.img:writable";
+// SurfaceFlinger 1008 = "disable HW overlays": every frame is composed by the GPU into a target that
+// is cleared first. Without it slim3 (no wallpaper, no SystemUI) leaves old pixels in the scanout
+// wherever no window draws.
 const SETUP: &str = "cmd connectivity airplane-mode enable; settings put global window_animation_scale 0; \
     settings put global transition_animation_scale 0; settings put global animator_duration_scale 0; \
     svc power stayon true; input keyevent KEYCODE_WAKEUP; wm dismiss-keyguard; \
-    settings put secure immersive_mode_confirmations confirmed; \
+    settings put secure immersive_mode_confirmations confirmed;     service call SurfaceFlinger 1008 i32 1; \
     ip link set buried_eth0 up; ip addr add 10.0.2.15/24 dev buried_eth0; \
     ip route add 10.0.2.0/24 dev buried_eth0 table legacy_system";
 
