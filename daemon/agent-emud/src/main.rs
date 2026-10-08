@@ -3,6 +3,7 @@
 //   agent-emud mcp     [--addr 127.0.0.1:7400]   MCP stdio server forwarding to the daemon
 // Request:  {"id":1,"call":"tap","device":"d0","x":100,"y":200}
 // Reply:    {"id":1,"ok":true,"ms":12,...} or {"id":1,"ok":false,"error":"..."}
+mod controls;
 mod device;
 mod fast;
 mod logs;
@@ -208,6 +209,12 @@ async fn handle(st: &State, conn: u64, req: &Value) -> R<Value> {
     }
     if !d.ready.load(Ordering::SeqCst) {
         return Err(format!("Device `{devid}` is still booting"));
+    }
+    if controls::CALLS.contains(&call) {
+        if matches!(*st.lease.lock().unwrap(), Some(c) if c != conn) {
+            return Err("busy: Device is leased by another client".into());
+        }
+        return controls::handle(&d, call, req).await;
     }
     let input = match call {
         "screenshot" => {

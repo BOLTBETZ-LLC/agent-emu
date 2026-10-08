@@ -271,7 +271,8 @@ impl Device {
         if avail < cfg.min_avail_mb {
             return Err(format!("host Available {avail} MB < {} MB; not booting", cfg.min_avail_mb));
         }
-        if crosvm_running().await {
+        // AE_ALLOW_OTHER_CROSVM=1: another worker's Device may run beside this one (distinct id/pipes/ports).
+        if std::env::var_os("AE_ALLOW_OTHER_CROSVM").is_none() && crosvm_running().await {
             return Err("a crosvm.exe is already running; one Device at a time".into());
         }
         let dir = make_device(cfg, idx)?;
