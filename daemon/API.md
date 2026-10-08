@@ -36,7 +36,7 @@ The body is `{"call": "<name>", "device": "d0", ...}`. The reply is `{"ok": true
 
 | Call | Arguments | Notes |
 | --- | --- | --- |
-| `start` | `image` (`phone`, `phone-n`, `slim5`, `slim4`, `slim3n`, ...), `screen`, `mem`, `cpus`, `net`, `auto_squeeze` | boots and waits for Android plus setup. Use `async` |
+| `start` | `image` (`phone`, `phone-n`, `slim5`, `slim4`, `slim3n`, ...), `screen`, `render` (`gfxstream` default, `software`), `mem`, `cpus`, `net`, `auto_squeeze` | boots and waits for Android plus setup. Use `async` |
 | `start_many` | `devices: ["d0","d1",...]`, `parallel` (default 4, max 8), plus the `start` arguments | boots them, up to `parallel` at once. Reply `devices: [{device, ok, ready_s / error}]` |
 | `stop` | `device` | |
 | `stop_many` | `devices` (default: all) | stops them all at once |
@@ -56,6 +56,12 @@ The body is `{"call": "<name>", "device": "d0", ...}`. The reply is `{"ok": true
 | `squeeze` | `balloon_mb, cap_main_mb, cap_helper_mb` | balloon plus working-set caps |
 | `deep_link`, `set_location`, `clock`, `permission`, `shell`, `ui_tree`, `lease`, `release`, `fleet`, `fleet_stop` | | as on the agent API |
 | `quit` | | stops every Device and exits the daemon |
+
+`render`: `gfxstream` (default) draws on the host GPU: crosvm from `crosvm-gpu` (`AE_CROSVM_GPU`) with the Android
+SDK emulator's `lib64\libgfxstream_backend.dll` (`AE_SDK_EMULATOR`, default `%LOCALAPPDATA%\Android\Sdk\emulator`),
+on a PATH of only the SDK's `lib64\gles_angle`, `lib64` and Windows dirs, and a guest bootconfig set to ANGLE plus
+Vulkan over virtio-gpu-asg. If either file is missing, `start` fails and names it. `software` is crosvm's 2D
+renderer on the CPU. `status` shows which one a Device runs as `render`.
 
 To change a running Device's settings (image, screen, RAM), stop it and start it again with the new options.
 

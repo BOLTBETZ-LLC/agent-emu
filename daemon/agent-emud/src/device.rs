@@ -79,6 +79,59 @@ impl Cfg {
         }
         self.work.join(&self.crosvm_dir).join("target/release/crosvm.exe")
     }
+    /// crosvm built with gfxstream (the GPU worker's branch agent-emu-gpu): AE_CROSVM_GPU or work/crosvm-gpu.
+    pub fn crosvm_gpu(&self) -> PathBuf {
+        std::env::var_os("AE_CROSVM_GPU").map(PathBuf::from)
+            .unwrap_or_else(|| self.work.join("crosvm-gpu/target/release/crosvm.exe"))
+    }
+}
+
+/// The Android SDK emulator dir whose lib64 holds libgfxstream_backend.dll (AE_SDK_EMULATOR).
+pub fn sdk_emulator() -> PathBuf {
+    std::env::var_os("AE_SDK_EMULATOR").map(PathBuf::from).unwrap_or_else(|| {
+        PathBuf::from(std::env::var_os("LOCALAPPDATA").unwrap_or_default()).join("Android/Sdk/emulator")
+    })
+}
+
+/// gfxstream rendering (host GPU through ANGLE/Vulkan): crosvm --gpu keys.
+const GFX_GPU: &str = "backend=gfxstream,context-types=gfxstream-vulkan:gfxstream-composer,egl=false,gles=false,glx=false,surfaceless=true,vulkan=true";
+
+/// crosvm's PATH for gfxstream: the SDK's gles_angle and lib64 first, then only Windows dirs. Never the
+/// inherited PATH: another libGLESv2.dll on it (WezTerm's ANGLE) crashed crosvm.
+pub fn gfx_path(emu: &Path) -> String {
+    let win = std::env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".into());
+    let e = emu.to_string_lossy().replace('/', "\\");
+    format!(r"{e}\lib64\gles_angle;{e}\lib64;{e};{win}\System32;{win};{win}\System32\Wbem;{win}\System32\WindowsPowerShell\v1.0")
+}
+
+/// Copies initrd `src` to `dst` with its bootconfig trailer switched to gfxstream through ANGLE
+/// (Cuttlefish gpu_mode=gfxstream_guest_angle) and lcd_density `dpi`. Other keys stay in order.
+pub fn gfx_initrd(src: &Path, dst: &Path, dpi: u32) -> R<()> {
+    let d = std::fs::read(src).map_err(|e| format!("{}: {e}", src.display()))?;
+    const MAGIC: &[u8] = b"#BOOTCONFIG\n";
+    if !d.ends_with(MAGIC) || d.len() < 20 {
+        return Err(format!("{}: no bootconfig trailer", src.display()));
+    }
+    let n = d.len();
+    let size = u32::from_le_bytes(d[n - 20..n - 16].try_into().unwrap()) as usize;
+    let body = d.get(n - 20 - size..n - 20).ok_or("bootconfig size past the start of the file")?;
+    let want = [("androidboot.hardware.egl", "angle".to_string()), ("androidboot.hardware.vulkan", "ranchu".to_string()),
+        ("androidboot.hardware.gltransport", "virtio-gpu-asg".to_string()), ("androidboot.cpuvulkan.version", "0".to_string()),
+        ("androidboot.lcd_density", dpi.to_string())];
+    let text = String::from_utf8_lossy(body);
+    let mut out: Vec<String> = text.trim_end_matches('\0').lines().filter(|l| !l.is_empty())
+        .filter(|l| !want.iter().any(|(k, _)| l.split('=').next().map(str::trim) == Some(*k))).map(str::to_string).collect();
+    out.extend(want.iter().map(|(k, v)| format!("{k}={v}")));
+    let mut bc = (out.join("\n") + "\n").into_bytes();
+    bc.resize(bc.len().div_ceil(4) * 4, 0);
+    let sum = bc.iter().fold(0u32, |a, &b| a.wrapping_add(b as u32));
+    let mut f = d[..n - 20 - size].to_vec();
+    f.extend_from_slice(&bc);
+    f.extend_from_slice(&(bc.len() as u32).to_le_bytes());
+    f.extend_from_slice(&sum.to_le_bytes());
+    f.extend_from_slice(MAGIC);
+    let _ = std::fs::remove_file(dst); // a hard link from another image must not be written through
+    std::fs::write(dst, f).map_err(|e| format!("{}: {e}", dst.display()))
 }
 
 fn win(p: &Path) -> String {
@@ -365,6 +418,8 @@ pub struct Device {
     pub phone: bool,
     /// Android density (dpi) for the screen profile, set by `wm density` after boot.
     pub density: u32,
+    /// The crosvm binary this Device runs (gfxstream or software build); squeeze talks to it.
+    pub crosvm: PathBuf,
 }
 
 impl Device {
@@ -372,7 +427,8 @@ impl Device {
     /// `net: false` boots without virtio-net (so without adb); only the console, fast input and frame
     /// paths remain. Untested.
     /// `others_ok`: skip the "no other crosvm running" check (the caller already runs Devices).
-    pub async fn spawn(cfg: &Cfg, idx: u32, image_name: &str, screen_name: &str, mem: Option<&str>, cpus: Option<&str>, net: bool, others_ok: bool) -> R<Arc<Device>> {
+    /// `gfx`: render with gfxstream on the host GPU; false = crosvm's 2D software renderer.
+    pub async fn spawn(cfg: &Cfg, idx: u32, image_name: &str, screen_name: &str, mem: Option<&str>, cpus: Option<&str>, net: bool, others_ok: bool, gfx: bool) -> R<Arc<Device>> {
         let (run, image_mem) = image(image_name)?;
         let (sw, sh, dpi) = screen(screen_name, is_phone(image_name))?;
         let mem = mem.or(image_mem).unwrap_or(&cfg.mem).to_string();
@@ -386,7 +442,22 @@ impl Device {
         }
         let dir = make_device(cfg, idx, run)?;
         let pmem = cfg.work.join(run).join("system-pmem.img");
+        let initrd = if is_phone(image_name) { "initrd.img" } else { "initrd-dax-pmem.img" };
         let mut cmd = Command::new("powershell");
+        let crosvm = if gfx {
+            let (exe, emu) = (cfg.crosvm_gpu(), sdk_emulator());
+            for f in [exe.clone(), emu.join("lib64/libgfxstream_backend.dll")] {
+                if !f.exists() {
+                    return Err(format!("gfxstream rendering needs {}; start with render: \"software\" to use the CPU", f.display()));
+                }
+            }
+            gfx_initrd(&dir.join(initrd), &dir.join("initrd-gfx.img"), dpi)?;
+            cmd.env("AE_PATH", gfx_path(&emu)).env("AE_GPU_BACKEND", GFX_GPU).env("AE_INITRD", "initrd-gfx.img");
+            exe
+        } else {
+            cmd.env("AE_INITRD", initrd);
+            cfg.crosvm()
+        };
         if net {
             // slirp forwards 127.0.0.1:6520+N to adbd at 10.0.2.15:5555 (SETUP gives the guest NIC that address).
             cmd.env("AGENT_EMU_ADB_PORT", (6520 + idx).to_string());
@@ -405,7 +476,7 @@ impl Device {
             .env("AGENT_EMU_HEADLESS", "1")
             .env("AGENT_EMU_FB", win(&dir.join("fb.bin"))).env("AGENT_EMU_FB_PIPE", fast::fb_pipe(idx))
             .env("AE_KERNEL", if is_phone(image_name) { "kernel" } else { "kernel-dax" })
-            .env("AE_INITRD", if is_phone(image_name) { "initrd.img" } else { "initrd-dax-pmem.img" }).env("AE_CROSVM", win(&cfg.crosvm()))
+            .env("AE_CROSVM", win(&crosvm))
             .stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null())
             .creation_flags(CREATE_NO_WINDOW).spawn().map_err(|e| format!("spawn boot: {e}"))?;
         let con = match Console::open(&format!(r"\\.\pipe\agentemu-console-{idx}"), dir.join("console.log"), Duration::from_secs(60)).await {
@@ -418,7 +489,7 @@ impl Device {
         Ok(Arc::new(Device {
             id: format!("d{idx}"), dir: dir.clone(), boot: Mutex::new(Some(child)), con, ready: AtomicBool::new(false),
             last: StdMutex::new(None), gen: AtomicU64::new(0), scale: StdMutex::new(1.0),
-            idx, input: OnceLock::new(), fb: OnceLock::new(), events: crate::logs::Events::spawn(dir.join("logcat.log")), net, phone: is_phone(image_name), density: dpi,
+            idx, input: OnceLock::new(), fb: OnceLock::new(), events: crate::logs::Events::spawn(dir.join("logcat.log")), net, phone: is_phone(image_name), density: dpi, crosvm,
         }))
     }
 
@@ -638,6 +709,32 @@ mod tests {
     #[test]
     fn wrap_escapes_quotes() {
         assert!(wrap("echo 'hi'", "t").contains(r"su 0 sh -c 'echo '\''hi'\''' 2>&1"));
+    }
+
+    #[test]
+    fn gfx_initrd_rewrites_bootconfig() {
+        let t = std::env::temp_dir().join(format!("ae-gfx-{}", std::process::id()));
+        let bc = b"androidboot.hardware.vulkan=pastel\nandroidboot.lcd_density=320\nandroidboot.x=1\n\0\0";
+        let sum = bc.iter().fold(0u32, |a, &b| a + b as u32);
+        let mut f = b"RAMDISK".to_vec();
+        f.extend_from_slice(bc);
+        f.extend_from_slice(&(bc.len() as u32).to_le_bytes());
+        f.extend_from_slice(&sum.to_le_bytes());
+        f.extend_from_slice(b"#BOOTCONFIG\n");
+        std::fs::write(t.with_extension("in"), &f).unwrap();
+        gfx_initrd(&t.with_extension("in"), &t.with_extension("out"), 238).unwrap();
+        let o = std::fs::read(t.with_extension("out")).unwrap();
+        let n = o.len();
+        let size = u32::from_le_bytes(o[n - 20..n - 16].try_into().unwrap()) as usize;
+        let body = &o[n - 20 - size..n - 20];
+        assert_eq!(u32::from_le_bytes(o[n - 16..n - 12].try_into().unwrap()), body.iter().fold(0u32, |a, &b| a + b as u32));
+        assert!(o.starts_with(b"RAMDISK") && size % 4 == 0);
+        assert_eq!(String::from_utf8_lossy(body).trim_end_matches('\0'), "androidboot.x=1\nandroidboot.hardware.egl=angle\n\
+            androidboot.hardware.vulkan=ranchu\nandroidboot.hardware.gltransport=virtio-gpu-asg\nandroidboot.cpuvulkan.version=0\n\
+            androidboot.lcd_density=238\n");
+        assert!(gfx_initrd(&t.with_extension("out2"), &t.with_extension("x"), 1).is_err());
+        for e in ["in", "out"] { std::fs::remove_file(t.with_extension(e)).ok(); }
+        assert!(gfx_path(Path::new("E:/emu")).starts_with(r"E:\emu\lib64\gles_angle;E:\emu\lib64;E:\emu;"));
     }
 
     #[test]

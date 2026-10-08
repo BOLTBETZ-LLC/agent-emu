@@ -197,7 +197,8 @@ async fn auto_squeeze(cfg: &Cfg, d: &Device, o: squeeze::Opts) -> R<Value> {
     tokio::time::sleep(Duration::from_secs(o.settle_s)).await;
     let quiet = quiet_for(|| d.frame_seq(), Duration::from_secs(2), Duration::from_secs(10)).await;
     let pid = d.boot_pid().await.ok_or("Device has no boot process")?;
-    let mut r = squeeze::squeeze(d, &cfg.crosvm(), pid, o).await?;
+    let _ = cfg;
+    let mut r = squeeze::squeeze(d, &d.crosvm, pid, o).await?;
     r["screen_quiet"] = json!(quiet);
     Ok(r)
 }
@@ -240,7 +241,14 @@ async fn start_device(st: &State, idx: u32, req: &Value) -> R<(Arc<Device>, f64)
     let shown_mem = mem.clone().or(device::image(image_name).map_err(fail)?.1.map(str::to_string)).unwrap_or(st.cfg.mem.clone());
     let screen = req["screen"].as_str().unwrap_or("");
     let (sw, sh, dpi) = device::screen(screen, device::is_phone(image_name)).map_err(fail)?;
+    // render: "gfxstream" (default, host GPU) or "software" (crosvm 2D, CPU only).
+    let gfx = match req["render"].as_str().unwrap_or("gfxstream") {
+        "gfxstream" | "" => true,
+        "software" => false,
+        r => return Err(fail(format!("unknown render `{r}` (gfxstream, software)"))),
+    };
     let info = json!({"image": if image_name.is_empty() { "slim3n (default)" } else { image_name }, "mem": shown_mem,
+        "render": if gfx { "gfxstream" } else { "software" },
         "cpus": cpus.clone().unwrap_or(st.cfg.cpus.clone()), "net": net, "image_name": image_name,
         "screen": {"name": if screen.is_empty() { "iphone17promax" } else { screen }, "width": sw, "height": sh, "dpi": dpi}});
     let d = {
@@ -259,7 +267,7 @@ async fn start_device(st: &State, idx: u32, req: &Value) -> R<(Arc<Device>, f64)
         // Other crosvm processes are fine once this daemon runs a Device itself (a fleet).
         let others_ok = !st.devs.lock().unwrap().is_empty();
         emit(st, json!({"type": "device", "device": id, "phase": "spawning", "t_s": 0.0, "info": info}));
-        let d = Device::spawn(&st.cfg, idx, image_name, screen, mem.as_deref(), cpus.as_deref(), net, others_ok).await.map_err(fail)?;
+        let d = Device::spawn(&st.cfg, idx, image_name, screen, mem.as_deref(), cpus.as_deref(), net, others_ok, gfx).await.map_err(fail)?;
         st.devs.lock().unwrap().insert(id.clone(), Slot { dev: d.clone(), opts: squeeze::Opts::from(req, squeeze::Opts::DEFAULT),
             auto_squeeze: req["auto_squeeze"] == json!(true), lease: None, info, started: Instant::now(), phase: "booting",
             lat: Default::default(), sent: 0, streams: 0 });
@@ -614,7 +622,7 @@ async fn handle(st: &Arc<State>, conn: u64, req: &Value) -> R<Value> {
             }
             let base = st.devs.lock().unwrap().get(devid).map(|s| s.opts).unwrap_or(squeeze::Opts::DEFAULT);
             let o = squeeze::Opts::from(req, base);
-            return squeeze::squeeze(&d, &st.cfg.crosvm(), pid, o).await;
+            return squeeze::squeeze(&d, &d.crosvm, pid, o).await;
         }
         "install_bundled" => {
             // The image's own APK (apk.img on /dev/block/vdb, size in <run>/apk.size), over the console: no adb needed.

@@ -15,6 +15,10 @@ $last = if ($env:AE_SINKS) { [int]$env:AE_SINKS } else { 20 }
 foreach ($n in @(4..$last | Where-Object { $last -ge 4 })) { $sinks += "--serial"; $sinks += "hardware=virtio-console,num=$n,type=sink" }
 $mem = if ($env:AE_MEM) { $env:AE_MEM } else { "4096" }
 $cpus = if ($env:AE_CPUS) { $env:AE_CPUS } else { "4" }
+# AE_PATH: crosvm's whole PATH (gfxstream: the SDK's ANGLE and lib64 first, never the inherited PATH).
+if ($env:AE_PATH) { $env:PATH = $env:AE_PATH }
+# AE_GPU_BACKEND: the --gpu backend keys (default the 2D software renderer).
+$gpu = if ($env:AE_GPU_BACKEND) { $env:AE_GPU_BACKEND } else { "backend=2D" }
 # AE_DISPLAY "w,h" and AE_DPI: the guest display (default the old 720x1280 at 320 dpi).
 $disp = if ($env:AE_DISPLAY) { $env:AE_DISPLAY } else { "720,1280" }
 $dpi = if ($env:AE_DPI) { $env:AE_DPI } else { "320" }
@@ -36,7 +40,7 @@ $args = @(
   "--serial", "hardware=virtio-console,num=2,type=namedpipe,path=$pipe",
   "--serial", "hardware=virtio-console,num=3,type=file,path=$R\logcat.log"
 ) + $extra + $sinks + @(
-  "--gpu", ("backend=2D,displays=[[mode=windowed[$disp],dpi=[$dpi,$dpi],refresh-rate=60]]" + $(if ($env:AE_GPU_EXTRA) { "," + $env:AE_GPU_EXTRA } else { "" })),
+  "--gpu", ("$gpu,displays=[[mode=windowed[$disp],dpi=[$dpi,$dpi],refresh-rate=60]]" + $(if ($env:AE_GPU_EXTRA) { "," + $env:AE_GPU_EXTRA } else { "" })),
   "--initrd", $initrd,
   "--params", $cmdline,
   $kernel

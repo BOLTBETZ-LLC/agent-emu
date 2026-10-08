@@ -216,9 +216,10 @@ impl Fb {
     }
 }
 
-/// DRM fourccs whose bytes are R,G,B,x in memory (XB24, AB24). XR24/AR24 and unknown are B,G,R,x.
+/// DRM fourccs whose bytes are R,G,B,x in memory (XB24, AB24), and 0: the gfxstream flush (crosvm-gpu) publishes
+/// RGBA with no fourcc (read as B,G,R it turned BoltBetz's teal lime, 2026-10-08). XR24/AR24 and others are B,G,R,x.
 pub fn red_first(fourcc: u32) -> bool {
-    fourcc == u32::from_le_bytes(*b"XB24") || fourcc == u32::from_le_bytes(*b"AB24")
+    fourcc == 0 || fourcc == u32::from_le_bytes(*b"XB24") || fourcc == u32::from_le_bytes(*b"AB24")
 }
 
 /// 32-bit rows (`stride` bytes each) -> packed RGB.
@@ -266,7 +267,7 @@ mod tests {
         let px = [1, 2, 3, 0, 4, 5, 6, 0, 9, 9, 9, 9]; // 2 pixels + 4 bytes row padding
         assert_eq!(to_rgb(&px, 2, 12, true), vec![1, 2, 3, 4, 5, 6]);
         assert_eq!(to_rgb(&px, 2, 12, false), vec![3, 2, 1, 6, 5, 4]);
-        assert!(red_first(0x3432_4258) && !red_first(0x3432_5258) && !red_first(0));
+        assert!(red_first(0x3432_4258) && !red_first(0x3432_5258) && red_first(0));
     }
 
     #[test]
