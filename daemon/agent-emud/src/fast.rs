@@ -187,13 +187,15 @@ impl Fb {
     /// Seqlock read of the latest frame, converted BGRX -> RGB.
     pub fn read(&self) -> Option<Raw> {
         let b = self.base as *const u8;
-        for _ in 0..1000 {
+        // A copy in crosvm takes about 1 ms and the RGB pass about as long, so retry by time, not count.
+        let end = std::time::Instant::now() + Duration::from_millis(200);
+        while std::time::Instant::now() < end {
             let s1 = self.seq_ref().load(Ordering::Acquire);
             if s1 == 0 {
                 return None;
             }
             if s1 & 1 == 1 {
-                std::hint::spin_loop();
+                std::thread::yield_now();
                 continue;
             }
             // SAFETY: header fields and pixel rows are inside the mapping (crosvm bounds them).
@@ -202,10 +204,11 @@ impl Fb {
                  (b.add(16) as *const u32).read_volatile() as usize, (b.add(24) as *const u64).read_volatile())
             };
             let fourcc = unsafe { (b.add(20) as *const u32).read_volatile() };
-            let px = unsafe { std::slice::from_raw_parts(b.add(HEADER), stride * h as usize) };
-            let rgb = to_rgb(px, w as usize, stride, red_first(fourcc));
+            // Copy the raw pixels first (fast memcpy), so the window a new frame can tear is short.
+            let px = unsafe { std::slice::from_raw_parts(b.add(HEADER), stride * h as usize) }.to_vec();
             fence(Ordering::Acquire);
             if self.seq_ref().load(Ordering::Relaxed) == s1 {
+                let rgb = to_rgb(&px, w as usize, stride, red_first(fourcc));
                 return Some(Raw { rgb: image::RgbImage::from_raw(w, h, rgb)?, seq: self.seq(), flush_us: us });
             }
         }

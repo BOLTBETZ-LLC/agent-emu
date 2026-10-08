@@ -215,13 +215,13 @@ async fn handle(st: &State, conn: u64, req: &Value) -> R<Value> {
         return Ok(json!({"ok": true, "input_ms": input_ms, "input_via": via}));
     }
     let deadline = Duration::from_millis(req["deadline_ms"].as_u64().unwrap_or(3000));
-    let quiet = Duration::from_millis(req["settle_ms"].as_u64().unwrap_or(100));
+    let quiet = Duration::from_millis(req["settle_ms"].as_u64().unwrap_or(33));
     let (f, settled, frames, first) = d.settled(s0, t, quiet, deadline).await?;
     let size = req["size"].as_str().and_then(device::parse_size);
     let mut rep = json!({"ok": true, "input_ms": input_ms, "input_via": via, "settled": settled, "frames": frames,
         "first_frame_ms": first, "settled_ms": t.elapsed().as_millis() as u64, "frame": frame_json(&f, size)?});
     if !settled {
-        rep["reason"] = json!("frames_changing");
+        rep["reason"] = json!(if first.is_none() && via == "fast" { "no_frame" } else { "frames_changing" });
     }
     Ok(rep)
 }

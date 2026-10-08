@@ -210,7 +210,10 @@ pub fn encode(rgb: &image::RgbImage, size: Option<(u32, u32)>) -> R<(Vec<u8>, u3
         _ => rgb,
     };
     let mut out = Vec::new();
-    image::codecs::jpeg::JpegEncoder::new_with_quality(&mut out, 75).encode_image(img).map_err(|e| e.to_string())?;
+    // jpeg-encoder with AVX2: about 3x faster than image's encoder on this PC.
+    jpeg_encoder::Encoder::new(&mut out, 75)
+        .encode(img.as_raw(), img.width() as u16, img.height() as u16, jpeg_encoder::ColorType::Rgb)
+        .map_err(|e| e.to_string())?;
     Ok((out, img.width(), img.height(), dw, dh, dw as f64 / img.width() as f64))
 }
 
@@ -361,12 +364,13 @@ impl Device {
         Ok(Frame { rgb, captured_ms, generation: self.gen.load(Ordering::SeqCst), capture_ms: t0.elapsed().as_millis() as u64, age_ms: None })
     }
 
-    /// Fast path: after an input started at `t_in` (scanout seq `s0` before it), wait until no new
-    /// frame is posted for `quiet`, or the deadline. Console path: screenshots until two in a row are
-    /// identical. Returns (frame, settled, new frames, ms from input to the first new frame).
+    /// Fast path: after an input started at `t_in` (scanout seq `s0` before it), wait for the first new
+    /// frame, then until no new frame is posted for `quiet`, or the deadline. Only seq numbers are compared;
+    /// the one final frame is captured (and encoded by the caller). Console path: screenshots until two
+    /// in a row are identical. Returns (frame, settled, new frames, ms from input to the first new frame).
     pub async fn settled(&self, s0: u64, t_in: Instant, quiet: Duration, deadline: Duration) -> R<(Frame, bool, u32, Option<u64>)> {
         if let Some(fb) = self.fb.get().cloned() {
-            let (settled, first) = tokio::task::spawn_blocking(move || wait_quiet(&fb, s0, t_in, quiet, deadline))
+            let (settled, first) = tokio::task::spawn_blocking(move || wait_quiet(&|| fb.seq(), s0, t_in, quiet, deadline))
                 .await.map_err(|e| e.to_string())?;
             let f = self.capture().await?;
             let n = f.generation.saturating_sub(s0) as u32;
@@ -392,19 +396,21 @@ impl Device {
     }
 }
 
-/// Polls the scanout seq every ~1 ms: (settled, ms from `t_in` to the first frame after `s0`).
-fn wait_quiet(fb: &Fb, s0: u64, t_in: Instant, quiet: Duration, deadline: Duration) -> (bool, Option<u64>) {
-    let (mut last, mut changed) = (s0, t_in);
+/// Settle rule (issue 10, 2026-10-08): the first frame after `s0`, then `quiet` with no new frame.
+/// Polls `seq` every ~1 ms. No frame by the deadline is settled=false.
+/// Returns (settled, ms from `t_in` to the first frame after `s0`).
+fn wait_quiet(seq: &dyn Fn() -> u64, s0: u64, t_in: Instant, quiet: Duration, deadline: Duration) -> (bool, Option<u64>) {
+    let (mut last, mut changed) = (s0, None);
     let mut first = None;
     loop {
         let now = Instant::now();
-        let s = fb.seq();
+        let s = seq();
         if s != last {
             last = s;
-            changed = now;
+            changed = Some(now);
             first.get_or_insert((now - t_in).as_millis() as u64);
         }
-        if now - changed >= quiet {
+        if changed.is_some_and(|c| now - c >= quiet) {
             return (true, first);
         }
         if now - t_in >= deadline {
@@ -455,6 +461,23 @@ mod tests {
         assert_eq!(input_text_cmd("a b'c"), r"input text 'a%sb'\''c'");
         assert_eq!(parse_size("706x1568"), Some((706, 1568)));
         assert_eq!(parse_size("706"), None);
+    }
+
+    #[test]
+    fn settle_needs_a_frame_then_quiet() {
+        let (q, dl) = (Duration::from_millis(33), Duration::from_millis(300));
+        let t = Instant::now();
+        assert_eq!(wait_quiet(&|| 5, 5, t, q, dl), (false, None), "no new frame: deadline, not settled");
+        assert!(t.elapsed() >= dl);
+        let t = Instant::now();
+        let seq = || if t.elapsed() < Duration::from_millis(50) { 5 } else if t.elapsed() < Duration::from_millis(70) { 6 } else { 7 };
+        let (ok, first) = wait_quiet(&seq, 5, t, q, dl);
+        assert!(ok && (50..60).contains(&first.unwrap()));
+        let e = t.elapsed().as_millis() as u64;
+        assert!((103..140).contains(&e), "settles 33 ms after the last frame, took {e} ms");
+        let t = Instant::now();
+        let busy = || t.elapsed().as_millis() as u64 / 10;
+        assert!(!wait_quiet(&busy, 0, t, q, dl).0, "frames keep coming: not settled");
     }
 
     #[test]

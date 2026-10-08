@@ -58,6 +58,15 @@ A build-ready spec for a slim Android emulator built for agents to test apps. Th
 
 - [spec.md](spec.md): the build-ready spec, written for builder agents. It has a decisions table, architecture, a 9-step critical-path build order with exit checks, acceptance checks, 30 known traps, and §8 defaults that settle the contradictions between tickets. Execution has started: spike stage 1 (Boot proof spike plan).
 
+## Execution so far (details in issues/13 and issues/10)
+
+- **Stage 1 PASS:** crosvm fork boots API 36 on WHPX, and the proof app reaches its first screen (fork patches: sparse flag, run-mp, net skip; bootconfig vsock keys; frp partition).
+- **Stage 2 PASS:** the DAX kernel (6.12.93: ZONE_DEVICE, FS_DAX, VMGENID) plus our Windows virtio-pmem port mounts `/system` from one shared read-only image with `dax=always`.
+- **Slim images by target_files repack:** slim2 (low_ram, softer lmkd) and slim3 (no SystemUI). Smallest working guest: **896 MB**. 768 MB OOMs at boot (177 MB of kernel slab).
+- **Fleet:** 4 Devices ran at once, ~1.2 GB each (Available and Committed agree). The 8- and 10-Device runs were stopped by memory pressure from other sessions' jest runs and the WSL VM. **400 MB per Device is not reached:** the realistic floor with this Android 16 guest is ~1.1 GB, because WHPX keeps guest RAM resident and Windows has no cross-VM page dedup.
+- **Agent API:** the `agent-emud` daemon and MCP mode work. The fast path (virtio-input pipes, scanout frames) gives a 12 ms screenshot, a 0 ms tap ack, and **28 ms p95 from input to first frame**. Settle rule = first frame + 33 ms quiet.
+- **Open:** settle v2, crosvm log spam, networking/adb (worker running); a 6-Device run at 896 MB next; headless display; structured API layers; the `system_dlkm` swap.
+
 ## Not yet specified
 
 Nothing. All fog has been graduated and decided.
