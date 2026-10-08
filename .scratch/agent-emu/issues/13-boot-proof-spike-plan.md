@@ -884,3 +884,33 @@ Driver: `assets/13-leverD/a17/fleet10_a17.py` (slim5-a17 + sensors fix, DAX kern
 - **Guest per Device:** Used RAM 750-780 MB (456-488 MB pss + 271-300 MB kernel), 358-497 MB swapped into 104-146 MB of zram.
 - **Latency:** tap shell round trip p50/p95/max 157 / 295 / 481 ms with 10 Devices.
 - **Verdict:** Android 17 meets the 600 MB per Device target with 10 Devices at once: ~445 MB host RAM each, apps alive, screens checked. It is the same as the Android 16 proof (~445).
+
+### slim4ns: no swap at all (2026-10-08)
+
+Why: CoW clones privatize ~340 MB because the guest churns memory through zram. slim4ns is slim4 with swap never enabled, plus lmkd tuned for no swap.
+
+**Edits** (`stage2/slim4ns/edits.sh`, tree `/root/slim/tf4ns`, a copy of slim4's `tf4`):
+- `init.cutf_cvm.rc`: removed `swapon_all` (slim4 had it at post-fs-data), the `zram.ko` modprobe, and the `comp_algorithm lz4` write. The script fails if any non-comment `swapon` or `zram` line is left.
+- `fstab.cf.*`: the `/dev/block/zram0 ... swap` line is removed.
+- `VENDOR/build.prop`:
+  - `persist.sys.zram_enabled` 1 → 0;
+  - `ro.lmk.use_minfree_levels=false`, `ro.lmk.use_psi=true`;
+  - `ro.lmk.thrashing_limit=1000`, `ro.lmk.critical_upgrade=false`, `ro.lmk.swap_free_low_percentage=0`.
+- Images in `stage2/slim4ns/` (system-pmem sha256 `4266a5ba09277a06893be6605ae9eb05a5d1c423a51948ae150510437361ca26`). Run dir `C:/dev/agent-emu-work/run-slim4ns`.
+
+**Boot setup:** shared crosvm-pmem binary (queue fix), cmdline cuts, 11 consoles, one snd. The soak is `diet_soak.py`: 10 min, a tap every 20 s, `am force-stop` + `am start -W` at minute 5, a sample every 60 s.
+
+| `--mem` | Result |
+|---|---|
+| **896** | **PASS.** Ready 116.8 s, launch 1,133 ms. The app survived 10 min, including the relaunch (pid 3403 → 3847, relaunch TotalTime 794 ms); no lmkd kill of the app. `SwapTotal` 0, **pswpin/pswpout delta 0/0**. MemAvailable 16-32 MB (89 right after the relaunch). End screenshot `results/diet/ns-896-soak/end-d16.png`: offline dialog, seen by eye |
+| 768 | FAIL. lmkd killed the app as TOP 30 s after launch: `low watermark is breached and thrashing (3324%)` with the limit at 1000 |
+| 768, thrashing kill off at runtime (`persist.device_config.lmkd_native.thrashing_limit=100000` + `lmkd.reinit`) | FAIL. The app launched (2,897 ms), then file refaults ran at ~4.7M pages in the first minute. The result was `ANR in com.boltbetz.staging`, and the app was gone by the 60 s sample |
+
+**kswapd at 896 over 10 min:**
+- `pgsteal_kswapd` +1,055,425 pages (~4.1 GB); `pgsteal_direct` +705; `workingset_refault_file` +893,366 (~3.5 GB).
+- Almost all of it is in the first 6 min plus the relaunch. From 423 s to 544 s it was only +8,867 steals.
+- The churn is file pages refaulting, mainly the app's own APK/oat/dex on `/data` (not DAX). Swap is gone, but page-cache refill still writes guest pages.
+
+**Smallest size where the app survives 10 min with no swap: 896 MB.** `run-slim4ns/READY` contains `896`.
+
+To go lower without swap, the app's code pages should be DAX-backed like `/system`: install it into the pmem image, or put `/data/app` on DAX. Otherwise 768 thrashes on refaults.
