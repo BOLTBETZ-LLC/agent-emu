@@ -1,0 +1,232 @@
+{
+ "available_before_mb": 11481,
+ "ready_s": 130.9,
+ "install": "Success",
+ "launch": "Status: ok\nTotalTime: 2192",
+ "memory_before": {
+  "id": 1,
+  "ms": 563,
+  "ok": true,
+  "processes": [
+   {
+    "cap_mb": null,
+    "pid": 42056,
+    "role": "helper",
+    "ws_mb": 14
+   },
+   {
+    "cap_mb": null,
+    "pid": 47796,
+    "role": "helper",
+    "ws_mb": 13
+   },
+   {
+    "cap_mb": null,
+    "pid": 33376,
+    "role": "main",
+    "ws_mb": 1340
+   },
+   {
+    "cap_mb": null,
+    "pid": 39148,
+    "role": "helper",
+    "ws_mb": 516
+   },
+   {
+    "cap_mb": null,
+    "pid": 35960,
+    "role": "helper",
+    "ws_mb": 74
+   },
+   {
+    "cap_mb": null,
+    "pid": 33164,
+    "role": "helper",
+    "ws_mb": 13
+   },
+   {
+    "cap_mb": null,
+    "pid": 49436,
+    "role": "helper",
+    "ws_mb": 15
+   },
+   {
+    "cap_mb": null,
+    "pid": 30180,
+    "role": "helper",
+    "ws_mb": 14
+   }
+  ],
+  "ws_mb": 1999
+ },
+ "taps_before": {
+  "n": 20,
+  "with_frame": 20,
+  "p50": 188,
+  "p95": 1392,
+  "max": 1392
+ },
+ "app_pid_before_squeeze": "5418",
+ "squeeze": {
+  "opts": {
+   "balloon_mb": 150,
+   "cap_helper_mb": 16,
+   "cap_main_mb": 250
+  },
+  "balloon": {
+   "actual_mb": 0,
+   "final_mb": 0,
+   "guest_available_mb": 13,
+   "requested_mb": 150,
+   "steps": [
+    {
+     "balloon_mb": 0,
+     "guest_available_mb": 13
+    }
+   ],
+   "wait_ms": 152
+  },
+  "ws_before_mb": 2000,
+  "ws_after_mb": 349,
+  "squeeze_ms": 1448,
+  "capped": [
+   42056,
+   47796,
+   33376,
+   39148,
+   35960,
+   33164,
+   49436,
+   30180
+  ]
+ },
+ "app_pid_after_squeeze": "5418",
+ "memory_after_30s": {
+  "id": 1,
+  "ms": 518,
+  "ok": true,
+  "processes": [
+   {
+    "cap_mb": 16,
+    "pid": 42056,
+    "role": "helper",
+    "ws_mb": 14
+   },
+   {
+    "cap_mb": 16,
+    "pid": 47796,
+    "role": "helper",
+    "ws_mb": 13
+   },
+   {
+    "cap_mb": 250,
+    "pid": 33376,
+    "role": "main",
+    "ws_mb": 249
+   },
+   {
+    "cap_mb": 16,
+    "pid": 39148,
+    "role": "helper",
+    "ws_mb": 15
+   },
+   {
+    "cap_mb": 16,
+    "pid": 35960,
+    "role": "helper",
+    "ws_mb": 15
+   },
+   {
+    "cap_mb": 16,
+    "pid": 33164,
+    "role": "helper",
+    "ws_mb": 13
+   },
+   {
+    "cap_mb": 16,
+    "pid": 49436,
+    "role": "helper",
+    "ws_mb": 15
+   },
+   {
+    "cap_mb": 16,
+    "pid": 30180,
+    "role": "helper",
+    "ws_mb": 14
+   }
+  ],
+  "ws_mb": 348
+ },
+ "taps_after": {
+  "n": 20,
+  "with_frame": 20,
+  "p50": 200,
+  "p95": 694,
+  "max": 694
+ },
+ "screenshot_ms": 7,
+ "memory_after_taps": {
+  "id": 1,
+  "ms": 541,
+  "ok": true,
+  "processes": [
+   {
+    "cap_mb": 16,
+    "pid": 42056,
+    "role": "helper",
+    "ws_mb": 14
+   },
+   {
+    "cap_mb": 16,
+    "pid": 47796,
+    "role": "helper",
+    "ws_mb": 13
+   },
+   {
+    "cap_mb": 250,
+    "pid": 33376,
+    "role": "main",
+    "ws_mb": 249
+   },
+   {
+    "cap_mb": 16,
+    "pid": 39148,
+    "role": "helper",
+    "ws_mb": 15
+   },
+   {
+    "cap_mb": 16,
+    "pid": 35960,
+    "role": "helper",
+    "ws_mb": 15
+   },
+   {
+    "cap_mb": 16,
+    "pid": 33164,
+    "role": "helper",
+    "ws_mb": 13
+   },
+   {
+    "cap_mb": 16,
+    "pid": 49436,
+    "role": "helper",
+    "ws_mb": 15
+   },
+   {
+    "cap_mb": 16,
+    "pid": 30180,
+    "role": "helper",
+    "ws_mb": 14
+   }
+  ],
+  "ws_mb": 348
+ },
+ "app_pid": "5418",
+ "guest_mem": "MemTotal:         852416 kB\nMemAvailable:      26796 kB",
+ "mcp": {
+  "has_squeeze": true,
+  "has_memory": true,
+  "memory_ws_mb": 348
+ },
+ "available_min_mb": 8077
+}

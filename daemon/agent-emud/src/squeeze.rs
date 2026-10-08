@@ -143,6 +143,10 @@ pub fn next_target(avail_mb: Option<u64>, target_mb: u64) -> Option<u64> {
     Some(target_mb.saturating_sub(50))
 }
 
+async fn guest_available(d: &Device) -> Option<u64> {
+    d.con.exec("grep MemAvailable /proc/meminfo", Duration::from_secs(10)).await.ok().and_then(|(o, _)| mem_available_mb(&o))
+}
+
 /// Sets the balloon to `mb` and waits until it gets there (95%), stops moving for 5 s, or 90 s pass.
 /// Returns the balloon's actual size in bytes.
 async fn set_balloon(exe: &Path, pipe: &str, mb: u64) -> R<u64> {
@@ -171,23 +175,25 @@ pub async fn squeeze(d: &Device, exe: &Path, boot_pid: u32, o: Opts) -> R<Value>
     let mut balloon = Value::Null;
     if o.balloon_mb > 0 {
         let pipe = format!(r"\\.\pipe\ae-vm-{}", d.idx());
-        let mut target = o.balloon_mb;
-        let mut actual = set_balloon(exe, &pipe, target).await?;
-        // A balloon too big for the guest starves it (896 MB guest, 350 MB balloon: MemAvailable
-        // 8.7 MB, shell calls hang). Give back 50 MB at a time until MemAvailable is over 100 MB.
-        let mut steps = vec![];
-        let avail_mb = loop {
-            let avail = d.con.exec("grep MemAvailable /proc/meminfo", Duration::from_secs(10)).await.ok()
-                .and_then(|(o, _)| mem_available_mb(&o));
-            steps.push(json!({"balloon_mb": target, "guest_available_mb": avail}));
-            match next_target(avail, target) {
-                Some(t) => {
-                    target = t;
-                    actual = set_balloon(exe, &pipe, target).await?;
-                }
-                None => break avail,
+        // A balloon too big for the guest starves it: 896 MB guest at 350 MB gave MemAvailable 8.7 MB and
+        // hung shells; inflating 150 MB in one go let lmkd kill the app under test. So ramp up 50 MB at
+        // a time, read MemAvailable after each step, and step back once it is under 100 MB.
+        let (mut target, mut actual, mut steps) = (0u64, 0u64, vec![]);
+        let mut avail_mb = guest_available(d).await;
+        steps.push(json!({"balloon_mb": 0, "guest_available_mb": avail_mb}));
+        while target < o.balloon_mb && next_target(avail_mb, target + 50).is_none() {
+            target = (target + 50).min(o.balloon_mb);
+            actual = set_balloon(exe, &pipe, target).await?;
+            avail_mb = guest_available(d).await;
+            steps.push(json!({"balloon_mb": target, "guest_available_mb": avail_mb}));
+            if let Some(t) = next_target(avail_mb, target) {
+                target = t;
+                actual = set_balloon(exe, &pipe, target).await?;
+                avail_mb = guest_available(d).await;
+                steps.push(json!({"balloon_mb": target, "guest_available_mb": avail_mb}));
+                break;
             }
-        };
+        }
         balloon = json!({"requested_mb": o.balloon_mb, "final_mb": target, "actual_mb": actual >> 20,
             "guest_available_mb": avail_mb, "steps": steps, "wait_ms": t0.elapsed().as_millis() as u64});
     }

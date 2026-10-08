@@ -47,8 +47,10 @@ try:
     time.sleep(8)
     res["memory_before"] = call("memory"); log("ws before", res["memory_before"]["ws_mb"])
     res["taps_before"] = taps(); log("taps before", res["taps_before"])
+    res["app_pid_before_squeeze"] = call("shell", cmd=f"pidof {PKG}")["out"]
     sq = call("squeeze"); res["squeeze"] = {k: sq[k] for k in ("opts", "balloon", "ws_before_mb", "ws_after_mb", "squeeze_ms", "capped")}
-    log("squeeze", res["squeeze"])
+    res["app_pid_after_squeeze"] = call("shell", cmd=f"pidof {PKG}")["out"]
+    log("squeeze", res["squeeze"], "app pid", res["app_pid_before_squeeze"], "->", res["app_pid_after_squeeze"])
     time.sleep(30)
     res["memory_after_30s"] = call("memory"); log("ws after 30 s", res["memory_after_30s"]["ws_mb"])
     res["taps_after"] = taps(); log("taps after", res["taps_after"])

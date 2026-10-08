@@ -33,7 +33,7 @@ fn tools() -> Value {
                 "follow": {"type": "boolean", "description": "wait up to wait_ms (default 10000) for new lines"}, "wait_ms": num}), &[], false),
         tool("crash_events", "Crash, ANR and native-crash events since boot, each with a seq. Pass `after` = the last seq seen             and wait_ms to block until the next one arrives. filter = package.",
             json!({"filter": {"type": "string"}, "after": {"type": "number"}, "wait_ms": num}), &[], false),
-        tool("squeeze", "Lever B: drop guest caches, inflate the balloon, then hard-cap the working set of each crosvm process of the Device. Call once the app is on screen. MB values; 0 turns a step off. Defaults come from `start` (150 / 250 / 16). The balloon gives back 50 MB at a time until guest MemAvailable is over 100 MB; the reply has the final size.", json!({"balloon_mb": num, "cap_main_mb": num, "cap_helper_mb": num}), &[], false),
+        tool("squeeze", "Lever B: drop guest caches, inflate the balloon, then hard-cap the working set of each crosvm process of the Device. Call once the app is on screen. MB values; 0 turns a step off. Defaults come from `start` (150 / 250 / 16). The balloon grows 50 MB at a time while guest MemAvailable stays over 100 MB; the reply has the final size.", json!({"balloon_mb": num, "cap_main_mb": num, "cap_helper_mb": num}), &[], false),
         tool("memory", "Host working set of the Device's crosvm processes: total MB, and per process the role, MB and hard cap.",
             json!({}), &[], false),
         tool("lease", "Take exclusive input control of a Device.", json!({}), &[], false),
