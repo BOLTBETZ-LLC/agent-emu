@@ -34,7 +34,7 @@ A build-ready spec for a slim Android emulator built for agents to test apps. Th
 
 ## Decisions so far
 
-- [Boot proof spike](issues/13-boot-proof-spike-plan.md): 2026-10-08 10 Android 16 Devices at once ran the proof app at ~445 MB unique host RAM each (slim5 576 MB guest + diet cmdline + crosvm queue fix + working-set caps 200/16). Meets the 600 MB target; not 400.
+- [Boot proof spike](issues/13-boot-proof-spike-plan.md): 2026-10-08 10 Android 16 Devices at once ran the proof app at ~445 MB unique host RAM each (slim5 576 MB guest + diet cmdline + crosvm queue fix + working-set caps 200/16). Meets the 600 MB target; not 400. Also 10 Android 17 (API 37, build 16373615) Devices at once at ~445 MB each (slim5 640 + caps 200/16).
 
 - [crosvm on Windows hypervisor](issues/01-crosvm-on-whpx.md): public crosvm runs on WHPX but is untested there, and its display opens a desktop window. Fork it to add a headless display, gfxstream and a boot test. OpenVMM is the fallback. An API 36 boot is not proven yet.
 - [WHPX memory capabilities](issues/02-whpx-memory-capabilities.md): WHPX can share a read-only base image across VMs. The VMM can build copy-on-write, lazy page fill (x64 `GpaAccessFaultExit`), balloon reclaim and dirty tracking; this PC supports both needed features. There is no KSM-style dedup. Still open: whether Windows page combining reaches guest RAM.
