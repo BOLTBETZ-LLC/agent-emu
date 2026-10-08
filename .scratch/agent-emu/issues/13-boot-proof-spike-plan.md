@@ -163,4 +163,12 @@ Each Device gets its own dir with hard-linked read-only images (one disk copy, o
 
 | Run | Devices | Ready (s) | App alive | Fleet cost | **Per Device** | Summed WS (double-counts) |
 |---|---|---|---|---|---|---|
-| fleet2-pmem | 2 | 34.4 / 44.3 | both, first screens seen by eye | 1,919 MB | **~960 MB** | 4,377 MB |
+| fleet2-pmem | 2 | 34.4 / 44.3 | both, first screens seen by eye | 1,919 MB | ~960 MB | 4,377 MB |
+| fleet2-block (system on a block disk, same DAX kernel) | 2 | 34.0 / 53.0 | both | 682 MB | ~341 MB | 3,679 MB |
+
+**Measurement caveats, found 2026-10-08:**
+- The Available-MBytes delta is noisy on this PC. Other sessions, the WSL VM and Docker all move it.
+- Windows **memory compression** also squeezes idle guest pages. Its store's working set was already 1.6 GB.
+- So block coming out lower than pmem (341 vs 960) is not a real ranking; the two runs were minutes apart with different background load.
+- The Windows PSS walker (`assets/13-fleet/pss.py`, QueryWorkingSetEx) is also unreliable. crosvm maps guest RAM into several of a Device's processes (main + block workers), and `ShareCount` saturates at 7, so it undercounts (~275 MB per Device even though each guest touched 1 GB).
+- **Next runs record three numbers:** Available delta, `\Memory\Committed Bytes` delta, and the Memory Compression working-set delta. They use larger N so noise per Device shrinks.
