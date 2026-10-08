@@ -1,0 +1,58 @@
+{
+ "tag": "dax-kernel-1g",
+ "mem": "1024",
+ "extra": "",
+ "boot_s": 43.6,
+ "pm_ready_s": 43.7,
+ "install": "Success",
+ "launch": "Status: ok\nTotalTime: 2688",
+ "app_pid": "4529",
+ "screenshot": "C:/dev/agent-emu-work/results/dax-kernel-1g/first-screen.png",
+ "guest": "Total RAM:   980,576K (status normal)\n Free RAM:   170,740K (        0K cached pss +   119,992K cached kernel +    50,748K free)\n Used RAM: 1,173,225K (  762,829K used pss +   410,396K kernel)\n           TOTAL PSS:   199626            TOTAL RSS:    24640       TOTAL SWAP PSS:   190211",
+ "host": [
+  {
+   "pid": 13692,
+   "ws_mb": 10,
+   "wspriv_mb": 1,
+   "private_mb": 1,
+   "role": "--block"
+  },
+  {
+   "pid": 39656,
+   "ws_mb": 9,
+   "wspriv_mb": 1,
+   "private_mb": 1,
+   "role": "run"
+  },
+  {
+   "pid": 23908,
+   "ws_mb": 1043,
+   "wspriv_mb": 6,
+   "private_mb": 46,
+   "role": "run"
+  },
+  {
+   "pid": 8368,
+   "ws_mb": 647,
+   "wspriv_mb": 2,
+   "private_mb": 5,
+   "role": "device"
+  },
+  {
+   "pid": 10076,
+   "ws_mb": 101,
+   "wspriv_mb": 1,
+   "private_mb": 4,
+   "role": "device"
+  },
+  {
+   "pid": 21400,
+   "ws_mb": 10,
+   "wspriv_mb": 1,
+   "private_mb": 3,
+   "role": "device"
+  }
+ ],
+ "host_total_ws_mb": 1820,
+ "host_total_private_mb": 60
+}

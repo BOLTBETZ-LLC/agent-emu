@@ -92,3 +92,22 @@ Driver: `assets/13-memory/measure.py`. Each run is a fresh boot, then install, o
   3. slim guest: no SystemUI or launcher;
   4. DAX shared system image (stage 2: kernel building).
 - The first screen was checked by eye at every size. At 2048 the one-time "Viewing full screen" system hint covered the dialog's top half. It is now pre-dismissed with `settings put secure immersive_mode_confirmations confirmed`.
+
+## Stage 2 progress (2026-10-08)
+
+- **DAX kernel built.**
+  - Source: `common-android16-6.12` (6.12.93), built with Kleaf `virtual_device_x86_64_dist` in WSL Ubuntu (12 cores, 16 GB), about 12 min after a 13 GB source sync.
+  - Fragment: `CONFIG_ZONE_DEVICE=y`, `CONFIG_FS_DAX=y`, `CONFIG_VIRT_DRIVERS=y`, `CONFIG_VMGENID=y`. The first build failed with `CONFIG_VMGENID: actual ''`, because `VMGENID` needs `VIRT_DRIVERS`.
+  - `VIRTIO_PMEM` stays `=m` (spec §8). Script and config are in `assets/13-stage2/`.
+- **It boots Android and the proof app.**
+  - Kernel `6.12.93-android16-6-maybe-dirty`; the three options are confirmed in `/proc/config.gz`.
+  - initrd = init_boot ramdisk + vendor ramdisk + the new `initramfs.img`; the new modules win because they come last.
+  - Boot 43.6 s at 1 GB; the app reaches its first screen, seen by eye (`assets/13-stage2/first-screen.png`).
+  - Gap: the old `system_dlkm` modules fail vermagic (`zsmalloc`, `rust_binder`, `rfkill` "disagrees about version of symbol module_layout"). Boot still completes. Fix: swap in the rebuilt `system_dlkm.erofs.img`.
+- **Balloon on Windows:** a control pipe works (`--socket \.\pipe\ae-vm`; use `balloon.ps1`, because Git Bash strips the leading backslash). But `crosvm balloon` returns `unexpected response: error: The specified module could not be found. (os error 126)`. Under investigation.
+- **Still to do for stage 2:**
+  - repack system as uncompressed, non-inline erofs from `target_files` in WSL;
+  - Windows virtio-pmem in the crosvm fork (crosvm's pmem device is Linux-only);
+  - a pmem fstab;
+  - check `S_DAX` in the guest;
+  - measure 2 Devices sharing the image.
