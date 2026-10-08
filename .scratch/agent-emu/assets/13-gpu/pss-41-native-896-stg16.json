@@ -1,0 +1,192 @@
+{
+ "34668": {
+  "processes": {
+   "34668": {
+    "role": "broker",
+    "private_mb": 4,
+    "shared_pss_mb": 3,
+    "shared_rss_mb": 20,
+    "pss_mb": 6
+   },
+   "18376": {
+    "role": "run-metrics --bootstrap 804",
+    "private_mb": 3,
+    "shared_pss_mb": 3,
+    "shared_rss_mb": 19,
+    "pss_mb": 6
+   },
+   "45912": {
+    "role": "run-main --bootstrap 876",
+    "private_mb": 552,
+    "shared_pss_mb": 305,
+    "shared_rss_mb": 2134,
+    "pss_mb": 857
+   },
+   "18844": {
+    "role": "device block --bootstrap 1044",
+    "private_mb": 4,
+    "shared_pss_mb": 173,
+    "shared_rss_mb": 1212,
+    "pss_mb": 177
+   },
+   "20060": {
+    "role": "device block --bootstrap 1240",
+    "private_mb": 4,
+    "shared_pss_mb": 3,
+    "shared_rss_mb": 19,
+    "pss_mb": 6
+   },
+   "47616": {
+    "role": "device block --bootstrap 1420",
+    "private_mb": 4,
+    "shared_pss_mb": 3,
+    "shared_rss_mb": 19,
+    "pss_mb": 6
+   },
+   "42356": {
+    "role": "run-slirp --bootstrap 1508",
+    "private_mb": 4,
+    "shared_pss_mb": 3,
+    "shared_rss_mb": 21,
+    "pss_mb": 7
+   },
+   "10660": {
+    "role": "device net --bootstrap 1680",
+    "private_mb": 4,
+    "shared_pss_mb": 3,
+    "shared_rss_mb": 20,
+    "pss_mb": 6
+   }
+  },
+  "private_mb": 579,
+  "pss_mb": 1071
+ },
+ "20028": {
+  "processes": {
+   "20028": {
+    "role": "broker",
+    "private_mb": 1,
+    "shared_pss_mb": 2,
+    "shared_rss_mb": 14,
+    "pss_mb": 4
+   },
+   "15388": {
+    "role": "run-metrics --bootstrap 816",
+    "private_mb": 3,
+    "shared_pss_mb": 2,
+    "shared_rss_mb": 13,
+    "pss_mb": 5
+   },
+   "33848": {
+    "role": "run-main --bootstrap 884",
+    "private_mb": 29,
+    "shared_pss_mb": 33,
+    "shared_rss_mb": 228,
+    "pss_mb": 62
+   },
+   "43052": {
+    "role": "device block --bootstrap 1040",
+    "private_mb": 1,
+    "shared_pss_mb": 2,
+    "shared_rss_mb": 15,
+    "pss_mb": 3
+   },
+   "47056": {
+    "role": "device block --bootstrap 1228",
+    "private_mb": 1,
+    "shared_pss_mb": 2,
+    "shared_rss_mb": 15,
+    "pss_mb": 3
+   },
+   "42540": {
+    "role": "device block --bootstrap 1420",
+    "private_mb": 2,
+    "shared_pss_mb": 2,
+    "shared_rss_mb": 14,
+    "pss_mb": 4
+   },
+   "40568": {
+    "role": "run-slirp --bootstrap 1504",
+    "private_mb": 3,
+    "shared_pss_mb": 2,
+    "shared_rss_mb": 13,
+    "pss_mb": 5
+   },
+   "31824": {
+    "role": "device net --bootstrap 1688",
+    "private_mb": 2,
+    "shared_pss_mb": 2,
+    "shared_rss_mb": 14,
+    "pss_mb": 4
+   }
+  },
+  "private_mb": 42,
+  "pss_mb": 90
+ },
+ "29292": {
+  "processes": {
+   "29292": {
+    "role": "broker",
+    "private_mb": 4,
+    "shared_pss_mb": 2,
+    "shared_rss_mb": 15,
+    "pss_mb": 6
+   },
+   "11672": {
+    "role": "run-metrics --bootstrap 788",
+    "private_mb": 3,
+    "shared_pss_mb": 2,
+    "shared_rss_mb": 15,
+    "pss_mb": 6
+   },
+   "9368": {
+    "role": "run-main --bootstrap 848",
+    "private_mb": 439,
+    "shared_pss_mb": 173,
+    "shared_rss_mb": 1212,
+    "pss_mb": 612
+   },
+   "40380": {
+    "role": "device block --bootstrap 1008",
+    "private_mb": 4,
+    "shared_pss_mb": 67,
+    "shared_rss_mb": 472,
+    "pss_mb": 72
+   },
+   "33712": {
+    "role": "device block --bootstrap 1200",
+    "private_mb": 4,
+    "shared_pss_mb": 17,
+    "shared_rss_mb": 120,
+    "pss_mb": 21
+   },
+   "40036": {
+    "role": "device block --bootstrap 1384",
+    "private_mb": 4,
+    "shared_pss_mb": 2,
+    "shared_rss_mb": 16,
+    "pss_mb": 6
+   },
+   "17728": {
+    "role": "run-slirp --bootstrap 1460",
+    "private_mb": 5,
+    "shared_pss_mb": 2,
+    "shared_rss_mb": 17,
+    "pss_mb": 7
+   },
+   "49540": {
+    "role": "device net --bootstrap 1644",
+    "private_mb": 4,
+    "shared_pss_mb": 2,
+    "shared_rss_mb": 16,
+    "pss_mb": 6
+   }
+  },
+  "private_mb": 467,
+  "pss_mb": 736
+ },
+ "fleet": {
+  "private_mb": 1088,
+  "pss_mb": 1897
+ }
+}

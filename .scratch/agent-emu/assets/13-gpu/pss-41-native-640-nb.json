@@ -1,0 +1,130 @@
+{
+ "42612": {
+  "processes": {
+   "42612": {
+    "role": "broker",
+    "private_mb": 4,
+    "shared_pss_mb": 2,
+    "shared_rss_mb": 16,
+    "pss_mb": 6
+   },
+   "51124": {
+    "role": "run-metrics --bootstrap 776",
+    "private_mb": 3,
+    "shared_pss_mb": 2,
+    "shared_rss_mb": 15,
+    "pss_mb": 5
+   },
+   "11872": {
+    "role": "run-main --bootstrap 844",
+    "private_mb": 275,
+    "shared_pss_mb": 134,
+    "shared_rss_mb": 935,
+    "pss_mb": 409
+   },
+   "36316": {
+    "role": "device block --bootstrap 1000",
+    "private_mb": 4,
+    "shared_pss_mb": 48,
+    "shared_rss_mb": 336,
+    "pss_mb": 52
+   },
+   "23332": {
+    "role": "device block --bootstrap 1188",
+    "private_mb": 4,
+    "shared_pss_mb": 5,
+    "shared_rss_mb": 38,
+    "pss_mb": 9
+   },
+   "49472": {
+    "role": "device block --bootstrap 1376",
+    "private_mb": 4,
+    "shared_pss_mb": 2,
+    "shared_rss_mb": 16,
+    "pss_mb": 6
+   },
+   "38020": {
+    "role": "run-slirp --bootstrap 1460",
+    "private_mb": 4,
+    "shared_pss_mb": 2,
+    "shared_rss_mb": 17,
+    "pss_mb": 7
+   },
+   "32732": {
+    "role": "device net --bootstrap 1636",
+    "private_mb": 4,
+    "shared_pss_mb": 2,
+    "shared_rss_mb": 16,
+    "pss_mb": 6
+   }
+  },
+  "private_mb": 302,
+  "pss_mb": 500
+ },
+ "26524": {
+  "processes": {
+   "26524": {
+    "role": "broker",
+    "private_mb": 4,
+    "shared_pss_mb": 2,
+    "shared_rss_mb": 15,
+    "pss_mb": 6
+   },
+   "46604": {
+    "role": "run-metrics --bootstrap 816",
+    "private_mb": 3,
+    "shared_pss_mb": 2,
+    "shared_rss_mb": 15,
+    "pss_mb": 6
+   },
+   "37456": {
+    "role": "run-main --bootstrap 888",
+    "private_mb": 130,
+    "shared_pss_mb": 68,
+    "shared_rss_mb": 476,
+    "pss_mb": 198
+   },
+   "912": {
+    "role": "device block --bootstrap 1052",
+    "private_mb": 1,
+    "shared_pss_mb": 4,
+    "shared_rss_mb": 31,
+    "pss_mb": 5
+   },
+   "40356": {
+    "role": "device block --bootstrap 1236",
+    "private_mb": 0,
+    "shared_pss_mb": 4,
+    "shared_rss_mb": 31,
+    "pss_mb": 5
+   },
+   "47512": {
+    "role": "device block --bootstrap 1416",
+    "private_mb": 4,
+    "shared_pss_mb": 2,
+    "shared_rss_mb": 16,
+    "pss_mb": 6
+   },
+   "5432": {
+    "role": "run-slirp --bootstrap 1504",
+    "private_mb": 4,
+    "shared_pss_mb": 2,
+    "shared_rss_mb": 17,
+    "pss_mb": 6
+   },
+   "51000": {
+    "role": "device net --bootstrap 1680",
+    "private_mb": 4,
+    "shared_pss_mb": 2,
+    "shared_rss_mb": 16,
+    "pss_mb": 6
+   }
+  },
+  "private_mb": 150,
+  "pss_mb": 238
+ },
+ "fleet": {
+  "private_mb": 452,
+  "pss_mb": 738
+ }
+}

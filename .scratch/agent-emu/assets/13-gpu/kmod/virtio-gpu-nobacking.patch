@@ -1,0 +1,104 @@
+--- a/drivers/gpu/drm/virtio/virtgpu_object.c	2026-10-08 14:07:01.359248045 -0700
++++ b/drivers/gpu/drm/virtio/virtgpu_object.c	2026-10-08 14:07:48.408647563 -0700
+@@ -61,6 +61,10 @@
+ 	}
+ }
+ 
++static bool nobacking_gpu_only = true;
++module_param(nobacking_gpu_only, bool, 0444);
++MODULE_PARM_DESC(nobacking_gpu_only, "agent-emu: no guest backing for GPU-only 3D textures");
++
+ void virtio_gpu_cleanup_object(struct virtio_gpu_object *bo)
+ {
+ 	struct virtio_gpu_device *vgdev = bo->base.base.dev->dev_private;
+@@ -176,6 +180,23 @@
+ 	return 0;
+ }
+ 
++/* agent-emu: back a GPU-only object once it is shown (prepare_fb), so the host can read it. */
++int virtio_gpu_object_attach_late(struct virtio_gpu_device *vgdev, struct virtio_gpu_object *bo)
++{
++	struct virtio_gpu_mem_entry *ents = NULL;
++	unsigned int nents;
++	int ret;
++
++	if (!bo->nobacking)
++		return 0;
++	ret = virtio_gpu_object_shmem_init(vgdev, bo, &ents, &nents);
++	if (ret)
++		return ret;
++	bo->nobacking = false;
++	virtio_gpu_object_attach(vgdev, bo, ents, nents);
++	return 0;
++}
++
+ int virtio_gpu_object_create(struct virtio_gpu_device *vgdev,
+ 			     struct virtio_gpu_object_params *params,
+ 			     struct virtio_gpu_object **bo_ptr,
+@@ -202,9 +223,20 @@
+ 
+ 	bo->dumb = params->dumb;
+ 
+-	ret = virtio_gpu_object_shmem_init(vgdev, bo, &ents, &nents);
+-	if (ret != 0)
+-		goto err_put_id;
++	/*
++	 * agent-emu: a GPU-only 2D texture (no scanout, cursor, linear, staging or minigbm
++	 * SW/camera/video bits) is never read or written by the guest CPU, and the gfxstream
++	 * host keeps its pixels in a host ColorBuffer. Skip the guest backing: it pinned a
++	 * full-size shmem copy in guest RAM and made gfxstream keep a same-size linear copy.
++	 */
++	if (!(nobacking_gpu_only && params->virgl && !params->blob && params->target == 2 &&
++	      !(params->bind & ((1u << 16) | (1u << 19) | (1u << 22) | 0xff000000u)))) {
++		ret = virtio_gpu_object_shmem_init(vgdev, bo, &ents, &nents);
++		if (ret != 0)
++			goto err_put_id;
++	} else {
++		bo->nobacking = true;
++	}
+ 
+ 	if (fence) {
+ 		ret = -ENOMEM;
+@@ -227,7 +259,8 @@
+ 	} else if (params->virgl) {
+ 		virtio_gpu_cmd_resource_create_3d(vgdev, bo, params,
+ 						  objs, fence);
+-		virtio_gpu_object_attach(vgdev, bo, ents, nents);
++		if (ents)
++			virtio_gpu_object_attach(vgdev, bo, ents, nents);
+ 	} else {
+ 		virtio_gpu_cmd_create_resource(vgdev, bo, params,
+ 					       objs, fence);
+--- a/drivers/gpu/drm/virtio/virtgpu_drv.h	2026-10-08 14:07:48.396724378 -0700
++++ b/drivers/gpu/drm/virtio/virtgpu_drv.h	2026-10-08 14:07:48.409023683 -0700
+@@ -93,6 +93,7 @@
+ 	bool dumb;
+ 	bool created;
+ 	bool host3d_blob, guest_blob;
++	bool nobacking; /* agent-emu: GPU-only, no guest pages until shown */
+ 	uint32_t blob_mem, blob_flags;
+ 
+ 	int uuid_state;
+@@ -457,6 +458,7 @@
+ void virtio_gpu_cleanup_object(struct virtio_gpu_object *bo);
+ struct drm_gem_object *virtio_gpu_create_object(struct drm_device *dev,
+ 						size_t size);
++int virtio_gpu_object_attach_late(struct virtio_gpu_device *vgdev, struct virtio_gpu_object *bo);
+ int virtio_gpu_object_create(struct virtio_gpu_device *vgdev,
+ 			     struct virtio_gpu_object_params *params,
+ 			     struct virtio_gpu_object **bo_ptr,
+--- a/drivers/gpu/drm/virtio/virtgpu_plane.c	2026-10-08 14:07:48.397880893 -0700
++++ b/drivers/gpu/drm/virtio/virtgpu_plane.c	2026-10-08 14:07:48.409088446 -0700
+@@ -322,6 +322,12 @@
+ 	vgfb = to_virtio_gpu_framebuffer(new_state->fb);
+ 	vgplane_st = to_virtio_gpu_plane_state(new_state);
+ 	bo = gem_to_virtio_gpu_obj(vgfb->base.obj[0]);
++	if (bo && bo->nobacking) {
++		int ret = virtio_gpu_object_attach_late(vgdev, bo);
++
++		if (ret)
++			return ret;
++	}
+ 	if (!bo || (plane->type == DRM_PLANE_TYPE_PRIMARY && !bo->guest_blob))
+ 		return 0;
+ 

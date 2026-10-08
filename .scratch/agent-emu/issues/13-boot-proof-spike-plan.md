@@ -1226,3 +1226,17 @@ CPU baseline (issue 10, slim5 720x1080, ANGLE on pastel): HWUI 40-68 ms p50, 50-
 - **RAM:** 1320x2868 at 640 MB guest RAM never got healthy. Boot took 2.5 min; after the app launch, frames stopped, `dumpsys` hung and guest MemAvailable was 27 MB. At 896, MemAvailable is about 20-40 MB and about 230 MB of guest RAM is not in any meminfo counter. That is most likely virtio-gpu guest-backed resources: minigbm says `Supported CAPSET IDs: 552` and uses its virgl backend, not host blobs. Adding `cross-domain` to context-types advertised capset 5, but minigbm still used virgl. Native-res RAM needs blob/host3d buffers in minigbm (issue 07, T24) or the 128 MiB staging-buffer cut, which needs a gfxstream source build because the DLL is prebuilt.
 - **Idle CPU, 4 vCPU:** about 1.2 cores. Guest `top`: `libcuttlefish-rild` 27% plus two `virtio_vsock` kworkers about 7%, so about 0.5 core of guest work. 4-5 host threads take 0.15-0.36 cores each. This is the pre-existing RIL spin and guest vsock retries plus WHPX exits, not gfxstream (no frames while idle). The < 0.1 core target needs the RIL and vsock fixes, and maybe 2 vCPUs.
 - Not measured yet: 8 Devices at once with gfxstream, input -> first frame for HOME, the 2 vCPU variant.
+
+### GPU native-res RAM (2026-10-08, slim5 1320x2868 / 480 dpi, 120 Hz, 4 vCPU, RIL SIGSTOP)
+
+| Config | guest RAM | BoltBetz after 2 min | host PSS |
+|---|---|---|---|
+| stock gfxstream DLL | 896 | alive | 836 MB |
+| + staging 128 -> 16 MiB (DLL binary patch) | 896 | alive | 736 MB |
+| + staging patch | 768 | killed by lmkd (thrashing) | 586 MB (dead app) |
+| + staging patch + guest virtio-gpu no-backing patch | 640 | killed by lmkd | 500 MB (dead app) |
+| **+ staging patch + no-backing patch** | **768** | **alive, Welcome screen, 0 kills** | **630 MB** |
+
+- 120 Hz display (`refresh-rate=120`, `settings put system peak_refresh_rate 120; min_refresh_rate 120`), 896 MB, stock DLL: 117.6 fps scanout over a 10 s carousel drag (gap p50 8.3 ms); swipe -> first frame p50 54 ms / p95 58 ms (76/83 at 60 Hz); idle 0.028 host cores with the RIL stopped (1.17 before).
+- The no-backing patch cut guest Unevictable from about 150 MB to about 87-91 MB. Files, patch and how to apply: `crosvm-gpu/GPU-INTEGRATION.md` "RAM levers"; copies in `assets/13-gpu/kmod/`. Screenshot: `assets/13-gpu/welcome-slim5-768-nobacking-1320x2868.png`.
+- Not done (cut per Aaron): 10-minute soak at 768, fps with both patches, 8 phones at once.
