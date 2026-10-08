@@ -5,7 +5,7 @@
 import argparse, json, mmap, os, socket, struct, time, uuid
 
 X = "C:/dev/agent-emu-work/clone-exp"
-ap = argparse.ArgumentParser(); ap.add_argument("tag"); ap.add_argument("--ids", default="13,14,15"); ap.add_argument("--n", type=int, default=20)
+ap = argparse.ArgumentParser(); ap.add_argument("tag"); ap.add_argument("--ids", default="13,14,15"); ap.add_argument("--n", type=int, default=20); ap.add_argument("--warmup", type=int, default=0)
 a = ap.parse_args(); IDS = [int(i) for i in a.ids.split(",")]
 EV_SYN, EV_KEY, KEY_HOME = 0, 1, 172
 
@@ -35,6 +35,9 @@ for i in IDS:
     flushes = lambda: struct.unpack_from("<Q", fb, 32)[0]
     kbd = open(rf"\\.\pipe\ae-kbd-{i}", "wb", buffering=0)
     ms, misses = [], 0
+    for k in range(a.warmup):  # untimed HOME + relaunch: first-touch costs land here, not in the sample
+        gsh(7100 + i, "am start -W -n com.boltbetz.staging/com.boltbetz.MainActivity >/dev/null", 60); time.sleep(1.5)
+        kbd.write(ev(EV_KEY, KEY_HOME, 1) + ev(EV_SYN, 0, 0) + ev(EV_KEY, KEY_HOME, 0) + ev(EV_SYN, 0, 0)); time.sleep(1.5)
     for k in range(a.n):
         gsh(7100 + i, "am start -W -n com.boltbetz.staging/com.boltbetz.MainActivity >/dev/null", 60); time.sleep(1.5)
         s0 = flushes(); t0 = time.perf_counter()

@@ -414,6 +414,29 @@ Each run: 3 CoW clones (d13-d15) of one template, tap "Try Again" every 10 s, on
 - The gap between private WS (~338) and Available freed (~598) is ~260 MB per clone outside the process working sets. It is likely hypervisor and kernel cost per partition (WHPX/VID, page tables) plus the template share counted once. Not attributed yet.
 - Pass against the 600 MB target by the Available measure (598 MB). It does not pass the 400 MB target.
 
+### Where the ~260 MB per clone outside the working sets goes (2026-10-08, slim4 640 clones from `snapG`)
+
+**Answer: it is not a hidden cost per partition.** A clone's marginal cost is its private working set plus ~6 MB of hypervisor pages. The rest is shared file-backed pages (template `mem` file, pmem system image, crosvm image) that the whole set of clones holds once. Those pages return to Available only when the last clone that maps them exits. Raw data: `assets/13-clone/attrib*.json`, `stopone.ps1`.
+
+- **The 0 / 1 / 3 clone counter sweep was too noisy to use.** During it WSL started (`vmmemWSL` 5,346 MB) and the other worker's crosvm count moved 14 → 8 → 14. The only visible `Hyper-V Hypervisor Partition` / `VM Vid Partition` instance was WSL's (1,572,864 physical pages = 6 GB). Per-partition instances for WHPX partitions in other processes were not visible without elevation.
+- **Clean test: stop one clone at a time**, Available sampled every second just before and after (`stopone.ps1`; other crosvm steady at 14):
+
+| Stop | Clone private WS | Available freed | Hypervisor Total Pages | Nonpaged pool | Committed |
+|---|---|---|---|---|---|
+| d15 (2 still running) | 277 MB | ~280 MB (6,880 → 7,160) | −1,536 (6 MB) | +1 MB | −860 MB |
+| d14 (1 still running) | 270 MB | ~225 MB (6,540 → 6,765) | −1,536 (6 MB) | +6 MB | −790 MB |
+| d13 (last) | 277 MB | ~650 MB (6,720 → 7,400) | −1,536 (6 MB) | +6 MB | −970 MB |
+
+- So the cost per clone ≈ private WS + 6 MB of hypervisor pages: 1,536 pages per partition, the same as `\Hyper-V Hypervisor\Total Pages` moving 62,685 → 64,221 when one more partition existed. Nonpaged pool, paged pool and System Driver Resident do not move per clone. Committed moves ~0.8-1 GB per clone (the `FILE_MAP_COPY` view charge); that is commit, not RAM.
+- **Shared, once per host: ~370 MB** with 3 clones (the extra freed when the last clone stopped). In the 10-clone stop it looked larger: 5,976 − 10 × ~338 − 60 ≈ 2.5 GB. Some of that is noise, and some is more template/pmem pages touched over a 16-minute run with relaunches. Not separated.
+- **Fleet model:** host RAM ≈ shared once (0.4-2.5 GB) + N × (private WS + 6 MB). At the slim4 640 uncapped plateau that is ~345 MB per extra clone.
+- **Step 2 (WHvMapGpaRange flags, file-backed vs private): not applicable.** There are no locked/VID pages per partition outside our working set to remove. The docs only say a mapping "sets a region in the caller's process as the backing memory". `WHvAdviseGpaRange` Pin is the call that "pins the backing memory ... so that it remains resident". crosvm never calls it.
+- **First-input outlier = first touch after restore or idle:**
+  - fresh clone, no warm-up: first HOME 123.9 ms, p95 123.9 ms;
+  - fresh clones with 2 untimed warm-up inputs: first 68.2 / 39.2 ms, p95 60.6 ms;
+  - **3 warmed clones: p50 36.2 ms, p95 50.5 ms, max 53.3 ms** (60 inputs, 0 misses).
+  - Warm samples spread 1.5-53 ms, bunched like frame pacing (a few ~16.7 ms vsync periods). Getting p95 under 50 likely needs a higher display refresh rate or a vsync-independent flush. Not tried.
+
 ### Honest RAM of one squeezed Device (2026-10-08, `assets/13-compress/`)
 
 `compress_probe.py`: d0 (896 MB, slim3 pmem), proof app on its first screen, then the daemon `squeeze` with balloon 0 and caps 250/16. Phase A was 6 min with caps only; phase B was 6 min with caps plus `MEMORY_PRIORITY_VERY_LOW` and EcoQoS on all 8 crosvm processes. One tap every 10 s, one sample every 30 s. Host Available stayed between 5.4 and 11.3 GB in the window (no emergency), but other workers' Devices booted and stopped throughout (`other_brokers` in `result.json`), so every global number below carries their noise.
