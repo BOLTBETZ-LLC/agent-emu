@@ -8,6 +8,7 @@ mod device;
 mod fast;
 mod logs;
 mod mcp;
+mod squeeze;
 
 use base64::Engine;
 use device::{Cfg, Device, R};
@@ -24,6 +25,8 @@ struct State {
     dev: StdMutex<Option<Arc<Device>>>,
     lifecycle: Mutex<()>, // serializes start/stop
     lease: StdMutex<Option<u64>>,
+    /// Squeeze defaults for the running Device, from `start` (lever B).
+    squeeze: StdMutex<squeeze::Opts>,
 }
 
 fn main() {
@@ -36,7 +39,8 @@ fn main() {
 }
 
 async fn serve(addr: String) {
-    let st = Arc::new(State { cfg: Cfg::from_env(), dev: StdMutex::new(None), lifecycle: Mutex::new(()), lease: StdMutex::new(None) });
+    let st = Arc::new(State { cfg: Cfg::from_env(), dev: StdMutex::new(None), lifecycle: Mutex::new(()), lease: StdMutex::new(None),
+        squeeze: StdMutex::new(squeeze::Opts::DEFAULT) });
     let l = TcpListener::bind(&addr).await.expect("bind");
     eprintln!("agent-emud listening on {addr}");
     let conns = AtomicU64::new(1);
@@ -182,9 +186,10 @@ async fn handle(st: &State, conn: u64, req: &Value) -> R<Value> {
             let idx: u32 = devid.strip_prefix('d').and_then(|s| s.parse().ok()).ok_or("device id must be d<N>")?;
             let t0 = Instant::now();
             let avail = device::available_mb();
+            *st.squeeze.lock().unwrap() = squeeze::Opts::from(req, squeeze::Opts::DEFAULT);
             let d = Device::spawn(&st.cfg, idx).await?;
             *st.dev.lock().unwrap() = Some(d.clone());
-            if let Err(e) = d.wait_boot(Duration::from_secs(900)).await {
+            if let Err(e) = d.wait_boot(Duration::from_secs(900), st.cfg.min_avail_mb).await {
                 d.stop().await;
                 *st.dev.lock().unwrap() = None;
                 return Err(e);
@@ -251,6 +256,17 @@ async fn handle(st: &State, conn: u64, req: &Value) -> R<Value> {
                 cursor = Some(cur);
                 tokio::time::sleep(Duration::from_millis(100)).await;
             }
+        }
+        "squeeze" | "memory" => {
+            let pid = d.boot_pid().await.ok_or("Device has no boot process")?;
+            if call == "memory" {
+                return squeeze::memory(pid).await;
+            }
+            if matches!(*st.lease.lock().unwrap(), Some(c) if c != conn) {
+                return Err("busy: Device is leased by another client".into());
+            }
+            let o = squeeze::Opts::from(req, *st.squeeze.lock().unwrap());
+            return squeeze::squeeze(&d, &st.cfg.crosvm(), pid, o).await;
         }
         "crash_events" => {
             // Long poll: events after seq `after`, waiting up to wait_ms for the first one.

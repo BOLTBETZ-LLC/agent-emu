@@ -64,7 +64,7 @@ impl Cfg {
             min_avail_mb: e("AE_MIN_AVAIL_MB", "4000").parse().unwrap_or(4000),
         }
     }
-    fn crosvm(&self) -> PathBuf {
+    pub fn crosvm(&self) -> PathBuf {
         self.work.join("crosvm-pmem/target/release/crosvm.exe")
     }
 }
@@ -305,9 +305,14 @@ impl Device {
     }
 
     /// Poll until sys.boot_completed and dev.bootcomplete, then apply the v1 Device settings.
-    pub async fn wait_boot(&self, limit: Duration) -> R<()> {
+    /// Aborts when host Available memory falls under `min_avail_mb` while booting.
+    pub async fn wait_boot(&self, limit: Duration, min_avail_mb: u64) -> R<()> {
         let end = Instant::now() + limit;
         loop {
+            let avail = available_mb();
+            if avail < min_avail_mb {
+                return Err(format!("host Available {avail} MB < {min_avail_mb} MB during boot; stopped"));
+            }
             if let Ok((o, _)) = self.con.exec("getprop sys.boot_completed; getprop dev.bootcomplete", Duration::from_secs(20)).await {
                 if o.split_whitespace().collect::<Vec<_>>() == ["1", "1"] {
                     break;
@@ -344,6 +349,15 @@ impl Device {
     /// Scanout frames posted so far (0 without the fast path).
     pub fn frame_seq(&self) -> u64 {
         self.fb.get().map_or(0, |f| f.seq())
+    }
+
+    pub fn idx(&self) -> u32 {
+        self.idx
+    }
+
+    /// pid of the boot powershell, the parent of this Device's crosvm broker.
+    pub async fn boot_pid(&self) -> Option<u32> {
+        self.boot.lock().await.as_ref().and_then(|c| c.id())
     }
 
     pub async fn stop(&self) {
