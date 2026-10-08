@@ -2,14 +2,15 @@
 # first screen, then squeezed), then a screenshot and `memory` per Device, the MCP tool list, `fleet_stop`.
 # The daemon refuses the next boot under 4000 MB Available; host Available is also logged every 30 s here.
 # usage: [AE_FLEET_N=2] [AE_FLEET_BASE=0] [AE_SMOKE_IMAGE=slim5] [AE_SMOKE_MEM=640] [AE_SMOKE_NET=0]
-#        [AE_CROSVM_DIR=crosvm-diet] [AE_ALLOW_OTHER_CROSVM=1 when other workers run VMs] python fleet_smoke.py [out_dir]
+#        [AE_CAP_MAIN=200] [AE_CAP_HELPER=16] [AE_CROSVM_DIR=crosvm-diet] [AE_ALLOW_OTHER_CROSVM=1 when other workers run VMs] python fleet_smoke.py [out_dir]
 import base64, json, os, socket, subprocess, sys, threading, time
 
 D = os.path.dirname(os.path.abspath(__file__)); EXE = f"{D}/target/release/agent-emud.exe"
 OUT = sys.argv[1] if len(sys.argv) > 1 else "C:/dev/agent-emu-work/results/fleet-daemon"; os.makedirs(OUT, exist_ok=True)
 N, BASE = int(os.environ.get("AE_FLEET_N", "2")), int(os.environ.get("AE_FLEET_BASE", "0"))
 OPTS = {"n": N, "base": BASE, "image": os.environ.get("AE_SMOKE_IMAGE", "slim4"), "net": os.environ.get("AE_SMOKE_NET", "1") != "0",
-        "auto_squeeze": True, "cap_main_mb": 250, "cap_helper_mb": 16}
+        "auto_squeeze": True, "cap_main_mb": int(os.environ.get("AE_CAP_MAIN", "250")),
+        "cap_helper_mb": int(os.environ.get("AE_CAP_HELPER", "16"))}
 if os.environ.get("AE_SMOKE_MEM"): OPTS["mem"] = int(os.environ["AE_SMOKE_MEM"])
 
 def log(*a): print(time.strftime("%H:%M:%S"), *a, flush=True)

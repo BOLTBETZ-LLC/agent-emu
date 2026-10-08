@@ -4,7 +4,7 @@
 #            `am start` between rounds, which is not timed).
 # 20 inputs each, before and after `squeeze`. Host Available is logged every 30 s; the daemon stops a boot
 # under 4000 MB. Stops d0.
-# usage: [AE_SMOKE_IMAGE=slim4] [AE_SMOKE_MEM=704] [AE_SMOKE_NET=0] python frame_smoke.py [out_dir]
+# usage: [AE_SMOKE_IMAGE=slim4] [AE_SMOKE_MEM=704] [AE_SMOKE_NET=0] [AE_CAP_MAIN=200] [AE_CROSVM_DIR=crosvm-diet] python frame_smoke.py [out_dir]
 import base64, json, os, socket, subprocess, sys, threading, time
 
 D = os.path.dirname(os.path.abspath(__file__)); EXE = f"{D}/target/release/agent-emud.exe"; W = "C:/dev/agent-emu-work"
@@ -60,7 +60,7 @@ try:
     call("shell", cmd=f"am start -W -n {ACT}"); time.sleep(8)
     open(f"{OUT}/first-screen.jpg", "wb").write(base64.b64decode(call("screenshot")["frame"]["jpeg"]))
     res["before"] = rounds(); log("before", {k: v for k, v in res["before"].items() if k != "raw"})
-    sq = call("squeeze", cap_main_mb=250, cap_helper_mb=16); res["squeeze"] = {k: sq[k] for k in ("ws_before_mb", "ws_after_mb")}
+    sq = call("squeeze", cap_main_mb=int(os.environ.get("AE_CAP_MAIN", "250")), cap_helper_mb=int(os.environ.get("AE_CAP_HELPER", "16"))); res["squeeze"] = {k: sq[k] for k in ("ws_before_mb", "ws_after_mb")}
     time.sleep(30)
     res["after"] = rounds(); log("after", {k: v for k, v in res["after"].items() if k != "raw"})
     open(f"{OUT}/end.jpg", "wb").write(base64.b64decode(call("screenshot")["frame"]["jpeg"]))
