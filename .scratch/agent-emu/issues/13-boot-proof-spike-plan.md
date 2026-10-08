@@ -1026,3 +1026,38 @@ Goal: stop the app's own code refaulting from non-DAX `/data`, while it stays a 
 - zram off at 640 was not run, because 768 already fails without swap.
 - **Why no-swap still fails at 768:** the remaining file pages are not DAX. In the 768 app's smaps the top file mappings are `/apex/com.google.cf.vulkan` 18 MB (loop on `/data`), `/product/app` 11 MB, and `/apex/com.android.art` 9.7 MB (decompressed apex on `/data`). system_server maps 53 MB from `/system_ext/priv-app`.
 - **Next lever:** put `system_ext`, `product` and `vendor` on pmem too. They are already uncompressed erofs, but are dm-linear on super with hashtree; the change is a first-stage fstab like `/system`. The APEXes are harder, because their loop devices are never DAX.
+
+### slim4dax2: system_ext, product, vendor on pmem DAX; APEXes uncompressed (2026-10-08)
+
+**Partitions on pmem:**
+- `fstab_overlay2.py` (`AE_PMEM_MAP=system=0,system_ext=2,product=3,vendor=4`) rewrites each partition's first-stage erofs line to `/dev/block/pmemN /<part> erofs ro,dax=always wait,first_stage_mount`, dropping `logical` and avb. pmem1 stays the appdax image.
+- The images are the tree's own `IMAGES/{system_ext,product,vendor}.img`, already uncompressed chunk-based erofs; the trailing hashtree is ignored. Padded to 2 MiB: `stage2/slim4dax2/{system_ext,product,vendor}-pmem.img` (203 / 296 / 180 MB).
+- crosvm order: `--pmem` system, app, system_ext, product, vendor.
+- Kernel log: `__mount(source=/dev/block/pmem3,target=/product,type=erofs)=0: Success`, and the same for pmem2 `/system_ext`, pmem4 `/vendor` and pmem0 `/system`.
+
+**ART APEX:**
+- Android 16 apexd has no flattened-APEX mode: no `flattened` / `ro.apex.updatable` strings in `/system/bin/apexd`. So an APEX payload cannot be DAX-mapped; it is always a loop-mounted image.
+- What was done: every `/system/apex/*.capex` (26) is replaced by its `original_apex` entry (the signed `.apex`, extracted with `unzip`), so apexd loop-mounts from `/system` on pmem. Nothing is decompressed into `/data/apex/decompressed` any more (0 `apexd ... decompress` lines in the boot log). system grew 925 → 1,086 MB (shared pmem).
+- In the app's smaps, `/apex/com.android.art` is now on a loop device backed by `/system` (`07:238`, 7 MB RSS) instead of dm over `/data` (`fe:4c`). These pages still sit in the loop device's page cache, not DAX.
+
+**Build:**
+- slim4dax2 = slim4dax (zram on + appdax) + uncompressed APEXes; `stage2/slim4dax2/edits.sh`, `build.sh`, `initrd-dax-pmem2.img`; run dir `run-slim4dax2`.
+- No-swap variant: the same run dir with `vendor-pmem.img` = slim4nsdax's vendor (no zram, no-swap lmkd props, appdax; `vendor-ns.sh`). Run dir `run-slim4nsdax2`. Because `/vendor` now comes from its own pmem image, only that image differs.
+- Soak runner: `soakrun.sh` with `MORE_PMEM` for the three partition images.
+
+**10-min soaks** (a tap every 20 s, force-stop + relaunch at minute 5). Every end screenshot was seen by eye and shows the offline dialog.
+
+| Image | `--mem` | Survives | MemAvailable min | pswpin / pswpout | kswapd steals | file refaults |
+|---|---|---|---|---|---|---|
+| slim4dax (app DAX only) | 640 | yes | 14 MB | 255,764 / 272,526 | 478,698 | 113,973 |
+| **slim4dax2** | **640** | **yes** (relaunch 845 ms) | 11 MB | 101,819 / 118,293 | 192,897 (−60 %) | **32,175 (−72 %)** |
+| slim4dax2 | 576 | yes (relaunch 664 ms) | 10 MB | 316,228 / 326,344 | 533,121 | 103,932 |
+| slim4nsdax2 (no swap) | 768 | **no**: lmkd killed TOP right after launch, `thrashing (5407%)` (slim4nsdax: 17610 %) | n/a | 0 / 0 | n/a | n/a |
+| slim4ns (reference) | 896 | yes | 16 MB | 0 / 0 | 1,055,425 | 893,366 |
+
+- `run-slim4dax2/READY` = `640`: the smallest size with low churn.
+  - Refaults are 3.6 % of slim4ns at 896.
+  - Swap traffic is ~400 MB each way per 10 min, versus ~1.2 GB at 576.
+- 576 survives, but swaps ~1.2 GB each way.
+- **No swap still fails at 768.** The file side is now mostly DAX, but anon does not fit: the app is ~218 MB RSS and mostly anon, plus system_server and the kernel, in 724 MB with nothing to reclaim anon into. Without swap the floor stays at 896.
+- What is left in page cache: the APEX loop devices (ART 7 MB in the app), `/data` app data, and dalvik-cache.
