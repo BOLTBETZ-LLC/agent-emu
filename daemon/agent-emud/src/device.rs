@@ -33,11 +33,12 @@ const PARTS: &str = "misc:misc.img:writable frp:frp.img:writable boot_a:boot.img
 // its "keeps stopping" dialog can cover the app. Never `pm disable-user` it: the next airplane-mode
 // change makes BluetoothManagerService unbind a service it never bound, and system_server crash-loops.
 // log.tag.RIL S: the RIL logs "Can't connect to port:9600d" (no modem simulator) ~40 MB a minute.
-// renice 19 on the RIL: it spins ~32% of a vCPU retrying a modem that isn't there; stopped, HWUI frames went
-// 40 -> 23 ms p50 (issue 10). Never `ctl.stop vendor.ril-daemon`: com.android.phone then hangs waiting for
-// the radio HAL and ANR-restarts every ~45 s. Lowest priority keeps the service up but off the UI's CPU.
+// SIGSTOP the RIL: it spins ~31% of a vCPU retrying a modem that isn't there, over vsock (~4,900 virtio18
+// rx and tx interrupts/s each), which cost the host ~1 core per idle Device (2026-10-08: 1.07 -> 0.04 cores;
+// BoltBetz launched after, no ANR or crash). renice alone left the vsock storm. Never `ctl.stop
+// vendor.ril-daemon`: com.android.phone then hangs waiting for the radio HAL and ANR-restarts every ~45 s.
 const SETUP: &str = "settings put global hide_error_dialogs 1; \
-    am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS; setprop log.tag.RIL S; for t in $(ls /proc/$(pidof libcuttlefish-rild)/task 2>/dev/null); do renice -n 19 -p $t; done >/dev/null 2>&1; \
+    am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS; setprop log.tag.RIL S; kill -STOP $(pidof libcuttlefish-rild) 2>/dev/null; \
     cmd connectivity airplane-mode enable; settings put global window_animation_scale 0; \
     settings put global transition_animation_scale 0; settings put global animator_duration_scale 0; \
     svc power stayon true; input keyevent KEYCODE_WAKEUP; wm dismiss-keyguard; \
@@ -662,6 +663,7 @@ mod tests {
         assert_eq!(image("phone-n").unwrap(), ("run-phone-n", Some("2048")));
         assert!(is_phone("phone") && is_phone("phone-n") && !is_phone("") && SETUP.contains("cmd connectivity airplane-mode enable; "));
         assert!(SETUP.contains(PHONE_NET_FROM), "the phone network swap must match SETUP");
+        assert!(SETUP.contains("kill -STOP $(pidof libcuttlefish-rild)"), "an idle Device must not spin on the RIL");
         let cfg = Cfg { work: PathBuf::from("W"), mem: "896".into(), cpus: "2".into(), min_avail_mb: 4000, crosvm_dir: "crosvm-diet".into() };
         assert_eq!(cfg.crosvm(), PathBuf::from("W/crosvm-diet/target/release/crosvm.exe"));
         assert!(DIET_PARAMS.contains("virtio_blk.num_request_queues=1") && DIET_PARAMS.contains("transparent_hugepage=never"));

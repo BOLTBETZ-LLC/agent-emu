@@ -100,14 +100,15 @@ es.onmessage = (m) => { const e = JSON.parse(m.data); /* switch (e.type) */ };
 | `snapshot` | first message: the `status` reply (`devices`, `available_mb`) |
 | `device` | `device, phase, t_s` (seconds since start). Phases: `spawning` (with `info`: image, mem, cpus, screen) -> `booting` (crosvm and kernel) -> `android` (the guest shell answers) -> `setup` (boot completed, settings applied) -> `ready`; `stopped` after a stop or a failed boot |
 | `job` | `job, call, device, state` (`running`, `done`, `failed`), `result` or `error`, `ms` |
-| `metrics` | once a second: `available_mb`, `devices: [{id, phase, ready, uptime_s, scanout_fps, sent_fps, streams, input_p50_ms, input_n, ws_mb, own_mb, shared_mb}]` |
+| `metrics` | once a second: `available_mb`, `devices: [{id, phase, ready, uptime_s, activity, scanout_fps, sent_fps, streams, input_p50_ms, input_n, ws_mb, own_mb, shared_mb}]` |
 | `crash` | `device, event` (as in `crash_events`: `kind` crash, anr or native, `process`, `seq`, ...) |
 | `error` | `device, call, error` (a failed start, for example) |
 | `lagged` | `missed`: the client fell behind and that many events were dropped |
 
 Metrics fields:
 
-- `scanout_fps`: frames the guest posted in the last second. It is 0 while the screen is still.
+- `activity`: `idle` when the guest posted no frame in the last second (nothing changed on screen), else `rendering`. Show "idle", not "0 fps", for a still screen.
+- `scanout_fps`: frames the guest posted in the last second (the rendering rate while `activity` is `rendering`).
 - `sent_fps`: frames sent to all stream clients of that Device in the last second.
 - `streams`: open `/frames` and `/mux` feeds.
 - `input_p50_ms`: median time from input to the first new frame, over the last 50 taps and swipes (`input_n`).
@@ -117,7 +118,7 @@ Example:
 
 ```
 data: {"type":"device","device":"d0","phase":"android","t_s":14.2,"ts":1791489708000}
-data: {"type":"metrics","available_mb":8906,"devices":[{"id":"d0","phase":"ready","ready":true,"uptime_s":61,"scanout_fps":58.9,"sent_fps":30.0,"streams":1,"input_p50_ms":21,"input_n":12,"ws_mb":624,"own_mb":373,"shared_mb":251}],"ts":1791489760000}
+data: {"type":"metrics","available_mb":8906,"devices":[{"id":"d0","phase":"ready","ready":true,"uptime_s":61,"activity":"rendering","scanout_fps":58.9,"sent_fps":30.0,"streams":1,"input_p50_ms":21,"input_n":12,"ws_mb":624,"own_mb":373,"shared_mb":251}],"ts":1791489760000}
 data: {"type":"job","job":"j1","call":"start","device":"d0","state":"done","result":{"ok":true,"device":"d0","ready_s":48.1},"ms":48120,"ts":1791489742000}
 ```
 
