@@ -217,3 +217,10 @@ Each Device gets its own dir with hard-linked read-only images (one disk copy, o
 - **Honest host RAM per capped Device: ~615 MB** (435 WS + ~180 compressed). Not ≤400 yet.
 - The Available delta is unusable here: two other workers started and stopped Devices during the run.
 - Next: inflate the balloon before capping, so pages the guest gives back are unmapped and discarded instead of compressed, and tighten the caps (`fleet_squeeze.py`).
+
+### Balloon on a running app guest, and squeeze in agent-emud (2026-10-08)
+
+- **A 350 MB balloon on 6 running 896 MB guests starved them:** guest MemAvailable 8.7 MB, then 0; shell calls hung; the run (squeeze6) gave no numbers. A 150 MB one-step inflate on d0 got the app killed by lmkd.
+- **With the app up, the 896 MB guest has nothing to balloon:** MemAvailable is 13 MB after `drop_caches`. The balloon now grows 50 MB at a time and stops before guest MemAvailable drops under 100 MB, so here it stays at 0.
+- **agent-emud `squeeze` / `memory`** (`e28ce65`, `12078ba`): d0 went from 1,999 MB to 349 MB working set (cap 250 main / 16 helpers), app alive, first screen seen by eye (`assets/13-squeeze-daemon/after-squeeze.jpg`). Tap to first frame on the offline "Try Again" button: p50/p95 188/1,392 ms before, 200/694 ms after.
+- Still not counted: what the cap pushed into the compression store. A worker is measuring that now.
