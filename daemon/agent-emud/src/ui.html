@@ -629,7 +629,7 @@ function renderBudget() {
   const mem = (id) => S.m[id] && S.m[id].own_mb != null ? S.m[id] : null;
   const own = running.reduce((a, id) => a + (mem(id) ? mem(id).own_mb : 0), 0);
   const shared = Math.max(0, ...running.map(id => mem(id) ? mem(id).shared_mb : 0));
-  const total = own + shared + S.avail, floor = 4000;
+  const total = own + shared + S.avail, floor = 1500;
   const per = own ? own / running.filter(mem).length : 650;
   const room = Math.max(0, Math.floor((S.avail - floor) / Math.max(400, per)));
   bar.innerHTML = running.map(id => mem(id) ? `<div class="seg dev ${S.devs[id].ready ? "" : "booting"}" style="flex-basis:${100 * mem(id).own_mb / total}%" title="${id}: ${mem(id).own_mb} MB own"></div>` : "").join("")

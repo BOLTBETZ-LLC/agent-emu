@@ -68,7 +68,7 @@ impl Cfg {
             work: PathBuf::from(e("AE_WORK", "C:/dev/agent-emu-work")),
             mem: e("AE_MEM", "896"),
             cpus: e("AE_CPUS", "2"),
-            min_avail_mb: e("AE_MIN_AVAIL_MB", "4000").parse().unwrap_or(4000),
+            min_avail_mb: e("AE_MIN_AVAIL_MB", "1500").parse().unwrap_or(1500),
             crosvm_dir: e("AE_CROSVM_DIR", "crosvm-pmem"),
         }
     }
