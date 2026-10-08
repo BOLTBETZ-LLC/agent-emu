@@ -328,12 +328,12 @@
         <summary><svg class="i chev"><use href="#i-chev"/></svg>Start Devices<span class="aside" id="startaside"></span></summary>
         <div class="secbody">
           <div class="field"><span>Image</span><select id="s_image">
-            <option value="phone-n">Full phone, ~2 GB</option>
-            <option value="phone">Full phone, stock</option>
-            <option value="slim5">Lean, ~640 MB</option>
-            <option value="slim4">Lean, ~700 MB</option>
-            <option value="">Lean, ~900 MB (default)</option>
-            <option value="slim3">Lean, ~900 MB (older)</option>
+            <option value="slim5" selected>Lean iPhone, 640 MB RAM</option>
+            <option value="slim4">Lean iPhone, 704 MB RAM</option>
+            <option value="">Lean iPhone, 900 MB RAM (older default)</option>
+            <option value="slim3">Lean iPhone, 900 MB RAM (oldest)</option>
+            <option value="phone-n">Full phone, 2048 MB RAM</option>
+            <option value="phone">Full phone stock, 2048 MB RAM</option>
           </select></div>
           <div class="note" id="imgnote"></div>
           <div class="field"><span>Screen</span><select id="s_screen">
@@ -347,7 +347,7 @@
           <div class="field"><span>CPU cores</span><input id="s_cpus" inputmode="numeric" value="2"></div>
           <div class="checks">
             <label><input type="checkbox" id="s_net" checked> Network</label>
-            <label><input type="checkbox" id="s_openapp"> Open BoltBetz after boot</label>
+            <label><input type="checkbox" id="s_openapp" checked> Open BoltBetz after boot</label>
             <label><input type="checkbox" id="s_squeeze"> Save RAM <small>after the first app launch</small></label>
           </div>
           <div class="startrow">
@@ -707,7 +707,7 @@ function openMux() {
   if (document.hidden) return;
   const tiles = IDS.filter(id => id !== S.sel).join(",");
   readStream(`${BASE}/mux?devices=${tiles}&max_width=${tileWidth()}&fps=${TILE_FPS}&quality=60`, null);
-  if (S.sel) readStream(`${BASE}/frames?device=${S.sel}&fps=30`, S.sel);
+  if (S.sel) readStream(`${BASE}/frames?device=${S.sel}&fps=60`, S.sel);
 }
 document.addEventListener("visibilitychange", openMux);
 // /mux records carry the device number (24-byte head); /frames records are one Device's (20-byte head).
