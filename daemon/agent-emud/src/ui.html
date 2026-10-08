@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>agent-emu</title>
 <style>
-  /* Bench ramp: every neutral comes from these ten steps (cool, slightly green, like lab epoxy). */
+  /* Bench ramp: every neutral comes from these ten graphite steps; only the reagents carry hue. */
   :root {
-    --z0:#080b0c; --z1:#0e1314; --z2:#141a1c; --z3:#1b2326; --z4:#243034; --z5:#334247;
-    --z6:#55666c; --z7:#8b9ca1; --z8:#bccacd; --z9:#eaf1f2;
+    --z0:#09090a; --z1:#101112; --z2:#161719; --z3:#1e1f22; --z4:#2a2b2e; --z5:#3a3b3f;
+    --z6:#5f6166; --z7:#95979c; --z8:#c4c6ca; --z9:#eeeff0;
     /* Reagents: a well's rim says its state. */
     --amber:#f4b73f; --amber-ink:#2a1d02; --teal:#3fd6b4; --teal-ink:#032a21; --red:#ff6f61; --red-ink:#2e0805;
     --blue:#7fb2ff;
@@ -19,7 +19,7 @@
     /* Phone size in a well: two rows fill the height under the top bar. */
     --ph:max(250px, calc((100dvh - var(--top) - 2*var(--pad) - var(--gap) - 2*(var(--tape) + var(--acts) + 2*var(--wellpad) + 18px)) / 2));
     --pw:calc(var(--ph) * 1320 / 2868);
-    --panel:clamp(340px, 17vw, 440px);
+    --panel:clamp(360px, 18vw, 460px);
     color-scheme:dark;
   }
   @property --p { syntax:"<number>"; inherits:true; initial-value:0; }
@@ -67,7 +67,7 @@
   #brand { font-family:var(--label); font-weight:700; font-size:19px; letter-spacing:.01em; display:flex; align-items:center; gap:9px; }
   #brand .dot { width:9px; height:9px; border-radius:50%; background:var(--teal); box-shadow:0 0 0 3px color-mix(in srgb, var(--teal) 22%, transparent); }
   #brand.off .dot { background:var(--red); box-shadow:0 0 0 3px color-mix(in srgb, var(--red) 22%, transparent); }
-  #budget { flex:1; min-width:220px; max-width:760px; display:grid; gap:4px; }
+  #budget { flex:0 1 760px; min-width:220px; display:grid; gap:4px; }
   #budget .bar { position:relative; height:10px; border-radius:5px; background:var(--z1); border:1px solid var(--z4); display:flex; overflow:hidden; }
   #budget .seg { height:100%; transition:flex-basis .25s ease-out; }
   #budget .seg.dev { background:var(--teal); border-right:1px solid var(--z2); }
@@ -78,7 +78,7 @@
   #budget .cap { display:flex; gap:14px; font-size:12px; color:var(--z7); white-space:nowrap; }
   #budget .cap b { color:var(--z9); font-weight:600; }
   #budget .cap .warn { color:var(--amber); }
-  #say { flex:0 1 420px; min-width:0; font-size:13px; color:var(--z7); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:right; }
+  #say { flex:1; min-width:0; font-size:13px; color:var(--z7); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:right; }
   #say.err { color:var(--red); }
   #top .grp { display:flex; gap:8px; align-items:center; }
 
@@ -90,13 +90,14 @@
   body.stage-closed #stage { display:none; }
 
   /* ---------- the plate: 8 wells, 2 rows of 4 ---------- */
-  #plate { display:grid; grid-template-columns:repeat(4, max-content); grid-template-rows:repeat(2, max-content); gap:var(--gap); align-content:start; }
+  #plate { display:grid; grid-template-columns:repeat(4, max-content); grid-template-rows:repeat(2, max-content); gap:10px; align-content:start;
+    padding:6px; margin:-6px; border-radius:18px; background:var(--z0); box-shadow:inset 0 1px 3px rgba(0,0,0,.6); }
   .well { position:relative; width:calc(var(--pw) + 8px + 2*var(--wellpad) + 2px); display:grid; grid-template-rows:var(--tape) auto var(--acts); gap:4px; padding:var(--wellpad); border-radius:14px;
     background:var(--z2); border:1px solid var(--z4); transition:transform .18s cubic-bezier(.2,.7,.2,1), box-shadow .18s, border-color .18s; }
-  .well.sel { border-color:var(--z6); box-shadow:0 10px 28px -10px rgba(0,0,0,.8), 0 0 0 1px var(--z6); transform:translateY(-2px); }
+  .well.sel { border-color:var(--z6); box-shadow:0 10px 28px -10px rgba(0,0,0,.8), 0 0 0 1px var(--z6); transform:translateY(-5px); }
   .well.drop { border-color:var(--blue); box-shadow:0 0 0 2px var(--blue); }
   .tape { display:flex; align-items:center; gap:6px; min-width:0; font-size:12.5px; }
-  .tape .id { font-family:var(--label); font-weight:700; font-size:15px; padding:0 8px; height:22px; display:inline-flex; align-items:center; border-radius:4px;
+  .tape .id { font-family:var(--label); font-weight:700; font-size:15px; padding:0 8px; height:22px; display:inline-flex; align-items:center; border-radius:1px;
     background:var(--z8); color:var(--z1); cursor:pointer; border:0; }
   .well.sel .tape .id { background:var(--z9); }
   .badge { font-family:var(--label); font-stretch:semi-condensed; font-weight:600; font-size:12px; letter-spacing:.03em; text-transform:uppercase;
@@ -134,12 +135,13 @@
     text-align:center; font-size:13px; color:var(--z7); border-radius:12.5% / 5.75%; }
   .veil .big { font-family:var(--label); font-size:17px; font-weight:600; color:var(--z9); }
   .veil .num { font-family:var(--label); }
+  .veil .raw { font:11px/1.4 var(--mono); color:var(--z7); word-break:break-all; max-height:5.6em; overflow:hidden; }
   [data-state=failed] .veil { color:var(--z8); background:color-mix(in srgb, var(--red) 6%, var(--z0)); }
   [data-state=failed] .veil .big { color:var(--red); }
   .veil .row { display:flex; gap:6px; flex-wrap:wrap; justify-content:center; }
   .veil.over { background:color-mix(in srgb, var(--z0) 84%, transparent); }
   .touch { position:absolute; width:26px; height:26px; margin:-13px 0 0 -13px; border-radius:50%; pointer-events:none;
-    border:2px solid var(--z9); background:color-mix(in srgb, var(--z9) 25%, transparent); animation:touch .45s ease-out forwards; }
+    border:2px solid var(--z9); background:color-mix(in srgb, var(--z9) 25%, transparent); animation:touch .6s ease-out forwards; }
   .touch.swipe { border-color:var(--blue); background:color-mix(in srgb, var(--blue) 25%, transparent); }
   @keyframes touch { from { transform:scale(.6); opacity:1; } to { transform:scale(1.6); opacity:0; } }
   .flash { position:absolute; inset:0; background:#fff; pointer-events:none; animation:flash .3s ease-out forwards; }
@@ -148,6 +150,7 @@
   .acts .sep { width:1px; height:18px; background:var(--z4); margin:0 3px; }
   .acts .end { margin-left:auto; display:flex; gap:2px; }
   .acts .btn { color:var(--z8); width:26px; }
+  [data-state=empty] .acts [data-act=stop], [data-state=failed] .acts [data-act=stop] { visibility:hidden; }
   .acts { min-width:0; }
   [data-state=empty] .acts .live, [data-state=queued] .acts .live, [data-state=booting] .acts .live, [data-state=failed] .acts .live, [data-state=stopping] .acts .live { visibility:hidden; }
   .well .status { position:absolute; left:var(--wellpad); right:var(--wellpad); bottom:calc(var(--acts) + var(--wellpad) + 10px); margin:0 10px;
@@ -194,7 +197,7 @@
   details.sec > summary:hover { background:var(--z3); }
   details.sec > summary .aside { margin-left:auto; font-family:var(--ui); font-weight:400; font-size:12.5px; color:var(--z7); }
   .secbody { padding:4px 14px 16px; display:grid; gap:10px; }
-  .field { display:grid; grid-template-columns:96px minmax(0,1fr); align-items:center; gap:10px; }
+  .field { display:grid; grid-template-columns:76px minmax(0,1fr); align-items:center; gap:10px; }
   .field > span { color:var(--z7); font-size:13px; }
   .field.top { align-items:start; }
   .field.top > span { padding-top:6px; }
@@ -202,8 +205,8 @@
   .checks { display:grid; gap:7px; }
   .checks label { display:flex; align-items:center; gap:9px; font-size:13.5px; cursor:pointer; }
   .checks label small { color:var(--z7); font-size:12.5px; }
-  .seg2 { display:inline-flex; gap:2px; padding:2px; border:1px solid var(--z5); border-radius:8px; }
-  .seg2 button { height:26px; padding:0 12px; border:0; border-radius:5px; background:transparent; color:var(--z8); font-weight:550; }
+  .seg2 { display:inline-flex; gap:2px; padding:4px; border:1px solid var(--z5); border-radius:8px; }
+  .seg2 button { height:24px; padding:0 12px; border:0; border-radius:5px; background:transparent; color:var(--z8); font-weight:550; }
   .seg2 button[aria-pressed=true] { background:var(--z5); color:var(--z9); }
   .seg2 button:not([aria-pressed=true]):hover { background:var(--z3); }
   .startrow { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
@@ -230,6 +233,7 @@
   .issuesum b { color:var(--z9); }
 
   /* Narrow windows: the panel floats over the stage instead of taking a column. */
+  @media (max-width: 2200px) { #stage { grid-template-columns:minmax(0,1fr) 196px; } }
   @media (max-width: 1500px) {
     :root { --panel:360px; }
     #main { grid-template-columns:max-content minmax(0,1fr) 48px; }
@@ -274,8 +278,9 @@
   </div>
   <div id="say" role="status" aria-live="polite"></div>
   <div class="grp">
+    <button class="btn primary" id="topstart" title="Start the next empty well with the Start Devices settings"><svg class="i"><use href="#i-play"/></svg><span id="topstartlbl">Start</span></button>
     <button class="btn danger" id="stopall" title="Stop every Device"><svg class="i"><use href="#i-stop"/></svg>Stop all</button>
-    <button class="btn ghost icon" id="stagetoggle" title="Show or hide the focus view" aria-pressed="true"><svg class="i"><use href="#i-stage"/></svg></button>
+    <button class="btn ghost" id="stagetoggle" title="Show or hide the large view of the focused phone" aria-pressed="true"><svg class="i"><use href="#i-stage"/></svg>Focus view</button>
   </div>
 </header>
 
@@ -323,20 +328,20 @@
         <summary><svg class="i chev"><use href="#i-chev"/></svg>Start Devices<span class="aside" id="startaside"></span></summary>
         <div class="secbody">
           <div class="field"><span>Image</span><select id="s_image">
-            <option value="phone-n">Full phone (home screen, ~2 GB)</option>
-            <option value="phone">Full phone, stock (NFC and Thread crash-loop)</option>
-            <option value="slim5">Lean phone, ~640 MB</option>
-            <option value="slim4">Lean phone, ~700 MB</option>
-            <option value="">Lean phone, ~900 MB (agents' default)</option>
-            <option value="slim3">Lean phone, ~900 MB (older)</option>
+            <option value="phone-n">Full phone, ~2 GB</option>
+            <option value="phone">Full phone, stock</option>
+            <option value="slim5">Lean, ~640 MB</option>
+            <option value="slim4">Lean, ~700 MB</option>
+            <option value="">Lean, ~900 MB (default)</option>
+            <option value="slim3">Lean, ~900 MB (older)</option>
           </select></div>
           <div class="note" id="imgnote"></div>
           <div class="field"><span>Screen</span><select id="s_screen">
-            <option value="">iPhone 17 Pro Max, image default</option>
-            <option value="iphone17promax-native">iPhone 17 Pro Max, full 1320 x 2868</option>
-            <option value="iphone17promax-3q">iPhone 17 Pro Max, 3/4 984 x 2140</option>
-            <option value="iphone17promax-half">iPhone 17 Pro Max, half 656 x 1424</option>
-            <option value="legacy">Legacy 720 x 1080</option>
+            <option value="">iPhone, image default</option>
+            <option value="iphone17promax-native">Full, 1320 × 2868</option>
+            <option value="iphone17promax-3q">3/4, 984 × 2140</option>
+            <option value="iphone17promax-half">Half, 656 × 1424</option>
+            <option value="legacy">Legacy, 720 × 1080</option>
           </select></div>
           <div class="field"><span>RAM (MB)</span><input id="s_mem" inputmode="numeric" placeholder="image default"></div>
           <div class="field"><span>CPU cores</span><input id="s_cpus" inputmode="numeric" value="2"></div>
@@ -494,7 +499,9 @@ function plain(e, id) {
   if (/still booting/.test(e)) return `${id} is still booting. Try again when it shows Running.`;
   if (/crosvm\.exe is already running/.test(e)) return "Another emulator runs outside agent-emu. Start the daemon with agent-emu.cmd (it allows that).";
   if (/busy: Device is leased/.test(e)) return `An agent holds ${id} right now (leased). Wait for it to release, or stop it.`;
-  return e;
+  if (/console pipe|os error 2/.test(e)) return `${id}'s console did not open, so Android never started. Retry; if it fails again, restart agent-emu.`;
+  if (/unknown image/.test(e)) return "The daemon does not know that image. Pick another image in Start Devices.";
+  return `The daemon reported an error. Retry, or restart agent-emu if it repeats. (${e})`;
 }
 
 // ---------- top line: the latest action and its result ----------
@@ -523,7 +530,7 @@ function buildPlate() {
     const el = t.content.firstElementChild.cloneNode(true);
     el.dataset.id = id; el.setAttribute("aria-label", "Device " + id);
     const w = W[id] = { el, id, cv: el.querySelector("canvas"), veil: el.querySelector(".veil"), badge: el.querySelector(".badge"),
-      fps: el.querySelector(".fps"), ram: el.querySelector(".ram"), crash: el.querySelector(".crash"), status: el.querySelector(".status"), recess: el.querySelector(".recess") };
+      fps: el.querySelector(".fps"), ram: el.querySelector(".ram"), crash: el.querySelector(".crash"), stop: el.querySelector("[data-act=stop]"), status: el.querySelector(".status"), recess: el.querySelector(".recess") };
     el.querySelector(".id").textContent = id;
     el.querySelector(".id").onclick = () => select(id);
     w.crash.onclick = () => { select(id); setPanel(true); $("sec_crash").open = true; $("sec_crash").scrollIntoView({ block: "start" }); };
@@ -545,7 +552,7 @@ function veilFor(id, st) {
     return `<div class="big">${ph[0]}</div><div class="num">${up} s · usually about ${bootEstimate(d ? d.image_name : startArgs().image || "")} s</div><div>The screen appears when Android draws its first frame.</div>`;
   }
   if (st === "stopping") return `<div class="big">Stopping</div>`;
-  if (st === "failed") return `<div class="big">Could not start ${id}</div><div>${esc(u.failed)}</div><div class="row"><button class="btn sm" data-v="retry">Retry</button><button class="btn sm ghost" data-v="dismiss">Dismiss</button></div>`;
+  if (st === "failed") return `<div class="big">Could not start ${id}</div><div>${esc(u.failed.replace(/ \(.*\)$/, ""))}</div>${u.raw ? `<div class="raw">${esc(u.raw)}</div>` : ""}<div class="row"><button class="btn sm" data-v="retry">Retry</button><button class="btn sm ghost" data-v="dismiss">Dismiss</button></div>`;
   if (st === "running" && !S.frame[id]) return `<div class="big">Android is up</div><div>Waiting for the first frame…</div>`;
   return "";
 }
@@ -579,6 +586,7 @@ function renderWell(id) {
   }
   w.badge.textContent = u.opening ? "Opening app" : LABEL[st];
   w.el.classList.toggle("sel", S.sel === id);
+  w.stop.title = st === "queued" || st === "booting" ? "Cancel" : "Stop";
   w.el.style.setProperty("--p", progress(id, st).toFixed(1));
   const live = st === "running", m = S.m[id] || {};
   const fps = Math.round(m.scanout_fps || 0);
@@ -775,7 +783,7 @@ function toDev(ev, cv, id) {
 function touchMark(host, ev, swipe) {
   const r = host.getBoundingClientRect(), m = document.createElement("span");
   m.className = "touch" + (swipe ? " swipe" : ""); m.style.left = (ev.clientX - r.left) + "px"; m.style.top = (ev.clientY - r.top) + "px";
-  host.appendChild(m); setTimeout(() => m.remove(), 500);
+  host.appendChild(m); setTimeout(() => m.remove(), 650);
 }
 function bindScreen(cv, getId, host) {
   let down = null;
@@ -898,7 +906,7 @@ async function boot(j) {
     await status();
     if (j.openAfter) openApp(id);
   } else if (!S.ui[id].stopping) {
-    S.ui[id] = { failed: plain(r.error, id) }; say(`${id}: ${plain(r.error, id)}`, true); await status();
+    S.ui[id] = { failed: plain(r.error, id), raw: String(r.error || "") }; say(`${id}: ${plain(r.error, id).replace(/ \(.*\)$/, "")}`, true); await status();
   }
   render();
 }
@@ -928,9 +936,11 @@ function renderStartBtn() {
   $("startnlbl").textContent = ids.length ? (ids.length === 1 ? `Start ${ids[0]}` : `Start ${ids.length}: ${ids[0]}–${ids[ids.length - 1]}`) : "All wells in use";
   $("startn").disabled = !ids.length;
   $("startaside").textContent = `${8 - free} of 8 in use`;
+  const next = firstEmpty(1)[0]; $("topstartlbl").textContent = next ? `Start ${next}` : "All in use"; $("topstart").disabled = !next;
 }
 $("n_minus").onclick = () => { nStart--; store.set("n", Math.max(1, nStart)); renderStartBtn(); };
 $("n_plus").onclick = () => { nStart++; store.set("n", Math.min(8, nStart)); renderStartBtn(); };
+$("topstart").onclick = () => { const ids = firstEmpty(1); if (ids.length) start(ids); };
 $("startn").onclick = () => { const ids = firstEmpty(nStart); if (ids.length) { start(ids); if (!S.devs[S.sel]) select(ids[0]); } };
 
 // Two-step confirm in place: the button turns red and asks once; no dialog.
