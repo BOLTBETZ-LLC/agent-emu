@@ -41,7 +41,7 @@ time.sleep(int(os.environ.get("SETTLE", "40")))
 r["shot_settled"] = shot("settled"); r["guest_settled"] = guest(); pr = procs()
 r["host_settled"] = host(); r["ws_settled_mb"] = ws(pr); r["ws_settled_total_mb"] = sum(r["ws_settled_mb"].values())
 for p, cl in pr:
-    h = k32.OpenProcess(0x0100 | 0x0400, False, p); k32.SetProcessWorkingSetSizeEx(h, 1 << 20, (250 if "run-main" in cl else 16) << 20, 0x4 | 0x2); k32.CloseHandle(h)
+    h = k32.OpenProcess(0x0100 | 0x0400, False, p); k32.SetProcessWorkingSetSizeEx(h, 1 << 20, (int(os.environ.get("CAP_MAIN", "250")) if "run-main" in cl else int(os.environ.get("CAP_HELPER", "16"))) << 20, 0x4 | 0x2); k32.CloseHandle(h)
 r["host_after_cap_0s"] = host(); time.sleep(60)
 for _ in range(6): gsh("input tap 360 780"); time.sleep(5)  # keep it busy while capped
 r["host_after_cap_90s"] = host(); r["ws_capped_mb"] = ws(pr); r["ws_capped_total_mb"] = sum(r["ws_capped_mb"].values())

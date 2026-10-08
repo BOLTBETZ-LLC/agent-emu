@@ -475,3 +475,35 @@ The 289 MB store growth is all counted against this Device. That is an upper bou
 - **The DAX kernel carries over.** A17 Cuttlefish still ships the android16-6.12 GKI: the vendor ramdisk module vermagic is `6.12.74-android16-6-g3ec022196c4e-ab15076761`, and our DAX kernel is 6.12.93 on the same `common-android16-6.12` branch. Boot images are header v4, and the vendor cmdline (`... binder.impl=rust cma=0 ... init=/init bootconfig`) is byte-identical to 15581820. So the stage 1/2 initrd recipe (init_boot ramdisk + vendor ramdisk + bootconfig + DAX `initramfs.img` + pmem fstab overlay) applies as is. The same `system_dlkm` vermagic gap is expected until `system_dlkm` is swapped.
 - **The slim repack carries over.** `META/misc_info.txt` has the same keys the slim recipe edits (`erofs_default_compressor=lz4hc,9`, `erofs_sparse_flag=-s`, `avb_system_hashtree_enable=true`, every partition erofs). One addition: `erofs_default_compress_hints` should be cleared as well. Every slim4 removal target checked is present (Browser2, LatinIME, Launcher3QuickStep, SystemUI, CFSatelliteService, ThemePicker, AvatarPicker, PrivateSpace, DeviceAsWebcam, Stk). `stage2/slim4/edits.sh` + `build.sh` should run against this target_files with only the path and build id changed.
 - **Not done:** the repack needs the WSL Ubuntu VM, and it was held during the coordinator's 10-Device proof (the fleet host must not run the image-build VM at the same time). No A17 boot yet. Next: repack slim4-A17 in WSL after the proof, then boot at 640 MB with the diet flags and the DAX kernel.
+
+### Lever D: Android 17 slim5 repack and boot kit (prepared 2026-10-08; not run, held for the 10-Device proof)
+
+Scripts are in `assets/13-leverD/a17/`; working copies are in `C:\dev\agent-emu-work\leverD\a17\`.
+- `prep-wsl.sh`: unzips otatools and the 16373615 target_files into `/root/slim17/{ota,tf}`.
+- `edits.sh`: all of slim → slim5 in one pass on stock A17. Each removal logs `rm` or `MISSING`, so A17 renames show up.
+  - misc_info: uncompressed chunk erofs, no sparse flag, compress hints cleared, system hashtree off;
+  - final vendor props: low_ram, heaps 128m/256m/2m/2m, the slim5 lmkd set (`thrashing_limit=1000`, `critical_upgrade=false`, `swap_free_low_percentage=2`, PSI 200/700), `disable_gl_preload`, `max_starting_bg=2`, `config.disable_systemui=true`;
+  - the 33 slim APKs, SystemUI and its overlays, all slim4 cuts (zram before zygote at 100%, features, 14 vendor HAL APEXes, APKs), and the slim5 HomeStub.
+- slim1-3 were never saved as scripts (they lived in WSL `/root/slim`), so `edits.sh` rebuilds them from `stage2/slim/README.txt` and this issue. The slim2 lmkd props are taken from what slim5's sed expects.
+- `build.sh`: the slim5 build recipe pointed at `/root/slim17` and output `leverD/a17/out/`.
+- `prep_run_a17.py`: builds `run-a17/`.
+  - `initrd-dax-pmem.img` = A17 init_boot ramdisk + A17 `vendor_ramdisk00` + DAX `initramfs.img` + pmem fstab overlay (`fstab_overlay_a17.py`, A17 first-stage fstabs) + bootconfig (A17 vendor bootconfig + stage1 EXTRA);
+  - plus `kernel-dax`, the A17 boot images, and the repack outputs (hard links).
+  - Built and checked already: 32,446,759 B, overlay carries `/dev/block/pmem0 /system erofs ro,dax=always wait,first_stage_mount`.
+  - The A17 bootconfig differs from 36 by one line only: no `emulated.camera.provider.hal` key.
+- `fleet_a17.py`: `fleet_diet.py` with ids 30+, ports 7130+, dirs under `leverD/a17/fleet`, default `crosvm-diet`. Its kill step only stops ae-vm-3x and its bridges; the original matched every `fleet-diet` / `boot-diet` process.
+- `measure.py`: cap via `CAP_MAIN` / `CAP_HELPER`.
+
+Run order after go:
+```
+wsl -d Ubuntu -u root bash /mnt/c/dev/agent-emu-work/leverD/a17/prep-wsl.sh
+wsl -d Ubuntu -u root bash /mnt/c/dev/agent-emu-work/leverD/a17/edits.sh
+wsl -d Ubuntu -u root bash /mnt/c/dev/agent-emu-work/leverD/a17/build.sh    # log: leverD/a17/out/build.log
+wsl --shutdown                                                               # never run the build VM beside Devices
+python leverD/a17/prep_run_a17.py
+python leverD/a17/fleet_a17.py a17-640 --run C:/dev/agent-emu-work/leverD/a17/run-a17 --mem 640 --sinks 11 --keep \
+  --params "virtio_blk.num_request_queues=1 virtio_blk.queue_depth=64 kfence.sample_interval=0 transparent_hugepage=never" \
+  --gpu "audio-device-mode=one-global"
+CAP_MAIN=200 CAP_HELPER=16 python leverD/tools/measure.py 30 <fleet dir d30> leverD/results/a17-640-cap --no-install
+```
+Then the same at 576.
