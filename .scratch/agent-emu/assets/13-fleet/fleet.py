@@ -10,7 +10,7 @@ ap.add_argument("--mem", default="1024"); ap.add_argument("--cpus", default="2")
 ap.add_argument("--settle", type=int, default=30)
 a = ap.parse_args()
 O = f"{W}/results/{a.tag}"; os.makedirs(O, exist_ok=True)
-SHARED = ["kernel-dax", "initrd-dax-pmem.img", "initrd-slim.img", "boot.img", "init_boot.img", "vendor_boot.img",
+SHARED = ["kernel-dax", "initrd-dax-pmem.img", "initrd-dax-slim.img", "boot.img", "init_boot.img", "vendor_boot.img",
           "vbmeta.img", "vbmeta_system.img", "vbmeta_system_dlkm.img", "vbmeta_vendor_dlkm.img", "super.img", "apk.img"]
 CROSVM = f"{W}/crosvm-pmem/target/release/crosvm.exe"
 
@@ -19,6 +19,13 @@ def ps(cmd):
 
 def available_mb():
     return int(float(ps("(Get-Counter '\\Memory\\Available MBytes').CounterSamples[0].CookedValue").strip()))
+
+def host_mem():
+    o = ps("$c=(Get-Counter '\\Memory\\Available MBytes','\\Memory\\Committed Bytes').CounterSamples; "
+           "$mc=(Get-Process 'Memory Compression' -ErrorAction SilentlyContinue).WorkingSet64; "
+           "'{0}|{1}|{2}' -f [int]$c[0].CookedValue,[int64]$c[1].CookedValue,[int64]$mc")
+    av, com, mc = o.strip().split("|")
+    return {"available_mb": int(av), "committed_mb": int(com) >> 20, "mem_compression_ws_mb": int(mc or 0) >> 20}
 
 def gsh(port, cmd, timeout=120):
     marker = "__AE_" + uuid.uuid4().hex[:8] + "__"
@@ -59,13 +66,13 @@ ps("Get-Process crosvm -ErrorAction SilentlyContinue | Stop-Process -Force; "
    "Get-CimInstance Win32_Process -Filter \"Name='powershell.exe'\" | Where-Object { $_.CommandLine -like '*console_bridge*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }")
 time.sleep(5)
 dirs = [make_device(i) for i in range(a.n)]
-res["available_before_mb"] = available_mb()
+res["host_before"] = host_mem(); res["available_before_mb"] = res["host_before"]["available_mb"]
 t0 = time.time()
 for i, d in enumerate(dirs):
     extra = f"--socket PIPE:ae-vm-{i}"
     if a.pmem: extra += f" --pmem path={RUN}/system-pmem.img,ro=true"
     env = dict(os.environ, AE_DIR=d.replace("/", "\\"), AE_ID=str(i), AE_MEM=a.mem, AE_CPUS=a.cpus, AE_EXTRA=extra,
-               AE_KERNEL="kernel-dax", AE_INITRD="initrd-dax-pmem.img" if a.pmem else "initrd-slim.img",
+               AE_KERNEL="kernel-dax", AE_INITRD="initrd-dax-pmem.img" if a.pmem else "initrd-dax-slim.img",
                AE_CROSVM=CROSVM.replace("/", "\\"))
     subprocess.Popen(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", f"{W}/boot-stage1.ps1"], env=env,
                      stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=0x08000000)
@@ -102,7 +109,9 @@ for dev in res["devices"]:
     m = re.search(r"B64START\n(.*?)\nB64END", t, re.S)
     if m:
         open(f"{O}/first-screen-d{dev['id']}.png", "wb").write(base64.b64decode(re.sub(r"\s", "", m.group(1))))
-res["available_after_mb"] = available_mb()
+res["host_after"] = host_mem(); res["available_after_mb"] = res["host_after"]["available_mb"]
+res["committed_delta_mb"] = res["host_after"]["committed_mb"] - res["host_before"]["committed_mb"]
+res["mem_compression_delta_mb"] = res["host_after"]["mem_compression_ws_mb"] - res["host_before"]["mem_compression_ws_mb"]
 res["fleet_cost_mb"] = res["available_before_mb"] - res["available_after_mb"]
 res["per_device_mb"] = round(res["fleet_cost_mb"] / a.n)
 procs = ps("Get-CimInstance Win32_PerfRawData_PerfProc_Process | Where-Object { $_.Name -like 'crosvm*' } | "
