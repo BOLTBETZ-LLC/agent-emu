@@ -22,6 +22,99 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
 const PAGE: &str = include_str!("ui.html");
+
+/// One encoded frame shared by every subscriber of an output: the JPEG and the Device's size.
+pub struct Enc {
+    pub seq: u64,
+    pub jpeg: Vec<u8>,
+    pub w: u32,
+    pub h: u32,
+}
+
+/// What a stream asks for: (Device id, box to fit the frame into, JPEG quality). One encoder per key.
+type HubKey = (String, Option<(u32, u32)>, u8);
+static HUBS: std::sync::Mutex<Option<std::collections::HashMap<HubKey, tokio::sync::watch::Sender<Option<Arc<Enc>>>>>> =
+    std::sync::Mutex::new(None);
+
+/// A receiver of `d`'s frames fitted into `fit` at quality `q`. The first subscriber starts one encoder thread
+/// for that output; it reads each new scanout frame once (a high-resolution sleep poll on the seq: tokio timers
+/// tick at ~15.6 ms on Windows), scales (2x2 box straight from the raw pixels for half size and below),
+/// encodes, and publishes it latest-wins, so no subscriber can build a backlog. Every 2 s with no new frame
+/// it refreshes and republishes. It ends when the last subscriber or the Device goes. None without the fast path.
+fn hub(d: &Arc<crate::device::Device>, fit: Option<(u32, u32)>, q: u8) -> Option<tokio::sync::watch::Receiver<Option<Arc<Enc>>>> {
+    let fb = d.fb.get()?.clone();
+    let key: HubKey = (d.id.clone(), fit, q);
+    let mut hubs = HUBS.lock().unwrap();
+    let map = hubs.get_or_insert_with(Default::default);
+    if let Some(tx) = map.get(&key) {
+        return Some(tx.subscribe());
+    }
+    let (tx, rx) = tokio::sync::watch::channel(None);
+    map.insert(key.clone(), tx.clone());
+    let d = d.clone();
+    std::thread::spawn(move || {
+        let (mut last, mut sent) = (u64::MAX, Instant::now() - Duration::from_secs(10));
+        loop {
+            {
+                let mut hubs = HUBS.lock().unwrap();
+                if tx.receiver_count() == 0 || !d.ready.load(Ordering::SeqCst) {
+                    hubs.get_or_insert_with(Default::default).remove(&key);
+                    return;
+                }
+            }
+            let s = fb.seq();
+            if s == last && sent.elapsed() < Duration::from_secs(2) {
+                std::thread::sleep(Duration::from_micros(500));
+                continue;
+            }
+            if s == last {
+                let _ = fb.refresh();
+            }
+            let Some((e, seq)) = encode_latest(&fb, fit, q) else {
+                std::thread::sleep(Duration::from_millis(50));
+                continue;
+            };
+            tx.send_replace(Some(Arc::new(e)));
+            (last, sent) = (seq, Instant::now());
+        }
+    });
+    Some(rx)
+}
+
+/// The latest scanout frame as JPEG fitted into `fit`, and its seq. Half size and below read a 2x2 box
+/// downscale straight from the mapping (no full-size copy).
+fn encode_latest(fb: &crate::fast::Fb, fit: Option<(u32, u32)>, q: u8) -> Option<(Enc, u64)> {
+    let (w, h) = fb.dims();
+    let r = fit.map_or(1.0, |(fw, fh)| (fw as f64 / w.max(1) as f64).min(fh as f64 / h.max(1) as f64));
+    if r > 0.5 {
+        let p = fb.read_px()?;
+        return encode_px(&p, fit, q).ok().map(|e| (e, p.seq));
+    }
+    let (rgb, hw, hh, w, h, seq) = fb.read_half()?;
+    let half = image::RgbImage::from_raw(hw, hh, rgb)?;
+    let (tw, th) = (((w as f64 * r).round() as u32).max(1), ((h as f64 * r).round() as u32).max(1));
+    let img = if tw < hw { image::imageops::thumbnail(&half, tw, th) } else { half };
+    let (jpeg, ..) = device::encode_q(&img, None, q).ok()?;
+    Some((Enc { seq, jpeg, w, h }, seq))
+}
+
+/// Raw scanout pixels -> JPEG fitted into `fit` (aspect kept). Half size and below start from a 2x2 box
+/// downscale of the raw pixels, which skips the full-size RGB pass.
+fn encode_px(p: &crate::fast::RawPx, fit: Option<(u32, u32)>, q: u8) -> R<Enc> {
+    let (w, h) = (p.w, p.h);
+    let r = fit.map_or(1.0, |(fw, fh)| (fw as f64 / w as f64).min(fh as f64 / h as f64)).min(1.0);
+    let img = if r <= 0.5 {
+        let half = image::RgbImage::from_raw(w / 2, h / 2, crate::fast::half_rgb(&p.px, w as usize, h as usize, p.stride, p.red_first))
+            .ok_or("half frame")?;
+        let (tw, th) = (((w as f64 * r).round() as u32).max(1), ((h as f64 * r).round() as u32).max(1));
+        if tw < half.width() { image::imageops::thumbnail(&half, tw, th) } else { half }
+    } else {
+        image::RgbImage::from_raw(w, h, crate::fast::to_rgb(&p.px, w as usize, p.stride, p.red_first)).ok_or("frame")?
+    };
+    let fit = (r < 1.0 && r > 0.5).then(|| (((w as f64 * r).round() as u32).max(1), ((h as f64 * r).round() as u32).max(1)));
+    let (jpeg, ..) = device::encode_q(&img, fit, q)?;
+    Ok(Enc { seq: p.seq, jpeg, w, h })
+}
 /// Lease owner for every panel request: the panel is one client.
 const UI_CONN: u64 = u64::MAX - 1;
 const MAX_UPLOAD: usize = 512 << 20;
@@ -334,6 +427,39 @@ async fn feed(st: &State, id: &str, n: Option<u32>, o: &StreamOpts, full: bool, 
                 d.touch();
             }
         }
+        // Fast path: a shared encoder pushes each new frame the moment crosvm posts it.
+        let fit = d.fb.get().and_then(|f| f.read_px()).map(|p| if full { o.full_width.filter(|&fw| fw < p.w).map(|fw| (fw, p.h)) } else { o.size(p.w, p.h) });
+        if let Some(mut rx) = fit.and_then(|fit| hub(&d, fit, o.quality)) {
+            loop {
+                tokio::select! {
+                    r = rx.changed() => if r.is_err() { break },
+                    _ = tx.closed() => break,
+                }
+                let Some(e) = rx.borrow_and_update().clone() else { continue };
+                // 4 ms slack: frames posted a little faster than the cap (60 Hz jitter) must not halve the rate.
+                if sent.elapsed() + Duration::from_millis(4) < o.gap {
+                    continue;
+                }
+                let rec = record_of(&e, o.mjpeg, n);
+                let delivered = match (n, tx.try_send(rec)) {
+                    (_, Ok(())) => true,
+                    (_, Err(tokio::sync::mpsc::error::TrySendError::Closed(_))) => break,
+                    (Some(_), Err(tokio::sync::mpsc::error::TrySendError::Full(_))) => false,
+                    (None, Err(tokio::sync::mpsc::error::TrySendError::Full(r))) => {
+                        if tx.send(r).await.is_err() { break }
+                        true
+                    }
+                };
+                if delivered {
+                    if let Some(sl) = st.devs.lock().unwrap().get_mut(id) { sl.sent += 1; }
+                    sent = Instant::now();
+                }
+                if focused {
+                    d.last_active_ms.store(device::now_ms(), std::sync::atomic::Ordering::SeqCst);
+                }
+            }
+            continue;
+        }
         let s = d.frame_seq();
         if (s != last && sent.elapsed() >= o.gap) || sent.elapsed() > Duration::from_secs(2) {
             // A new frame is already in the mapping; the 2 s keepalive asks crosvm to refresh it.
@@ -401,6 +527,24 @@ fn record(f: &device::Frame, fit: Option<(u32, u32)>, q: u8, mjpeg: bool, n: Opt
         }
         None => frame_record(&jpg, f.generation, w, h),
     })
+}
+
+/// A stream record of an encoded frame: an MJPEG part, a /mux record (`n` = device number) or a /frames record.
+fn record_of(e: &Enc, mjpeg: bool, n: Option<u32>) -> Vec<u8> {
+    match n {
+        _ if mjpeg => {
+            let mut p = format!("--frame\r\nContent-Type: image/jpeg\r\nContent-Length: {}\r\nX-Seq: {}\r\n\r\n", e.jpeg.len(), e.seq).into_bytes();
+            p.extend_from_slice(&e.jpeg);
+            p.extend_from_slice(b"\r\n");
+            p
+        }
+        Some(n) => {
+            let mut rec = frame_record(&e.jpeg, e.seq, e.w, e.h);
+            rec.splice(20..20, n.to_le_bytes());
+            rec
+        }
+        None => frame_record(&e.jpeg, e.seq, e.w, e.h),
+    }
 }
 
 /// GET /events: Server-Sent Events, one JSON object per `data:` line, each with a `type`

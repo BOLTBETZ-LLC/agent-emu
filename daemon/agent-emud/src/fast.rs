@@ -135,6 +135,34 @@ pub struct Fb {
     refresh: Option<std::sync::Mutex<std::fs::File>>,
 }
 
+pub struct RawPx {
+    pub px: Vec<u8>,
+    pub w: u32,
+    pub h: u32,
+    pub stride: usize,
+    pub red_first: bool,
+    pub seq: u64,
+    pub flush_us: u64,
+}
+
+/// RGB at half width and height: each output pixel is the mean of a 2x2 block (one pass over the raw rows).
+pub fn half_rgb(px: &[u8], w: usize, h: usize, stride: usize, red_first: bool) -> Vec<u8> {
+    let (r, b) = if red_first { (0, 2) } else { (2, 0) };
+    let (hw, hh) = (w / 2, h / 2);
+    let mut out = vec![0u8; hw * hh * 3];
+    for (y, o) in out.chunks_exact_mut(hw * 3).enumerate() {
+        let (r0, r1) = (&px[2 * y * stride..][..hw * 8], &px[(2 * y + 1) * stride..][..hw * 8]);
+        for (x, p) in o.chunks_exact_mut(3).enumerate() {
+            let (a, c) = (&r0[x * 8..x * 8 + 8], &r1[x * 8..x * 8 + 8]);
+            let m = |i: usize| ((a[i] as u16 + a[i + 4] as u16 + c[i] as u16 + c[i + 4] as u16 + 2) >> 2) as u8;
+            p[0] = m(r);
+            p[1] = m(1);
+            p[2] = m(b);
+        }
+    }
+    out
+}
+
 pub struct Raw {
     pub rgb: image::RgbImage,
     pub seq: u64,
@@ -186,6 +214,50 @@ impl Fb {
 
     /// Seqlock read of the latest frame, converted BGRX -> RGB.
     pub fn read(&self) -> Option<Raw> {
+        let p = self.read_px()?;
+        let rgb = to_rgb(&p.px, p.w as usize, p.stride, p.red_first);
+        Some(Raw { rgb: image::RgbImage::from_raw(p.w, p.h, rgb)?, seq: p.seq, flush_us: p.flush_us })
+    }
+
+    /// Frame width and height from the header.
+    pub fn dims(&self) -> (u32, u32) {
+        let b = self.base as *const u8;
+        // SAFETY: the header is inside the mapping.
+        unsafe { ((b.add(8) as *const u32).read_volatile(), (b.add(12) as *const u32).read_volatile()) }
+    }
+
+    /// Seqlock read of the latest frame at half width and height (2x2 box), straight from the mapping: no
+    /// full-size copy. Returns (RGB, half w, half h, full w, full h, seq).
+    pub fn read_half(&self) -> Option<(Vec<u8>, u32, u32, u32, u32, u64)> {
+        let b = self.base as *const u8;
+        let end = std::time::Instant::now() + Duration::from_millis(200);
+        while std::time::Instant::now() < end {
+            let s1 = self.seq_ref().load(Ordering::Acquire);
+            if s1 == 0 {
+                return None;
+            }
+            if s1 & 1 == 1 {
+                std::thread::yield_now();
+                continue;
+            }
+            // SAFETY: header fields and pixel rows are inside the mapping (crosvm bounds them); a torn read is
+            // detected by the seq check below and retried.
+            let (w, h, stride, fourcc) = unsafe {
+                ((b.add(8) as *const u32).read_volatile(), (b.add(12) as *const u32).read_volatile(),
+                 (b.add(16) as *const u32).read_volatile() as usize, (b.add(20) as *const u32).read_volatile())
+            };
+            let px = unsafe { std::slice::from_raw_parts(b.add(HEADER), stride * h as usize) };
+            let rgb = half_rgb(px, w as usize, h as usize, stride, red_first(fourcc));
+            fence(Ordering::Acquire);
+            if self.seq_ref().load(Ordering::Relaxed) == s1 {
+                return Some((rgb, w / 2, h / 2, w, h, s1));
+            }
+        }
+        None
+    }
+
+    /// Seqlock read of the latest frame's raw pixels (no conversion).
+    pub fn read_px(&self) -> Option<RawPx> {
         let b = self.base as *const u8;
         // A copy in crosvm takes about 1 ms and the RGB pass about as long, so retry by time, not count.
         let end = std::time::Instant::now() + Duration::from_millis(200);
@@ -208,8 +280,7 @@ impl Fb {
             let px = unsafe { std::slice::from_raw_parts(b.add(HEADER), stride * h as usize) }.to_vec();
             fence(Ordering::Acquire);
             if self.seq_ref().load(Ordering::Relaxed) == s1 {
-                let rgb = to_rgb(&px, w as usize, stride, red_first(fourcc));
-                return Some(Raw { rgb: image::RgbImage::from_raw(w, h, rgb)?, seq: self.seq(), flush_us: us });
+                return Some(RawPx { px, w, h, stride, red_first: red_first(fourcc), seq: s1, flush_us: us });
             }
         }
         None
@@ -268,6 +339,10 @@ mod tests {
         assert_eq!(to_rgb(&px, 2, 12, true), vec![1, 2, 3, 4, 5, 6]);
         assert_eq!(to_rgb(&px, 2, 12, false), vec![3, 2, 1, 6, 5, 4]);
         assert!(red_first(0x3432_4258) && !red_first(0x3432_5258) && red_first(0));
+        // 4x2 BGRX (stride 20) -> 2x1 RGB, each the 2x2 mean.
+        let mut px = vec![0u8; 40];
+        for (i, v) in [(0, 10u8), (4, 30), (20, 10), (24, 30), (8, 200), (12, 200), (28, 100), (32, 100)] { px[i] = v; px[i + 2] = 7; }
+        assert_eq!(half_rgb(&px, 4, 2, 20, false), vec![7, 0, 20, 7, 0, 150]);
     }
 
     #[test]
@@ -277,3 +352,4 @@ mod tests {
         assert_eq!(linux_key("KEYCODE_CAMERA"), None);
     }
 }
+

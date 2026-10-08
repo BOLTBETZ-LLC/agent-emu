@@ -301,25 +301,28 @@ async fn start_device(st: &State, idx: u32, req: &Value) -> R<(Arc<Device>, f64)
         emit(st, json!({"type": "device", "device": id, "phase": "stopped"}));
         return Err(fail(e));
     }
-    phase("ready");
     if let Some((img, size, pkg)) = d.browser.clone() {
-        // After ready, so the boot is not longer: install the browser and make it the default (an event says when).
-        let (d2, ev) = (d.clone(), st.events.clone());
-        tokio::spawn(async move {
-            let t = Instant::now();
-            let r = d2.con.exec(&device::browser_setup_cmd(img, size, &pkg), Duration::from_secs(600)).await;
-            let mut ok = matches!(&r, Ok((o, 0)) if o.contains(&pkg));
-            if ok && pkg == "org.mozilla.firefox" {
-                // Accept Firefox's first-run Terms screen once, or it covers every Custom Tab (Auth0, Plaid).
-                ok = firefox_first_run(&d2).await.inspect_err(|e| eprintln!("{}: firefox first run: {e}", d2.id)).is_ok();
+        // Before Ready, so nobody is using the phone yet: install the browser, make it the default, and get
+        // Firefox past its Terms screen (an event says how it went). About 20 s.
+        phase("browser");
+        let t = Instant::now();
+        let r = d.con.exec(&device::browser_setup_cmd(img, size, &pkg), Duration::from_secs(600)).await;
+        let mut ok = matches!(&r, Ok((o, 0)) if o.contains(&pkg));
+        let mut err = r.err();
+        if ok && pkg == "org.mozilla.firefox" {
+            if let Err(e) = firefox_first_run(&d).await {
+                eprintln!("{id}: firefox first run: {e}");
+                (ok, err) = (false, Some(e));
             }
-            let _ = ev.send(json!({"type": "device", "device": d2.id, "browser": if ok { "ready" } else { "failed" }, "package": pkg,
-                "s": t.elapsed().as_secs_f64(), "out": r.map(|x| x.0).unwrap_or_else(|e| e), "ts": device::now_ms()}));
-            if ok && d2.headroom_mb.load(Ordering::SeqCst) > 0 {
-                browser_balloon(&d2, &pkg, &ev).await;
-            }
-        });
+        }
+        emit(st, json!({"type": "device", "device": id, "browser": if ok { "ready" } else { "failed" }, "package": pkg,
+            "s": t.elapsed().as_secs_f64(), "error": err}));
+        if matches!(d.con.exec(&format!("pm path {pkg}"), Duration::from_secs(30)).await, Ok((_, 0))) {
+            let (d2, ev) = (d.clone(), st.events.clone());
+            tokio::spawn(async move { browser_balloon(&d2, &pkg, &ev).await });
+        }
     }
+    phase("ready");
     Ok((d, t0.elapsed().as_secs_f64()))
 }
 
@@ -346,18 +349,26 @@ fn node_center(xml: &str, text: &str) -> Option<(i64, i64)> {
     (n.len() == 4).then(|| ((n[0] + n[2]) / 2, (n[1] + n[3]) / 2))
 }
 
-/// Opens Firefox once and taps "Continue" on its Terms of Use screen (seeding fenix_preferences did not stick,
-/// 2026-10-08), then closes it. Up to ~40 s for the screen to show.
+/// Opens Firefox and taps "Continue" on its Terms of Use screen, then closes it. Runs during boot (phase
+/// "browser", before Ready) so it never covers an app someone is using; inside a Custom Tab the same tap did
+/// nothing (2026-10-08). Firefox's first start can take a minute: up to ~2 min, re-launching every 30 s.
 async fn firefox_first_run(d: &Device) -> R<()> {
-    d.con.exec("am start -n org.mozilla.firefox/org.mozilla.fenix.HomeActivity >/dev/null", Duration::from_secs(60)).await?;
+    let start = "am start -n org.mozilla.firefox/org.mozilla.fenix.HomeActivity >/dev/null";
+    d.con.exec(start, Duration::from_secs(60)).await?;
     let mut res = Err("no Continue button".to_string());
-    for _ in 0..8 {
+    for i in 1..=24 {
         tokio::time::sleep(Duration::from_secs(5)).await;
-        if let Some((x, y)) = node_center(&ui_xml(d).await.unwrap_or_default(), "Continue") {
-            inject(d, Input::Tap(x, y)).await?;
-            tokio::time::sleep(Duration::from_secs(3)).await;
-            res = Ok(());
-            break;
+        if i % 6 == 0 {
+            let _ = d.con.exec(start, Duration::from_secs(60)).await;
+        }
+        match ui_xml(d).await {
+            Ok(xml) => if let Some((x, y)) = node_center(&xml, "Continue") {
+                inject(d, Input::Tap(x, y)).await?;
+                tokio::time::sleep(Duration::from_secs(3)).await;
+                res = Ok(());
+                break;
+            },
+            Err(e) => res = Err(format!("no Continue button; last dump: {e}")),
         }
     }
     d.con.exec("am force-stop org.mozilla.firefox", Duration::from_secs(30)).await?;
@@ -368,14 +379,17 @@ const BROWSER_HEADROOM_MB: u64 = 256;
 /// The app must be back in front this long before the headroom goes back into the balloon.
 const REINFLATE_AFTER: Duration = Duration::from_secs(10);
 
-/// Holds the Device's browser headroom in the balloon, except while `browser` is in front (seen from
-/// `wm_set_resumed_activity` lines in the host's copy of logcat, so the guest pays nothing for the watch).
+/// Watches which app is in front (`wm_set_resumed_activity` lines in the host's copy of logcat, so the guest
+/// pays nothing for the watch). Holds the browser headroom in the balloon except while `browser` is in front.
 /// Runs until the Device stops.
 async fn browser_balloon(d: &Device, browser: &str, ev: &tokio::sync::broadcast::Sender<Value>) {
     let pipe = format!(r"\\.\pipe\ae-vm-{}", d.idx());
     let hr = d.headroom_mb.load(Ordering::SeqCst);
     let pipe = pipe.as_str();
     let set = |on: bool| async move {
+        if hr == 0 {
+            return;
+        }
         let mb = d.balloon_base_mb.load(Ordering::SeqCst) + if on { hr } else { 0 };
         let r = squeeze::set_balloon(&d.crosvm, &pipe, mb).await;
         d.headroom_on.store(on, Ordering::SeqCst);
