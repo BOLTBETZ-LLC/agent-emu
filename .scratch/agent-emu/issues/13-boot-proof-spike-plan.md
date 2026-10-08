@@ -355,3 +355,12 @@ python fleet_diet.py <tag> --run run-slim4 --mem 640 --sinks 11 \
   - lmkd tuned to spare TOP (`ro.lmk.thrashing_limit`).
 
 Host note: four of the boots were cut short by the 3,000 MB during-boot host guard, because other sessions (jest runs) drove host Available to 66-1,883 MB. The coordinator raised the boot floor to 6,000 MB during those windows.
+
+## Lever A: template clones with copy-on-write guest RAM (2026-10-08, crosvm-clone `a2eb51492`)
+
+- Template d12 (896 MB, 2 vCPU, DAX kernel, pmem, slim3, app on first screen, `AGENT_EMU_INPROC=1`) snapshotted in 1.44 s. Restore with `AGENT_EMU_COW_RAM=1` maps guest RAM as a `FILE_MAP_COPY` view of the snapshot `mem` file; WHPX accepts it through `WHvMapGpaRange`.
+- 1 eager restore + 3 CoW clones (d13-d15): app alive (pid 5273) in all, same activity on top. All screenshots seen by eye: proof app first screen (`clone-exp/out/cow-d1[345]-screencap.png`).
+- Restore: eager 1,291 ms; **CoW 148 ms** (memory part 49 ms). Console answers 3.2-5.9 s after launch.
+- **Unique memory per CoW clone: 323-354 MB private working set** about 45 s in (privatized pages 312-344 MB), against ~900 MB-1.1 GB per booted Device. Still growing; steady state not measured yet. Available/Committed deltas are noise (jest runs moved Available 509 MB to 17 GB during the run).
+- Costs: `FILE_MAP_COPY` charges commit for the whole guest per clone (pagefile must cover N x guest RAM). Fixes needed: IA32_XSS/CET/PAT/TSC_AUX/TSC_DEADLINE in the WHPX vCPU snapshot, re-arming the TSC-deadline timer on restore, GPU 2D state kept across stop/snapshot, block in-process for CoW.
+- Open: host scanout `fb.bin` blank after restore (guest screencap works); TSC jumps by wall time since snapshot.
