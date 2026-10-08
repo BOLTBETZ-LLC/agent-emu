@@ -1,0 +1,59 @@
+01:30:15 wait a17_10run_seen=0 a17=0 avail=12049 ok=0
+01:31:17 wait a17_10run_seen=0 a17=1 avail=13071 ok=0
+01:32:20 wait a17_10run_seen=0 a17=1 avail=13082 ok=0
+01:33:23 wait a17_10run_seen=0 a17=2 avail=12716 ok=0
+01:34:25 wait a17_10run_seen=0 a17=2 avail=12513 ok=0
+01:35:27 wait a17_10run_seen=0 a17=3 avail=10525 ok=0
+01:36:30 wait a17_10run_seen=0 a17=3 avail=10224 ok=0
+01:37:32 wait a17_10run_seen=1 a17=4 avail=10063 ok=0
+01:38:34 wait a17_10run_seen=1 a17=4 avail=10118 ok=0
+01:39:37 wait a17_10run_seen=1 a17=5 avail=9700 ok=0
+01:40:39 wait a17_10run_seen=1 a17=5 avail=9309 ok=0
+01:41:41 wait a17_10run_seen=1 a17=5 avail=9548 ok=0
+01:42:43 wait a17_10run_seen=1 a17=6 avail=9831 ok=0
+01:43:46 wait a17_10run_seen=1 a17=6 avail=8857 ok=0
+01:44:48 wait a17_10run_seen=1 a17=7 avail=9269 ok=0
+01:45:50 wait a17_10run_seen=1 a17=7 avail=9285 ok=0
+01:46:53 wait a17_10run_seen=1 a17=8 avail=8687 ok=0
+01:47:55 wait a17_10run_seen=1 a17=8 avail=8894 ok=0
+01:48:57 wait a17_10run_seen=1 a17=9 avail=8239 ok=0
+01:50:00 wait a17_10run_seen=1 a17=9 avail=8666 ok=0
+01:51:02 wait a17_10run_seen=1 a17=10 avail=7766 ok=0
+01:52:05 wait a17_10run_seen=1 a17=10 avail=8071 ok=0
+01:53:07 wait a17_10run_seen=1 a17=10 avail=8073 ok=0
+01:54:09 wait a17_10run_seen=1 a17=10 avail=10230 ok=0
+01:55:12 wait a17_10run_seen=1 a17=10 avail=9094 ok=0
+01:56:14 wait a17_10run_seen=1 a17=10 avail=8702 ok=0
+01:57:16 wait a17_10run_seen=1 a17=10 avail=8759 ok=0
+01:58:19 wait a17_10run_seen=1 a17=10 avail=8840 ok=0
+01:59:21 wait a17_10run_seen=1 a17=10 avail=9891 ok=0
+02:00:24 wait a17_10run_seen=1 a17=7 avail=11680 ok=0
+02:01:26 wait a17_10run_seen=1 a17=4 avail=11517 ok=0
+02:02:28 wait a17_10run_seen=1 a17=0 avail=13799 ok=1
+02:03:30 wait a17_10run_seen=1 a17=0 avail=13782 ok=2
+d13 avail_before=13740 "restore_s":1.11,"console_s":2.92
+d14 avail_before=12738 "restore_s":1.11,"console_s":2.36
+d15 avail_before=12399 "restore_s":1.11,"console_s":2.7
+d16 avail_before=12010 "restore_s":1.12,"console_s":2.78
+d17 avail_before=11743 "restore_s":1.11,"console_s":2.51
+d18 avail_before=11416 "restore_s":1.15,"console_s":2.72
+d19 avail_before=11007 "restore_s":1.11,"console_s":2.5
+d20 avail_before=10664 "restore_s":1.11,"console_s":2.65
+d21 avail_before=10383 "restore_s":1.11,"console_s":2.39
+d22 avail_before=10054 "restore_s":1.11,"console_s":2.4
+PLATEAU EXIT 0
+CAP EXIT 0
+LATENCY EXIT 0
+SHEET ok
+d22: private=240 ws=326 freed=476 hv=-1536 standby_d=66 noisy=False
+d21: private=226 ws=326 freed=334 hv=-1536 standby_d=6 noisy=False
+d20: private=239 ws=326 freed=386 hv=-1536 standby_d=48 noisy=False
+d19: private=237 ws=328 freed=368 hv=-1536 standby_d=35 noisy=False
+d18: private=226 ws=327 freed=459 hv=-1536 standby_d=65 noisy=False
+d17: private=242 ws=326 freed=473 hv=-1536 standby_d=480 noisy=False
+d16: private=245 ws=327 freed=-582 hv=9373 standby_d=-1354 noisy=False
+d15: private=243 ws=328 freed=461 hv=-1536 standby_d=68 noisy=False
+d14: private=258 ws=327 freed=592 hv=-2048 standby_d=-49 noisy=False
+d13: private=258 ws=318 freed=495 hv=-1536 standby_d=75 noisy=False
+STOPSEQ EXIT 0
+DONE

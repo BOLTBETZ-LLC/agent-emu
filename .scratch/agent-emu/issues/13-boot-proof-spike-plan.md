@@ -468,6 +468,40 @@ Run: 10 CoW clones (d13-d22) restored one after another (0.96-5.82 s each). Held
   - **+ compression ≤40 → ~479 MB**.
 - **Verdict:** meets 600 MB at N=10. Misses the original 400 MB, by ~16 MB at the clean marginal median before compression and by ~56-79 MB once compression and the shared part are counted.
 
+### 10-clone light-cap proof (2026-10-08, slim4 640 `snapG`, cap 300 main / 16 helpers after the plateau)
+
+Started after the Android 17 10-Device run (ids 30-39) had finished, once 0 `ae-vm-3x` crosvm processes and Available > 9,000 MB held for 2 minutes. Then:
+1. 10 CoW clones restored (1.11-1.15 s each).
+2. 10 min uncapped (tap ~20 s, relaunch at minute 5).
+3. Cap 300 / 16 on every clone process, then 5 more min with taps.
+4. Fast-path latency on d13-d15 under the cap.
+5. Stops one at a time, same method as the unique proof.
+
+Raw data: `assets/13-clone/lc10-*.json`, `lc10-run.log`, `lc10-sheet.png`.
+
+- **Uncapped plateau** (same as before): private WS 340-346 MB, WS 506-530 MB, compression flat (1,951 → 1,950). Relaunch 1.1-2.0 s, taps p50/p95 78/156 ms.
+- **Under the cap:** private WS 243-249 MB, WS 320-329 MB. App alive in all 10 at every sample (20 uncapped + 10 capped). Taps p50/p95/max 78/188/282 ms, 0 errors. The compression store grew 1,954 → 2,522 MB from before the restores to before the stops (+568, ~57 MB per clone).
+- **Screens:** the sheet (all 10 capped screencaps) was seen by eye. All show the offline dialog. Final pids: 8 distinct values (3764 and 3760 each twice: lockstep clones).
+- **Latency under the cap** (HOME to first frame, 2 warm-ups, 20 each): **p50 44.3 ms, p95 104.3 ms**. That is worse than warm uncapped (36.2 / 50.5).
+
+| Stop | Private WS | Available freed | Hypervisor pages | Standby Δ | Note |
+|---|---|---|---|---|---|
+| d22 | 240 | 476 | −1,536 | +66 | |
+| d21 | 226 | 334 | −1,536 | +6 | |
+| d20 | 239 | 386 | −1,536 | +48 | |
+| d19 | 237 | 368 | −1,536 | +35 | |
+| d18 | 226 | 459 | −1,536 | +65 | |
+| d17 | 242 | 473 | −1,536 | +480 | standby jump; kept |
+| d16 | 245 | (−582) | +9,373 | −1,354 | rejected: another partition started in the window |
+| d15 | 243 | 461 | −1,536 | +68 | |
+| d14 | 258 | 592 | −2,048 | −49 | |
+| d13 (last) | 258 | 495 | −1,536 | +75 | |
+
+- **Marginal per clone with the cap: median 460 MB, worst clean 592 MB** (8 clean non-last stops). Freeing a capped clone also frees its compressed pages, so this already includes the compression share. Do not add the +57 on top (the uncapped proof's "+40" was likewise already inside its freed figure).
+- **Shared once:** last freed 495 − 258 private = **≤237 MB** (part of that is d13's own compressed pages).
+- **Average at N=10:** the 8 clean stops + d16 taken at the median + last 495 → **~450 MB per Device**.
+- **Verdict: the light cap does not cross 400 MB.** It cuts the working set by ~100 MB per clone, but those pages move into the compression store at about the same real cost (marginal 460 capped vs 416 uncapped, inside noise). It also doubles input p95. Uncapped slim4 640 clones remain the better config. Getting under 400 needs fewer privatized guest pages (guest diet, or balloon/free-page reporting so guest-free pages return to the template), not host caps.
+
 ### Honest RAM of one squeezed Device (2026-10-08, `assets/13-compress/`)
 
 `compress_probe.py`: d0 (896 MB, slim3 pmem), proof app on its first screen, then the daemon `squeeze` with balloon 0 and caps 250/16. Phase A was 6 min with caps only; phase B was 6 min with caps plus `MEMORY_PRIORITY_VERY_LOW` and EcoQoS on all 8 crosvm processes. One tap every 10 s, one sample every 30 s. Host Available stayed between 5.4 and 11.3 GB in the window (no emergency), but other workers' Devices booted and stopped throughout (`other_brokers` in `result.json`), so every global number below carries their noise.

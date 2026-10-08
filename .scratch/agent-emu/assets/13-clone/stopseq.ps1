@@ -21,7 +21,7 @@ foreach ($id in $Ids.Split(',')) {
   $before = @(1..3 | ForEach-Object { Snap; Start-Sleep -Milliseconds 700 })
   foreach ($p in $pids) { Stop-Process -Id $p -Force -EA SilentlyContinue }
   $after = @(1..6 | ForEach-Object { Start-Sleep -Milliseconds 700; Snap })
-  $a0 = ($before | Measure-Object avail -Average).Average; $a1 = ($after[1..3] | Measure-Object avail -Average).Average
+  $a0 = ($before | ForEach-Object { $_.avail } | Measure-Object -Average).Average; $a1 = ($after[1..3] | ForEach-Object { $_.avail } | Measure-Object -Average).Average
   $noisy = (@($before + $after | ForEach-Object { $_.others } | Sort-Object -Unique)).Count -gt 1
   $res += [ordered]@{ id = $id; private_ws_mb = $priv; ws_mb = $ws; avail_before = [int]$a0; avail_after = [int]$a1; freed_mb = [int]($a1 - $a0);
     hv_pages_delta = $after[-1].hv - $before[-1].hv; standby_delta_mb = $after[3].standby - $before[-1].standby; mod_delta_mb = $after[3].mod - $before[-1].mod;
