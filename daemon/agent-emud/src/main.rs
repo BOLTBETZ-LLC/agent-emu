@@ -247,8 +247,15 @@ async fn start_device(st: &State, idx: u32, req: &Value) -> R<(Arc<Device>, f64)
         "software" => false,
         r => return Err(fail(format!("unknown render `{r}` (gfxstream, software)"))),
     };
+    // refresh_hz: the display's refresh rate (gfxstream at 120 Hz drew 117.6 fps at native size, GPU worker 2026-10-08).
+    let hz = req["refresh_hz"].as_u64().unwrap_or(120);
+    if !(1..=240).contains(&hz) {
+        return Err(fail(format!("refresh_hz {hz} is not in 1-240")));
+    }
+    // boot_cap_mb: hard working-set cap on the main crosvm process from launch until ready (0 = none).
+    let boot_cap = req["boot_cap_mb"].as_u64().unwrap_or(BOOT_CAP_MB);
     let info = json!({"image": if image_name.is_empty() { "slim3n (default)" } else { image_name }, "mem": shown_mem,
-        "render": if gfx { "gfxstream" } else { "software" },
+        "render": if gfx { "gfxstream" } else { "software" }, "refresh_hz": hz, "boot_cap_mb": boot_cap,
         "cpus": cpus.clone().unwrap_or(st.cfg.cpus.clone()), "net": net, "image_name": image_name,
         "screen": {"name": if screen.is_empty() { "iphone17promax" } else { screen }, "width": sw, "height": sh, "dpi": dpi}});
     let d = {
@@ -267,7 +274,10 @@ async fn start_device(st: &State, idx: u32, req: &Value) -> R<(Arc<Device>, f64)
         // Other crosvm processes are fine once this daemon runs a Device itself (a fleet).
         let others_ok = !st.devs.lock().unwrap().is_empty();
         emit(st, json!({"type": "device", "device": id, "phase": "spawning", "t_s": 0.0, "info": info}));
-        let d = Device::spawn(&st.cfg, idx, image_name, screen, mem.as_deref(), cpus.as_deref(), net, others_ok, gfx).await.map_err(fail)?;
+        let d = Device::spawn(&st.cfg, idx, image_name, screen, mem.as_deref(), cpus.as_deref(), net, others_ok, gfx, hz as u32).await.map_err(fail)?;
+        if boot_cap > 0 {
+            tokio::spawn(boot_caps(d.clone(), boot_cap));
+        }
         st.devs.lock().unwrap().insert(id.clone(), Slot { dev: d.clone(), opts: squeeze::Opts::from(req, squeeze::Opts::DEFAULT),
             auto_squeeze: req["auto_squeeze"] == json!(true), lease: None, info, started: Instant::now(), phase: "booting",
             lat: Default::default(), sent: 0, streams: 0 });
@@ -286,6 +296,34 @@ async fn start_device(st: &State, idx: u32, req: &Value) -> R<(Arc<Device>, f64)
     }
     phase("ready");
     Ok((d, t0.elapsed().as_secs_f64()))
+}
+
+/// Default boot cap (MB) for the main crosvm process; helpers get BOOT_CAP_HELPER_MB.
+const BOOT_CAP_MB: u64 = 600;
+const BOOT_CAP_HELPER_MB: u64 = 32;
+
+/// Caps every crosvm process of `d` as it appears (main at `mb`, helpers at BOOT_CAP_HELPER_MB), checking
+/// every 2 s until the Device is ready or stopped. Unsqueezed, a gfxstream boot took ~2.1 GB of host RAM.
+/// The caps stay after boot; `squeeze` (auto_squeeze) lowers them.
+async fn boot_caps(d: Arc<Device>, mb: u64) {
+    let mut done = std::collections::HashSet::new();
+    let t0 = Instant::now();
+    while t0.elapsed() < Duration::from_secs(900) {
+        let Some(pid) = d.boot_pid().await else { return };
+        if let Ok(ps) = squeeze::procs(pid).await {
+            for p in ps {
+                if done.insert(p.pid) {
+                    if let Err(e) = squeeze::cap(p.pid, if p.main { mb } else { BOOT_CAP_HELPER_MB }) {
+                        eprintln!("{}: boot cap: {e}", d.id);
+                    }
+                }
+            }
+        }
+        if d.ready.load(Ordering::SeqCst) {
+            return;
+        }
+        tokio::time::sleep(Duration::from_secs(2)).await;
+    }
 }
 
 fn idx_of(id: &str) -> R<u32> {

@@ -329,37 +329,60 @@ async fn feed(st: &State, id: &str, n: Option<u32>, o: &StreamOpts, full: bool, 
         if (s != last && sent.elapsed() >= o.gap) || sent.elapsed() > Duration::from_secs(2) {
             // A new frame is already in the mapping; the 2 s keepalive asks crosvm to refresh it.
             let f = if s != last { d.capture_posted().await } else { d.capture().await };
-            let rec = f.and_then(|f| {
-                // The record carries the device size, which a page draws at and maps clicks to.
-                let (w, h) = f.rgb.dimensions();
-                let (jpg, ..) = device::encode_q(&f.rgb, if full { None } else { o.size(w, h) }, o.quality)?;
-                Ok(match n {
-                    _ if o.mjpeg => {
-                        let mut p = format!("--frame\r\nContent-Type: image/jpeg\r\nContent-Length: {}\r\nX-Seq: {}\r\n\r\n", jpg.len(), f.generation).into_bytes();
-                        p.extend_from_slice(&jpg);
-                        p.extend_from_slice(b"\r\n");
-                        p
-                    }
-                    Some(n) => {
-                        let mut rec = frame_record(&jpg, f.generation, w, h);
-                        rec.splice(20..20, n.to_le_bytes());
-                        rec
-                    }
-                    None => frame_record(&jpg, f.generation, w, h),
-                })
-            });
-            match rec {
-                Ok(rec) => if tx.send(rec).await.is_err() { break },
-                Err(_) => { tokio::time::sleep(Duration::from_millis(400)).await; continue; }
+            // Encode off the async threads, so phones encode in parallel and never stall another's feed.
+            let (q, mjpeg) = (o.quality, o.mjpeg);
+            let fit = f.as_ref().ok().and_then(|f| if full { None } else { o.size(f.rgb.width(), f.rgb.height()) });
+            let rec = match f {
+                Ok(f) => tokio::task::spawn_blocking(move || record(&f, fit, q, mjpeg, n)).await.unwrap_or_else(|e| Err(e.to_string())),
+                Err(e) => Err(e),
+            };
+            let Ok(rec) = rec else {
+                tokio::time::sleep(Duration::from_millis(400)).await;
+                continue;
+            };
+            // /mux: a full queue drops this phone's frame (the next one replaces it) instead of blocking the
+            // other phones' feeds behind a slow reader.
+            let delivered = match (n, tx.try_send(rec)) {
+                (_, Ok(())) => true,
+                (_, Err(tokio::sync::mpsc::error::TrySendError::Closed(_))) => break,
+                (Some(_), Err(tokio::sync::mpsc::error::TrySendError::Full(_))) => false,
+                (None, Err(tokio::sync::mpsc::error::TrySendError::Full(r))) => {
+                    if tx.send(r).await.is_err() { break }
+                    true
+                }
+            };
+            if delivered {
+                if let Some(sl) = st.devs.lock().unwrap().get_mut(id) { sl.sent += 1; }
             }
-            if let Some(sl) = st.devs.lock().unwrap().get_mut(id) { sl.sent += 1; }
             (last, sent) = (s, Instant::now());
         }
-        tokio::time::sleep(Duration::from_millis(5)).await;
+        tokio::time::sleep(Duration::from_millis(2)).await;
     }
     if seen {
         count(-1);
     }
+}
+
+/// One stream record of frame `f` fitted into `fit` at JPEG quality `q`: an MJPEG part, a /mux record (`n` =
+/// device number after the header) or a /frames record. Records carry the device size, which a page draws at
+/// and maps clicks to.
+fn record(f: &device::Frame, fit: Option<(u32, u32)>, q: u8, mjpeg: bool, n: Option<u32>) -> R<Vec<u8>> {
+    let (w, h) = f.rgb.dimensions();
+    let (jpg, ..) = device::encode_q(&f.rgb, fit, q)?;
+    Ok(match n {
+        _ if mjpeg => {
+            let mut p = format!("--frame\r\nContent-Type: image/jpeg\r\nContent-Length: {}\r\nX-Seq: {}\r\n\r\n", jpg.len(), f.generation).into_bytes();
+            p.extend_from_slice(&jpg);
+            p.extend_from_slice(b"\r\n");
+            p
+        }
+        Some(n) => {
+            let mut rec = frame_record(&jpg, f.generation, w, h);
+            rec.splice(20..20, n.to_le_bytes());
+            rec
+        }
+        None => frame_record(&jpg, f.generation, w, h),
+    })
 }
 
 /// GET /events: Server-Sent Events, one JSON object per `data:` line, each with a `type`

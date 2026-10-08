@@ -117,6 +117,7 @@ pub fn gfx_initrd(src: &Path, dst: &Path, dpi: u32) -> R<()> {
     let body = d.get(n - 20 - size..n - 20).ok_or("bootconfig size past the start of the file")?;
     let want = [("androidboot.hardware.egl", "angle".to_string()), ("androidboot.hardware.vulkan", "ranchu".to_string()),
         ("androidboot.hardware.gltransport", "virtio-gpu-asg".to_string()), ("androidboot.cpuvulkan.version", "0".to_string()),
+        ("androidboot.opengles.version", "196609".to_string()),
         ("androidboot.lcd_density", dpi.to_string())];
     let text = String::from_utf8_lossy(body);
     let mut out: Vec<String> = text.trim_end_matches('\0').lines().filter(|l| !l.is_empty())
@@ -366,7 +367,9 @@ pub fn encode_q(rgb: &image::RgbImage, size: Option<(u32, u32)>, q: u8) -> R<(Ve
     let scaled;
     let img = match size {
         Some((w, h)) if w < dw || h < dh => {
-            scaled = image::DynamicImage::ImageRgb8(rgb.clone()).resize(w, h, image::imageops::FilterType::Triangle).to_rgb8();
+            // Fit inside (w, h), aspect kept; thumbnail (box filter) is ~1.5x faster than a Triangle resize.
+            let r = (w as f64 / dw as f64).min(h as f64 / dh as f64);
+            scaled = image::imageops::thumbnail(rgb, ((dw as f64 * r).round() as u32).max(1), ((dh as f64 * r).round() as u32).max(1));
             &scaled
         }
         _ => rgb,
@@ -428,7 +431,8 @@ impl Device {
     /// paths remain. Untested.
     /// `others_ok`: skip the "no other crosvm running" check (the caller already runs Devices).
     /// `gfx`: render with gfxstream on the host GPU; false = crosvm's 2D software renderer.
-    pub async fn spawn(cfg: &Cfg, idx: u32, image_name: &str, screen_name: &str, mem: Option<&str>, cpus: Option<&str>, net: bool, others_ok: bool, gfx: bool) -> R<Arc<Device>> {
+    /// `refresh_hz`: the guest display's refresh rate.
+    pub async fn spawn(cfg: &Cfg, idx: u32, image_name: &str, screen_name: &str, mem: Option<&str>, cpus: Option<&str>, net: bool, others_ok: bool, gfx: bool, refresh_hz: u32) -> R<Arc<Device>> {
         let (run, image_mem) = image(image_name)?;
         let (sw, sh, dpi) = screen(screen_name, is_phone(image_name))?;
         let mem = mem.or(image_mem).unwrap_or(&cfg.mem).to_string();
@@ -468,7 +472,7 @@ impl Device {
             .args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-File"]).arg(boot_script())
             .env("AE_PARAMS", DIET_PARAMS).env("AE_SINKS", DIET_SINKS).env("AE_GPU_EXTRA", DIET_GPU)
             .env("AE_DIR", win(&dir)).env("AE_ID", idx.to_string()).env("AE_MEM", &mem).env("AE_CPUS", cpus.unwrap_or(&cfg.cpus))
-            .env("AE_DISPLAY", format!("{sw},{sh}")).env("AE_DPI", dpi.to_string())
+            .env("AE_DISPLAY", format!("{sw},{sh}")).env("AE_DPI", dpi.to_string()).env("AE_REFRESH", refresh_hz.to_string())
             .env("AE_EXTRA", format!("--socket PIPE:ae-vm-{idx}{} --input multi-touch[path={}] --input keyboard[path={}]",
                 if is_phone(image_name) { String::new() } else { format!(" --pmem path={},ro=true", pmem.to_string_lossy().replace('\\', "/")) },
                 fast::touch_pipe(idx), fast::kbd_pipe(idx)))
@@ -742,7 +746,7 @@ mod tests {
         assert!(o.starts_with(b"RAMDISK") && size % 4 == 0);
         assert_eq!(String::from_utf8_lossy(body).trim_end_matches('\0'), "androidboot.x=1\nandroidboot.hardware.egl=angle\n\
             androidboot.hardware.vulkan=ranchu\nandroidboot.hardware.gltransport=virtio-gpu-asg\nandroidboot.cpuvulkan.version=0\n\
-            androidboot.lcd_density=238\n");
+            androidboot.opengles.version=196609\nandroidboot.lcd_density=238\n");
         assert!(gfx_initrd(&t.with_extension("out2"), &t.with_extension("x"), 1).is_err());
         for e in ["in", "out"] { std::fs::remove_file(t.with_extension(e)).ok(); }
         assert!(gfx_path(Path::new("E:/emu")).starts_with(r"E:\emu\lib64\gles_angle;E:\emu\lib64;E:\emu;"));

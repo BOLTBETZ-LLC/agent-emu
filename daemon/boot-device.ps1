@@ -22,6 +22,7 @@ $gpu = if ($env:AE_GPU_BACKEND) { $env:AE_GPU_BACKEND } else { "backend=2D" }
 # AE_DISPLAY "w,h" and AE_DPI: the guest display (default the old 720x1280 at 320 dpi).
 $disp = if ($env:AE_DISPLAY) { $env:AE_DISPLAY } else { "720,1280" }
 $dpi = if ($env:AE_DPI) { $env:AE_DPI } else { "320" }
+$hz = if ($env:AE_REFRESH) { $env:AE_REFRESH } else { "60" }
 $extra = if ($env:AE_EXTRA) { $env:AE_EXTRA -split " " } else { @() }
 # PIPE:<name> expands to a Windows named pipe path, so callers never escape backslashes.
 $extra = $extra | ForEach-Object { if ($_ -like "PIPE:*") { "\\.\pipe\" + $_.Substring(5) } else { $_ } }
@@ -40,7 +41,7 @@ $args = @(
   "--serial", "hardware=virtio-console,num=2,type=namedpipe,path=$pipe",
   "--serial", "hardware=virtio-console,num=3,type=file,path=$R\logcat.log"
 ) + $extra + $sinks + @(
-  "--gpu", ("$gpu,displays=[[mode=windowed[$disp],dpi=[$dpi,$dpi],refresh-rate=60]]" + $(if ($env:AE_GPU_EXTRA) { "," + $env:AE_GPU_EXTRA } else { "" })),
+  "--gpu", ("$gpu,displays=[[mode=windowed[$disp],dpi=[$dpi,$dpi],refresh-rate=$hz]]" + $(if ($env:AE_GPU_EXTRA) { "," + $env:AE_GPU_EXTRA } else { "" })),
   "--initrd", $initrd,
   "--params", $cmdline,
   $kernel

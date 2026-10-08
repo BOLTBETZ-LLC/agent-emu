@@ -36,7 +36,7 @@ The body is `{"call": "<name>", "device": "d0", ...}`. The reply is `{"ok": true
 
 | Call | Arguments | Notes |
 | --- | --- | --- |
-| `start` | `image` (`phone`, `phone-n`, `slim5`, `slim4`, `slim3n`, ...), `screen`, `render` (`gfxstream` default, `software`), `mem`, `cpus`, `net`, `auto_squeeze` | boots and waits for Android plus setup. Use `async` |
+| `start` | `image` (`phone`, `phone-n`, `slim5`, `slim4`, `slim3n`, ...), `screen`, `render` (`gfxstream` default, `software`), `refresh_hz` (default 120, 1-240), `boot_cap_mb` (default 600, 0 = none), `mem`, `cpus`, `net`, `auto_squeeze` | boots and waits for Android plus setup. Use `async` |
 | `start_many` | `devices: ["d0","d1",...]`, `parallel` (default 4, max 8), plus the `start` arguments | boots them, up to `parallel` at once. Reply `devices: [{device, ok, ready_s / error}]` |
 | `stop` | `device` | |
 | `stop_many` | `devices` (default: all) | stops them all at once |
@@ -62,6 +62,14 @@ SDK emulator's `lib64\libgfxstream_backend.dll` (`AE_SDK_EMULATOR`, default `%LO
 on a PATH of only the SDK's `lib64\gles_angle`, `lib64` and Windows dirs, and a guest bootconfig set to ANGLE plus
 Vulkan over virtio-gpu-asg. If either file is missing, `start` fails and names it. `software` is crosvm's 2D
 renderer on the CPU. `status` shows which one a Device runs as `render`.
+
+`refresh_hz` is the guest display's refresh rate (crosvm `refresh-rate`). On gfxstream at 120 Hz the GPU
+worker measured 117.6 fps at native size.
+
+`boot_cap_mb` caps the main crosvm process's working set from launch (helpers at 32 MB), checked every 2 s
+until the Device is ready. Without it a gfxstream boot took about 2.1 GB of host RAM; with 600 MB one
+peaked at 746 MB and boot time stayed at 123 s. The caps stay after boot; `squeeze` (or `auto_squeeze`
+after `app launch`) lowers them to the settled size (about 360 MB).
 
 To change a running Device's settings (image, screen, RAM), stop it and start it again with the new options.
 
@@ -141,6 +149,9 @@ Query parameters for `/frames` and `/mux`:
 | `quality` | 75 | JPEG quality 1-100 |
 | `format` | `raw` | `/frames` only: `raw` records, or `mjpeg` (`multipart/x-mixed-replace`, works as `<img src>`) |
 | `full` | | `/mux` only: this Device goes out unscaled (the focused phone) |
+
+Each phone encodes on its own blocking thread. On `/mux`, when the connection's queue is full, that phone's
+frame is dropped (its next frame replaces it), so one slow phone or reader never holds back the others.
 
 Record layout (little endian), repeated:
 
