@@ -1,0 +1,306 @@
+{
+ "tag": "a17-640x10",
+ "ids": [
+  30,
+  31,
+  32,
+  33,
+  34,
+  35,
+  36,
+  37,
+  38,
+  39
+ ],
+ "mem": "640",
+ "params": "virtio_blk.num_request_queues=1 virtio_blk.queue_depth=64 kfence.sample_interval=0 transparent_hugepage=never",
+ "sinks": "20",
+ "crosvm": "crosvm-diet",
+ "cap": [
+  200,
+  16
+ ],
+ "hold_s": 300,
+ "devices": {
+  "30": {
+   "dir": "C:/dev/agent-emu-work/leverD/a17/fleet/d30",
+   "ready_s": 117.6,
+   "install": "Success",
+   "launch": "Status: ok\nTotalTime: 845",
+   "host_after_boot": {
+    "available_mb": 13055,
+    "compression_mb": 1958
+   },
+   "app_pid": "3415",
+   "guest": "Used RAM:   759,951K (  466,295K used pss +   293,656K kernel)\n     ZRAM:   136,120K physical used for   457,992K in swap (  594,956K total swap)",
+   "screenshot": "C:/dev/agent-emu-work/leverD/results/a17-640x10/d30.png"
+  },
+  "31": {
+   "dir": "C:/dev/agent-emu-work/leverD/a17/fleet/d31",
+   "ready_s": 112.4,
+   "install": "Success",
+   "launch": "Status: ok\nTotalTime: 833",
+   "host_after_boot": {
+    "available_mb": 10959,
+    "compression_mb": 1955
+   },
+   "app_pid": "3331",
+   "guest": "Used RAM:   749,616K (  456,004K used pss +   293,612K kernel)\n     ZRAM:   136,864K physical used for   449,400K in swap (  594,952K total swap)",
+   "screenshot": "C:/dev/agent-emu-work/leverD/results/a17-640x10/d31.png"
+  },
+  "32": {
+   "dir": "C:/dev/agent-emu-work/leverD/a17/fleet/d32",
+   "ready_s": 114.6,
+   "install": "Success",
+   "launch": "Status: ok\nTotalTime: 871",
+   "host_after_boot": {
+    "available_mb": 9880,
+    "compression_mb": 1955
+   },
+   "app_pid": "3389",
+   "guest": "Used RAM:   765,633K (  480,509K used pss +   285,124K kernel)\n     ZRAM:   127,876K physical used for   430,456K in swap (  594,948K total swap)",
+   "screenshot": "C:/dev/agent-emu-work/leverD/results/a17-640x10/d32.png"
+  },
+  "33": {
+   "dir": "C:/dev/agent-emu-work/leverD/a17/fleet/d33",
+   "ready_s": 114.4,
+   "install": "Success",
+   "launch": "Status: ok\nTotalTime: 772",
+   "host_after_boot": {
+    "available_mb": 9905,
+    "compression_mb": 1950
+   },
+   "app_pid": "3382",
+   "guest": "Used RAM:   780,351K (  482,763K used pss +   297,588K kernel)\n     ZRAM:   146,084K physical used for   496,984K in swap (  594,952K total swap)",
+   "screenshot": "C:/dev/agent-emu-work/leverD/results/a17-640x10/d33.png"
+  },
+  "34": {
+   "dir": "C:/dev/agent-emu-work/leverD/a17/fleet/d34",
+   "ready_s": 114.2,
+   "install": "Success",
+   "launch": "Status: ok\nTotalTime: 937",
+   "host_after_boot": {
+    "available_mb": 10261,
+    "compression_mb": 2759
+   },
+   "app_pid": "3345",
+   "guest": "Used RAM:   769,994K (  476,246K used pss +   293,748K kernel)\n     ZRAM:   138,520K physical used for   471,376K in swap (  594,952K total swap)",
+   "screenshot": "C:/dev/agent-emu-work/leverD/results/a17-640x10/d34.png"
+  },
+  "35": {
+   "dir": "C:/dev/agent-emu-work/leverD/a17/fleet/d35",
+   "ready_s": 114.3,
+   "install": "Success",
+   "launch": "Status: ok\nTotalTime: 991",
+   "host_after_boot": {
+    "available_mb": 9605,
+    "compression_mb": 2573
+   },
+   "app_pid": "3339",
+   "guest": "Used RAM:   766,438K (  468,614K used pss +   297,824K kernel)\n     ZRAM:   136,044K physical used for   472,796K in swap (  594,948K total swap)",
+   "screenshot": "C:/dev/agent-emu-work/leverD/results/a17-640x10/d35.png"
+  },
+  "36": {
+   "dir": "C:/dev/agent-emu-work/leverD/a17/fleet/d36",
+   "ready_s": 114.4,
+   "install": "Success",
+   "launch": "Status: ok\nTotalTime: 930",
+   "host_after_boot": {
+    "available_mb": 8955,
+    "compression_mb": 2753
+   },
+   "app_pid": "3334",
+   "guest": "Used RAM:   763,597K (  465,725K used pss +   297,872K kernel)\n     ZRAM:   139,496K physical used for   474,160K in swap (  594,948K total swap)",
+   "screenshot": "C:/dev/agent-emu-work/leverD/results/a17-640x10/d36.png"
+  },
+  "37": {
+   "dir": "C:/dev/agent-emu-work/leverD/a17/fleet/d37",
+   "ready_s": 114.3,
+   "install": "Success",
+   "launch": "Status: ok\nTotalTime: 766",
+   "host_after_boot": {
+    "available_mb": 8603,
+    "compression_mb": 2856
+   },
+   "app_pid": "3358",
+   "guest": "Used RAM:   759,571K (  488,231K used pss +   271,340K kernel)\n     ZRAM:   103,936K physical used for   357,976K in swap (  594,948K total swap)",
+   "screenshot": "C:/dev/agent-emu-work/leverD/results/a17-640x10/d37.png"
+  },
+  "38": {
+   "dir": "C:/dev/agent-emu-work/leverD/a17/fleet/d38",
+   "ready_s": 114.5,
+   "install": "Success",
+   "launch": "Status: ok\nTotalTime: 815",
+   "host_after_boot": {
+    "available_mb": 8297,
+    "compression_mb": 3262
+   },
+   "app_pid": "3513",
+   "guest": "Used RAM:   772,675K (  473,087K used pss +   299,588K kernel)\n     ZRAM:   140,940K physical used for   479,920K in swap (  594,952K total swap)",
+   "screenshot": "C:/dev/agent-emu-work/leverD/results/a17-640x10/d38.png"
+  },
+  "39": {
+   "dir": "C:/dev/agent-emu-work/leverD/a17/fleet/d39",
+   "ready_s": 114.3,
+   "install": "Success",
+   "launch": "Status: ok\nTotalTime: 861",
+   "host_after_boot": {
+    "available_mb": 7874,
+    "compression_mb": 3325
+   },
+   "app_pid": "3346",
+   "guest": "Used RAM:   758,193K (  460,445K used pss +   297,748K kernel)\n     ZRAM:   133,000K physical used for   459,544K in swap (  594,952K total swap)",
+   "screenshot": "C:/dev/agent-emu-work/leverD/results/a17-640x10/d39.png"
+  }
+ },
+ "host_before": {
+  "available_mb": 13237,
+  "compression_mb": 1954
+ },
+ "all_up_s": 1358.3,
+ "host_settled": {
+  "available_mb": 8110,
+  "compression_mb": 3325
+ },
+ "ws_settled_mb": {
+  "30": 273,
+  "31": 273,
+  "32": 273,
+  "33": 273,
+  "34": 273,
+  "35": 273,
+  "36": 273,
+  "37": 273,
+  "38": 273,
+  "39": 273
+ },
+ "host_after_cap": {
+  "available_mb": 8871,
+  "compression_mb": 3638
+ },
+ "hold": [
+  {
+   "t": 24,
+   "available_mb": 10239,
+   "compression_mb": 3452,
+   "ws_total_mb": 2730
+  },
+  {
+   "t": 67,
+   "available_mb": 10101,
+   "compression_mb": 3605,
+   "ws_total_mb": 2730
+  },
+  {
+   "t": 109,
+   "available_mb": 8708,
+   "compression_mb": 3723,
+   "ws_total_mb": 2730
+  },
+  {
+   "t": 152,
+   "available_mb": 8795,
+   "compression_mb": 3749,
+   "ws_total_mb": 2730
+  },
+  {
+   "t": 194,
+   "available_mb": 8654,
+   "compression_mb": 3723,
+   "ws_total_mb": 2730
+  },
+  {
+   "t": 236,
+   "available_mb": 8771,
+   "compression_mb": 3762,
+   "ws_total_mb": 2730
+  },
+  {
+   "t": 278,
+   "available_mb": 8846,
+   "compression_mb": 3754,
+   "ws_total_mb": 2730
+  }
+ ],
+ "host_after_hold": {
+  "available_mb": 8771,
+  "compression_mb": 3672
+ },
+ "ws_capped_mb": {
+  "30": 273,
+  "31": 273,
+  "32": 273,
+  "33": 273,
+  "34": 273,
+  "35": 273,
+  "36": 273,
+  "37": 273,
+  "38": 273,
+  "39": 273
+ },
+ "tap_ms_p50_p95_max": [
+  157,
+  295,
+  481
+ ],
+ "distinct_app_pids": 10,
+ "per_device_ws_mb": 273,
+ "compression_growth_mb": 347,
+ "per_device_ram_mb": 308,
+ "stop_freed": [
+  {
+   "id": 30,
+   "available_freed_mb": 613,
+   "compression_freed_mb": 379
+  },
+  {
+   "id": 31,
+   "available_freed_mb": 352,
+   "compression_freed_mb": 144
+  },
+  {
+   "id": 32,
+   "available_freed_mb": 454,
+   "compression_freed_mb": 181
+  },
+  {
+   "id": 33,
+   "available_freed_mb": -379,
+   "compression_freed_mb": 144
+  },
+  {
+   "id": 34,
+   "available_freed_mb": -87,
+   "compression_freed_mb": 137
+  },
+  {
+   "id": 35,
+   "available_freed_mb": 443,
+   "compression_freed_mb": 134
+  },
+  {
+   "id": 36,
+   "available_freed_mb": 697,
+   "compression_freed_mb": 129
+  },
+  {
+   "id": 37,
+   "available_freed_mb": 477,
+   "compression_freed_mb": 137
+  },
+  {
+   "id": 38,
+   "available_freed_mb": 492,
+   "compression_freed_mb": 132
+  },
+  {
+   "id": 39,
+   "available_freed_mb": 592,
+   "compression_freed_mb": 150
+  }
+ ],
+ "host_end": {
+  "available_mb": 13808,
+  "compression_mb": 1953
+ }
+}

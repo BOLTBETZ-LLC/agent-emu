@@ -1,0 +1,194 @@
+30 117.6 Status: ok
+TotalTime: 845 {'available_mb': 13055, 'compression_mb': 1958}
+31 112.4 Status: ok
+TotalTime: 833 {'available_mb': 10959, 'compression_mb': 1955}
+32 114.6 Status: ok
+TotalTime: 871 {'available_mb': 9880, 'compression_mb': 1955}
+33 114.4 Status: ok
+TotalTime: 772 {'available_mb': 9905, 'compression_mb': 1950}
+34 114.2 Status: ok
+TotalTime: 937 {'available_mb': 10261, 'compression_mb': 2759}
+35 114.3 Status: ok
+TotalTime: 991 {'available_mb': 9605, 'compression_mb': 2573}
+36 114.4 Status: ok
+TotalTime: 930 {'available_mb': 8955, 'compression_mb': 2753}
+37 114.3 Status: ok
+TotalTime: 766 {'available_mb': 8603, 'compression_mb': 2856}
+38 114.5 Status: ok
+TotalTime: 815 {'available_mb': 8297, 'compression_mb': 3262}
+39 114.3 Status: ok
+TotalTime: 861 {'available_mb': 7874, 'compression_mb': 3325}
+{
+ "tag": "a17-640x10",
+ "ids": [
+  30,
+  31,
+  32,
+  33,
+  34,
+  35,
+  36,
+  37,
+  38,
+  39
+ ],
+ "mem": "640",
+ "params": "virtio_blk.num_request_queues=1 virtio_blk.queue_depth=64 kfence.sample_interval=0 transparent_hugepage=never",
+ "sinks": "20",
+ "crosvm": "crosvm-diet",
+ "cap": [
+  200,
+  16
+ ],
+ "hold_s": 300,
+ "host_before": {
+  "available_mb": 13237,
+  "compression_mb": 1954
+ },
+ "all_up_s": 1358.3,
+ "host_settled": {
+  "available_mb": 8110,
+  "compression_mb": 3325
+ },
+ "ws_settled_mb": {
+  "30": 273,
+  "31": 273,
+  "32": 273,
+  "33": 273,
+  "34": 273,
+  "35": 273,
+  "36": 273,
+  "37": 273,
+  "38": 273,
+  "39": 273
+ },
+ "host_after_cap": {
+  "available_mb": 8871,
+  "compression_mb": 3638
+ },
+ "hold": [
+  {
+   "t": 24,
+   "available_mb": 10239,
+   "compression_mb": 3452,
+   "ws_total_mb": 2730
+  },
+  {
+   "t": 67,
+   "available_mb": 10101,
+   "compression_mb": 3605,
+   "ws_total_mb": 2730
+  },
+  {
+   "t": 109,
+   "available_mb": 8708,
+   "compression_mb": 3723,
+   "ws_total_mb": 2730
+  },
+  {
+   "t": 152,
+   "available_mb": 8795,
+   "compression_mb": 3749,
+   "ws_total_mb": 2730
+  },
+  {
+   "t": 194,
+   "available_mb": 8654,
+   "compression_mb": 3723,
+   "ws_total_mb": 2730
+  },
+  {
+   "t": 236,
+   "available_mb": 8771,
+   "compression_mb": 3762,
+   "ws_total_mb": 2730
+  },
+  {
+   "t": 278,
+   "available_mb": 8846,
+   "compression_mb": 3754,
+   "ws_total_mb": 2730
+  }
+ ],
+ "host_after_hold": {
+  "available_mb": 8771,
+  "compression_mb": 3672
+ },
+ "ws_capped_mb": {
+  "30": 273,
+  "31": 273,
+  "32": 273,
+  "33": 273,
+  "34": 273,
+  "35": 273,
+  "36": 273,
+  "37": 273,
+  "38": 273,
+  "39": 273
+ },
+ "tap_ms_p50_p95_max": [
+  157,
+  295,
+  481
+ ],
+ "distinct_app_pids": 10,
+ "per_device_ws_mb": 273,
+ "compression_growth_mb": 347,
+ "per_device_ram_mb": 308,
+ "stop_freed": [
+  {
+   "id": 30,
+   "available_freed_mb": 613,
+   "compression_freed_mb": 379
+  },
+  {
+   "id": 31,
+   "available_freed_mb": 352,
+   "compression_freed_mb": 144
+  },
+  {
+   "id": 32,
+   "available_freed_mb": 454,
+   "compression_freed_mb": 181
+  },
+  {
+   "id": 33,
+   "available_freed_mb": -379,
+   "compression_freed_mb": 144
+  },
+  {
+   "id": 34,
+   "available_freed_mb": -87,
+   "compression_freed_mb": 137
+  },
+  {
+   "id": 35,
+   "available_freed_mb": 443,
+   "compression_freed_mb": 134
+  },
+  {
+   "id": 36,
+   "available_freed_mb": 697,
+   "compression_freed_mb": 129
+  },
+  {
+   "id": 37,
+   "available_freed_mb": 477,
+   "compression_freed_mb": 137
+  },
+  {
+   "id": 38,
+   "available_freed_mb": 492,
+   "compression_freed_mb": 132
+  },
+  {
+   "id": 39,
+   "available_freed_mb": 592,
+   "compression_freed_mb": 150
+  }
+ ],
+ "host_end": {
+  "available_mb": 13808,
+  "compression_mb": 1953
+ }
+}

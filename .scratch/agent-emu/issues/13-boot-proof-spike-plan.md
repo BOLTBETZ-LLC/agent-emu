@@ -724,3 +724,22 @@ All 33 slim APKs, all slim4 targets and SystemUI were present in A17 (0 `MISSING
 - Android 16 slim4 failed at 576 (lmkd killed TOP). Android 17 slim5-a17 passes at 576. That is likely the slim5 lmkd set and the HOME stub, not Android 17 itself; not isolated.
 - Trap: `su 0 sh -c 'am ...'` logs `app_process` aborts (`BOOTCLASSPATH and DEX2OATBOOTCLASSPATH must not be empty`). That is the shell environment under su, not the app.
 - Not done: 10 Devices on Android 17, console sinks trimmed back to 11, and `system_dlkm` swapped to the DAX kernel's modules.
+
+### Lever D: 10 Android 17 Devices at once, 640 MB, ~445 MB host RAM each (2026-10-08, ids 30-39)
+
+Driver: `assets/13-leverD/a17/fleet10_a17.py` (slim5-a17 + sensors fix, DAX kernel, pmem, `crosvm-diet`, diet cmdline, 20 console sinks, 2 vCPU). Evidence: `assets/13-leverD/a17/results/x10/`. Gate before the start: 0 lever A crosvm (`ae-vm-1[2-9]|2[0-2]`) on two 60 s checks, and Available 13,225-15,125 MB.
+
+- **All 10 booted one at a time:** ready 112-118 s each, launch 766-991 ms, all `Status: ok`; 22.6 min in total.
+- **All 10 apps were alive after a 5 min capped hold with a tap per Device every ~10 s.** 10 distinct pids (3415, 3331, 3389, 3382, 3345, 3339, 3334, 3358, 3513, 3346).
+- **All 10 screenshots seen by eye** (`montage.png`): first screen, "No Internet Connection / Try Again". The 10 PNGs are byte-identical (same deterministic render). Each was read through its own console port, and the pids differ.
+- **Caps:** 200 main / 16 helpers, applied to each Device 45 s after its own launch (`cap_up.py`). They were not applied after a common settle as briefed: 10 uncapped Devices at ~1.1 GB each would have crossed the 3,000 MB guard while the rest booted.
+- **Working set:** 273 MB per Device, flat over the whole hold (2,730 MB total for 10).
+- **Compression store:** 1,954 MB before the first boot → 3,672 MB after the hold = **+1,718 MB for 10, ~172 per Device**. Measured only from the cap is +347, but that misses the growth while booting, because the caps were already on.
+- **Honest RAM per Device:**
+  - 273 WS + 172 compression = **~445 MB**;
+  - cross-check by Available: 13,237 before → 8,771 after the hold = **4,466 MB for 10 = ~447 MB**;
+  - stopping all 10 brought Available back to 13,808 (+5,037, ~504 per Device, including standby refill).
+- **Marginal cost per stop** (Available freed 15 s after each stop): 613, 352, 454, −379, −87, 443, 697, 477, 492, 592 MB. Too noisy per stop (other sessions, standby refill); use the totals above. Compression freed per stop: 129-379 MB (first stop 379, then ~130-180).
+- **Guest per Device:** Used RAM 750-780 MB (456-488 MB pss + 271-300 MB kernel), 358-497 MB swapped into 104-146 MB of zram.
+- **Latency:** tap shell round trip p50/p95/max 157 / 295 / 481 ms with 10 Devices.
+- **Verdict:** Android 17 meets the 600 MB per Device target with 10 Devices at once: ~445 MB host RAM each, apps alive, screens checked. It is the same as the Android 16 proof (~445).
