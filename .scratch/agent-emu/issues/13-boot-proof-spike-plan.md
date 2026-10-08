@@ -224,3 +224,11 @@ Each Device gets its own dir with hard-linked read-only images (one disk copy, o
 - **With the app up, the 896 MB guest has nothing to balloon:** MemAvailable is 13 MB after `drop_caches`. The balloon now grows 50 MB at a time and stops before guest MemAvailable drops under 100 MB, so here it stays at 0.
 - **agent-emud `squeeze` / `memory`** (`e28ce65`, `12078ba`): d0 went from 1,999 MB to 349 MB working set (cap 250 main / 16 helpers), app alive, first screen seen by eye (`assets/13-squeeze-daemon/after-squeeze.jpg`). Tap to first frame on the offline "Try Again" button: p50/p95 188/1,392 ms before, 200/694 ms after.
 - Still not counted: what the cap pushed into the compression store. A worker is measuring that now.
+
+### squeeze2: 2 Devices capped at 250 main / 16 helpers under real host pressure (2026-10-08, ids 20-21)
+
+- Balloon stayed at 0 on both (stepped grow refused: guest MemAvailable already under 150 MB).
+- Working set: 435 MB each after the first cap (330/32), **320 / 319 MB after 250/16**, held through a 3 min hold with a tap every ~10 s per Device.
+- During the hold another session's jest run took host Available down to ~470 MB. Windows emptied the compression store to the pagefile (store 1,164 to 281 MB, pagefile 5.0% to 11.6%). **Under that pressure the Devices kept 320 MB each resident and the app stayed alive** (pids 5247, 5531). First screens seen by eye (`results/squeeze2/d20.png`, `d21.png`).
+- Latency: shell p50/p95 124/295 ms; tap on the offline "Try Again" button p50/p95 124/1,551 ms (that button re-checks the network before redrawing).
+- Bound on real RAM per Device: 320 MB WS + at most half of the 281 MB store left (shared with every other process) = **≤460 MB, likely close to 320**. Not yet a clean ≤400 proof: the compression share is not attributed per process.
