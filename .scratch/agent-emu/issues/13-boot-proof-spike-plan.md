@@ -365,6 +365,25 @@ Host note: four of the boots were cut short by the 3,000 MB during-boot host gua
 - Costs: `FILE_MAP_COPY` charges commit for the whole guest per clone (pagefile must cover N x guest RAM). Fixes needed: IA32_XSS/CET/PAT/TSC_AUX/TSC_DEADLINE in the WHPX vCPU snapshot, re-arming the TSC-deadline timer on restore, GPU 2D state kept across stop/snapshot, block in-process for CoW.
 - Open: host scanout `fb.bin` blank after restore (guest screencap works); TSC jumps by wall time since snapshot.
 
+### Lever A steady state, caps, slim4 (2026-10-08, crosvm-clone `95048aabc`, driver `assets/13-clone/`)
+
+Each run: 3 CoW clones (d13-d15) of one template, tap "Try Again" every 10 s, one app relaunch at minute 5, sample every 30 s. Per clone: private WS and total WS of its crosvm processes, privatized guest pages (crosvm's own QueryWorkingSetEx count). Host: Memory Compression WS, pagefile %. Raw samples: `assets/13-clone/<run>.json`.
+
+| Run | Plateau private WS per clone | Total WS | Compression store | Relaunch | Taps p50/p95/max |
+|---|---|---|---|---|---|
+| slim3 896, uncapped, 10 min (`steady896`) | **484 / 486 / 483 MB** (flat 5.5-10 min; ~420 before the relaunch) | 681 / 688 / 677 | 1,169 → 802 MB, no growth | 1,791 / 1,157 / 1,135 ms | 77 / 139 / 514 ms |
+| same clones, cap 300 main / 16 helpers, 5 min (`cap300`) | 241-256 MB | 316-329 | grew; not attributable from samples | 2.2-2.3 s | 77 / 110 / 841 ms |
+| same clones, cap 250 / 16, 5 min (`cap250`) | 196-214 MB | 268-278 | grew; see stop test | 2.5-2.9 s | 78 / 141 / 1,930 ms |
+| slim4 640 + diet cuts, uncapped (`steady640`) | 251 / 245 / 252 MB at 2 min, still rising; plateau **not measured** (see below) | 385-390 at 2 min | 1,685 → 1,741 MB | 1,967 / 1,291 / 1,441 ms | 74 / 144 / 1,182 ms |
+
+- **Unique per clone at plateau, slim3 896 uncapped: ~485 MB** (private WS; the compression store shrank, so nothing to add). Under the 600 MB target.
+- **Capped at 250 MB: ~315 MB unique per clone.** Pagefile stayed at 2.6%, so evicted private pages went to the compression store. Stopping the 3 capped clones dropped the store 1,923 → 1,577 MB (−346 MB, ~115 MB per clone): 200 private WS + 115 compressed. Shared template pages are the rest of the WS (~70 MB) and are file-backed.
+- App alive in every clone through all runs, 0 tap errors. Screens seen by eye: `clone-exp/out/steady896-d1[345]-*.png`, `cap250-d1[35]-*.png`, `steady640-d1[345]-*.png`, `templateE-d12-scanout.png`.
+- slim4 640 template (`snapE`): boot + install + snapshot passed. Clones restore in 1.11-1.13 s (script wall time), console 2.4-3.3 s. At 2.5 min an outside process killed my three crosvm brokers (06:17 UTC). The run-main processes and guests kept running, but the logs and WS samples stopped. Estimate from the 896 run's relaunch step (+65 MB): ~310-320 MB plateau, unmeasured.
+- **Host scanout after restore: fixed** (`95048aabc`). Blob resources now keep their guest ranges, so restore re-attaches them (rutabaga drops iovecs on restore), and restore publishes the scanout once. A restored clone's fb.bin carries the template's last frame. With `AGENT_EMU_FB_PIPE` (on-demand copy) the frame is current: app screen in `templateE-d12-scanout.png`, `steady640-d13-scanout.png`.
+- Open: restored clones log `ErrRutabaga ... TransferToHost2d/ResourceFlush ... resource_w 0` (60 times in slim4 d13, 0 in the template). Screens are unaffected.
+- Open: `FILE_MAP_COPY` commit charge is the full guest RAM per clone.
+
 ### Honest RAM of one squeezed Device (2026-10-08, `assets/13-compress/`)
 
 `compress_probe.py`: d0 (896 MB, slim3 pmem), proof app on its first screen, then the daemon `squeeze` with balloon 0 and caps 250/16. Phase A was 6 min with caps only; phase B was 6 min with caps plus `MEMORY_PRIORITY_VERY_LOW` and EcoQoS on all 8 crosvm processes. One tap every 10 s, one sample every 30 s. Host Available stayed between 5.4 and 11.3 GB in the window (no emergency), but other workers' Devices booted and stopped throughout (`other_brokers` in `result.json`), so every global number below carries their noise.
