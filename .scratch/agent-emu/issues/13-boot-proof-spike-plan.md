@@ -384,3 +384,52 @@ Host note: four of the boots were cut short by the 3,000 MB during-boot host gua
 - **Memory priority VERY_LOW + EcoQoS changed nothing measurable.** Both set successfully (read back as 1). The store stayed at 1110-1210 MB and the pagefile did not grow. Per the docs, memory priority only orders trimming ([SetProcessInformation](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-setprocessinformation)).
 - **No per-process way to send pages to the pagefile instead of compression was found.** The only switch is system-wide `Disable-MMAgent -MemoryCompression` ([docs](https://learn.microsoft.com/en-us/powershell/module/mmagent/disable-mmagent)); not changed. `OfferVirtualMemory` pages "will not be written to the paging file" and are discarded ([docs](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-offervirtualmemory)). That only fits guest pages the guest has freed (the balloon), and this 896 MB guest has ~13 MB free with the app up.
 - The app stayed alive throughout (pid 5241, `end.jpg`).
+
+### Guest diet round 2 (2026-10-08): 576 MB floor, squeezed to ≤551 MB host
+
+**Result:** slim5 + the queue-fixed crosvm passes at **576 MB**. The squeeze test ran on that Device: the app stayed alive for 5 min, and the estimated host cost is **551 MB at most**, under the 600 MB target. That figure is working set plus every MB the compression store grew.
+
+**crosvm queue fix:**
+- Worktree `C:/dev/agent-emu-work/crosvm-diet`, branch `agent-emu-diet`, commit `9858134a6`. It does not touch the shared crosvm-pmem binary.
+- Change: `max_queue_size: Some(256)` in the Windows vhost-user frontend constructors for block, gpu and snd (`src/sys/windows.rs`).
+- Built with its own target dir: `cargo build --release -j 4 --features all-msvc64,whpx,composite-disk`, 2m 37s incremental.
+- Boots use `fleet_diet.py --crosvm crosvm-diet`.
+- Its own MB saving is not isolated (no profiled boot). The estimate is 9 queues × ~1.8 MB.
+
+**slim5 = slim4 plus:**
+- **HOME stub:** `stage2/slim5/homestub/HomeStub.apk`, package `dev.agentemu.home`. It has no code; its HOME activity is the framework's own `android.app.Activity`. It is signed with a throwaway key and placed in `SYSTEM/app/HomeStub`. Logcat: `Adding package as default/fallback role holder, package: dev.agentemu.home, role: android.app.role.HOME`, and FallbackHome's task is removed after boot.
+- **lmkd:** `ro.lmk.thrashing_limit` 100 → 1000, `ro.lmk.critical_upgrade=false`, `ro.lmk.swap_free_low_percentage` 5 → 2.
+- **Trap:** `ro.lmk.psi_complete_stall_ms=2000` makes lmkd exit at start (`Kernel does not support memory pressure events`), because the stall must be shorter than the 1 s PSI window. The first slim5 build had it, and its 576 pass ran with no lmkd. It was reverted to 700 and rebuilt.
+- **`webview_zygote` off: not done.** The only image-level way is removing the WebView package, and the app depends on `react-native-webview`. That would cost ~10 MB zygote + ~8 MB `webview_service`.
+- Images in `C:/dev/agent-emu-work/stage2/slim5/`:
+  - `super.img` sha256 `6950832a9492afc029ac42cdb863c8009f7d3f26d412211c0636735854e8e699`;
+  - `system-pmem.img` sha256 `649aa8d2a0c936a29fbb1ce14936825476708cee8f2cb49e25874d60abbbcc9e`;
+  - `vbmeta*`.
+- Edits are recorded in `edits.sh`, the build in `build.sh`; run dir `run-slim5`.
+
+**Floor:**
+
+| Guest RAM | Result |
+|---|---|
+| 576 (slim5, lmkd working, 90 s settle) | **PASS**: ready 120.3 s, launch 1,576 ms, app alive, offline dialog seen by eye (`results/diet/s5-576keep/first-screen-d16.png`). Used RAM 739,087K (473,455K pss + 265,632K kernel; 444 MB swapped into 133 MB zram) |
+| 512 (slim5) | FAIL. Alive at the 30 s settle once (Start screen only, dialog not yet drawn, launch 4,043 ms). With a 90 s settle lmkd killed it as TOP: `min watermark is breached even after kill` |
+
+**Squeeze at 576** (`diet_squeeze.py`, no balloon):
+- Caps: run-main capped to 250 MB for 150 s, then 200 MB for 150 s; helpers capped to 16 MB.
+- A tap every 10 s on the dialog's Try Again button.
+- Results: `results/diet/squeeze-576/result.json`.
+
+| Measure | Value |
+|---|---|
+| Device WS before caps | 1,484 MB |
+| Device WS, run-main cap 250 | 312 MB (flat) |
+| Device WS, run-main cap 200 | 262 MB (flat) |
+| Memory Compression WS | 1,571 → 1,860 MB (+289 MB over the hold) |
+| Pagefile % | 2.57 → 2.58 |
+| Host Available (min during hold) | 10,874 MB |
+| App alive | 30 of 30 samples; same pid 3525 at the end |
+| Tap round trip | p50 165 ms, max 460 ms |
+| End screenshot | `results/diet/squeeze-576/end-d16.png`, offline dialog, seen by eye |
+| **Unique host RAM** | **≤ 551 MB** = 262 WS + 289 store growth |
+
+The 289 MB store growth is all counted against this Device. That is an upper bound: the store is shared by the whole host, and other sessions were running (store steps at +142 s and +232 s). The Windows PSS limits from the earlier fleet notes still apply.
