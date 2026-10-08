@@ -65,7 +65,10 @@ A build-ready spec for a slim Android emulator built for agents to test apps. Th
 - **Slim images by target_files repack:** slim2 (low_ram, softer lmkd) and slim3 (no SystemUI). Smallest working guest: **896 MB**. 768 MB OOMs at boot (177 MB of kernel slab).
 - **Fleet:** 4 Devices ran at once, ~1.2 GB each (Available and Committed agree). The 8- and 10-Device runs were stopped by memory pressure from other sessions' jest runs and the WSL VM. **400 MB per Device is not reached:** the realistic floor with this Android 16 guest is ~1.1 GB, because WHPX keeps guest RAM resident and Windows has no cross-VM page dedup.
 - **Agent API:** the `agent-emud` daemon and MCP mode work. The fast path (virtio-input pipes, scanout frames) gives a 12 ms screenshot, a 0 ms tap ack, and **28 ms p95 from input to first frame**. Settle rule = first frame + 33 ms quiet.
-- **Open:** settle v2, crosvm log spam, networking/adb (worker running); a 6-Device run at 896 MB next; headless display; structured API layers; the `system_dlkm` swap.
+- **Settle v2:** tap → first frame p50 27 / p95 56 ms (one cold tap; warm 24-43); HOME → first frame 36/37 ms; settled 206-355 ms. JPEG encode is 2 ms (`jpeg-encoder` SIMD). The 33 ms quiet window ends early on cold app launches, so the app-idle helper is needed.
+- **crosvm fixes:** vsock log spam (GB per boot down to ~220 KB); net `start_queue` root cause (`workers.get(idx).is_some()` was always true); slirp TCP hostfwd. **adb works:** `adb connect 127.0.0.1:6520`, `getprop sys.boot_completed` = 1, `adb install` Success (13.3 s).
+- **Trap:** slim3 has no wallpaper or SystemUI, so stale pixels stay in the scanout where no window draws (seen by eye in `assets/10-settle-v2/2-home.jpg`). Needs an opaque base layer or a scanout clear.
+- **Open:** 6-Device run at 896 MB (running); headless display; stale-pixel fix; app-idle helper; structured API layers; the `system_dlkm` swap.
 
 ## Not yet specified
 
