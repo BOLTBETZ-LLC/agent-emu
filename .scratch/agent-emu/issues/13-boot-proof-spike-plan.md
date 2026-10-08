@@ -609,6 +609,26 @@ Run: 3 slim4 640 clones of `snapG`, 10 min (tap every 20 s, relaunch at 5 min). 
 - (d) zero pages are 6-9 MB per clone.
 - **Ceiling of all same-content tricks together: ~(a)+(b)+(c) ≈ 140 MB per clone at page granularity.** None of it is reachable with Windows file-view granularity except ~2 MB. 400 MB per clone stays out of reach on the host side. The ~73% remainder is unique guest data.
 
+### slim4ns (no zram/swap) clones at 896 (2026-10-08, diet worker's `run-slim4ns`, READY = 896)
+
+The diet worker's smallest no-swap size where the app survives is 896 MB, so only 896 was run. Template `snapN`: ready 117.3 s, launch 901 ms, SwapTotal 0, MemAvailable 37 MB with the app up. 3 uncapped CoW clones, 10 min (tap every 20 s, relaunch at 5 min), then stop one at a time. Raw data: `assets/13-clone/privatize/s4ns896-*`.
+
+- **Privatized timeline (MB, from crosvm's 30 s log):**
+
+| Clone | 30 s | 60 s | 120 s | 300 s | 330 s | 600 s |
+|---|---|---|---|---|---|---|
+| d13 | 121 | 193 | 223 | 241 | 242 | 399 |
+| d14 | 175 | 196 | 229 | 243 | 393 | 410 |
+| d15 | 174 | 215 | 232 | 240 | 388 | 392 |
+
+  - Without zram churn the clone privatizes less before the relaunch (~240 MB at 300 s vs ~300 at slim4 640).
+  - But the relaunch alone adds ~150 MB: the guest has free frames, so the new app process lands on fresh ones.
+- Plateau private WS 400-418 MB. Compression flat (2,053 → 2,027). App alive in all 3 at all 20 samples. Relaunch 1.0-1.6 s, taps p50/p95 78/265 ms.
+- **Stops:** d15 rejected (the standby list jumped +3,264 MB in its window, an outside event); **d14 freed 440 MB** (the only clean non-last stop); last d13 freed 683 (shared once ≈ 263).
+- **Marginal ≈ 440 MB.** That is worse than slim4 640 with zram (416), so no 10-clone run.
+- **Input HOME→first frame (2 warm-ups, 60 inputs): p50 34.5 ms, p95 50.5 ms**, 0 misses.
+- Screens seen by eye (`privatize/s4ns896-sheet.png`): the template scanout and d13 and d14 show the offline dialog. d15 shows the proof app's Welcome/Start screen ("Welcome to BOLTBETZ", Log In / Create Account) after its Try Again taps. The app was alive in all 3.
+
 ### Honest RAM of one squeezed Device (2026-10-08, `assets/13-compress/`)
 
 `compress_probe.py`: d0 (896 MB, slim3 pmem), proof app on its first screen, then the daemon `squeeze` with balloon 0 and caps 250/16. Phase A was 6 min with caps only; phase B was 6 min with caps plus `MEMORY_PRIORITY_VERY_LOW` and EcoQoS on all 8 crosvm processes. One tap every 10 s, one sample every 30 s. Host Available stayed between 5.4 and 11.3 GB in the window (no emergency), but other workers' Devices booted and stopped throughout (`other_brokers` in `result.json`), so every global number below carries their noise.
