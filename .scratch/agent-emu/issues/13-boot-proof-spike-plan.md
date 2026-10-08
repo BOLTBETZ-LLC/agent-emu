@@ -138,3 +138,19 @@ Driver: `assets/13-memory/measure.py`. Each run is a fresh boot, then install, o
   - It must be **legacy-LZ4 framed**. The kernel's LZ4 reader runs to the end of the buffer and ignores a plain cpio appended after an LZ4 ramdisk.
 - **At 1 GB:** boot 30.3 s (stock 48 s); guest used 967 MB (stock 1,180 MB); host ~1.82 GB WS (guest RAM is still fully resident).
 - **The app launched (TotalTime 1,648 ms) but lmkd killed it as TOP:** "low watermark is breached and thrashing (128%)". The aggressive `ro.lmk.*` overrides in the repack caused it. Rebuilding with softer lmkd settings (`ro.lmk.thrashing_limit=100`, PSI stall 200/700 ms). The screenshot shows the launcher after the kill (`assets/13-stage2/slim-1g/`).
+
+### slim2 + pmem DAX (2026-10-08): stage 2 core PASS
+
+- **slim2** (softer lmkd: `ro.lmk.thrashing_limit=100`, PSI 200/700 ms; still `low_ram=true`) at 1 GB: boot 28.3 s, launch 2,528 ms, app alive, first screen seen by eye. Guest used 1,153 MB. Host ~1.81 GB WS.
+- slim2 at 768 MB: did not finish within 700 s. Not viable on a block-device system.
+- **Windows virtio-pmem port:** crosvm branch `agent-emu-pmem`, commit `2643cd511`, patch in `assets/13-stage2/`.
+  - pmem now compiles on Windows and is a main-process device.
+  - It maps one read-only file view (`PAGE_READONLY`, which also fixes the hardcoded `PAGE_READWRITE`) and uses WHvMapGpaRange read|execute.
+  - The image must be a multiple of 2 MiB; the GPA is 128 MiB aligned. `--pmem path=<file>,ro=true`.
+- **DAX boot PASS** (DAX kernel 6.12.93 + `initrd-dax-pmem.img` fstab overlay: `/dev/block/pmem0 /system erofs ro,dax=always wait,first_stage_mount`):
+  - `__mount(source=/dev/block/pmem0,target=/system,type=erofs)=0: Success`.
+  - `/proc/mounts`: `/dev/block/pmem0 / erofs ro,...,dax=always`. The nd bus has `dax0.0` and `pfn0.0`.
+  - At 1 GB: boot 24.2 s, **launch 702 ms** (block-disk system: 1.6-2.5 s), app alive, first screen seen by eye (`assets/13-stage2/pmem-1g/`).
+  - Guest Cached is down to 156 MB (system files no longer go through guest page cache). Guest used 1,110 MB.
+  - Host main process 1,461 MB WS = 1 GB private guest RAM + touched pmem file pages (file-backed, should be shared across Devices; **not yet measured with 2 Devices**). Block process 582 MB.
+- **Next:** a multi-Device harness (per-Device run dir with hardlinked read-only images, per-Device pipes and bridge ports). Then measure 2 and then 10 Devices sharing one pmem image, and try a smaller `--mem` now that guest page cache is lower.

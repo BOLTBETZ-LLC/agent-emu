@@ -1,0 +1,58 @@
+{
+ "tag": "slim2-1g",
+ "mem": "1024",
+ "extra": "--socket PIPE:ae-vm",
+ "boot_s": 28.3,
+ "pm_ready_s": 28.4,
+ "install": "Success",
+ "launch": "Status: ok\nTotalTime: 2528",
+ "app_pid": "4266",
+ "screenshot": "C:/dev/agent-emu-work/results/slim2-1g/first-screen.png",
+ "guest": "Total RAM:   983,136K (status normal)\n Free RAM:   178,322K (   13,606K cached pss +   120,496K cached kernel +    44,220K free)\n Used RAM: 1,152,573K (  739,057K used pss +   413,516K kernel)\n           TOTAL PSS:   195755            TOTAL RSS:    43684       TOTAL SWAP PSS:   165769",
+ "host": [
+  {
+   "pid": 33848,
+   "ws_mb": 10,
+   "wspriv_mb": 1,
+   "private_mb": 1,
+   "role": "--block"
+  },
+  {
+   "pid": 42276,
+   "ws_mb": 9,
+   "wspriv_mb": 1,
+   "private_mb": 1,
+   "role": "run"
+  },
+  {
+   "pid": 3700,
+   "ws_mb": 1043,
+   "wspriv_mb": 6,
+   "private_mb": 46,
+   "role": "run"
+  },
+  {
+   "pid": 43264,
+   "ws_mb": 649,
+   "wspriv_mb": 3,
+   "private_mb": 6,
+   "role": "device"
+  },
+  {
+   "pid": 912,
+   "ws_mb": 90,
+   "wspriv_mb": 1,
+   "private_mb": 4,
+   "role": "device"
+  },
+  {
+   "pid": 42420,
+   "ws_mb": 10,
+   "wspriv_mb": 1,
+   "private_mb": 3,
+   "role": "device"
+  }
+ ],
+ "host_total_ws_mb": 1811,
+ "host_total_private_mb": 61
+}

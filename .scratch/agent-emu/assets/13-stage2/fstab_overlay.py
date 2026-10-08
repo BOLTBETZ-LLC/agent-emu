@@ -2,7 +2,7 @@
 # no dm-verity on the DAX-ready system image). The overlay is appended after the existing
 # ramdisks; the kernel unpacks cpio archives in order, so the edited fstab wins.
 # usage: python fstab_overlay.py <in initrd> <out initrd>
-import lz4.block, struct, sys
+import lz4.block, os, struct, sys
 
 SRC = "C:/dev/agent-emu-work/stage1/unpack/vendor_boot/vendor_ramdisk00"
 NAMES = ("first_stage_ramdisk/system/etc/fstab.cf.f2fs.hctr2",
@@ -44,6 +44,9 @@ def edit(text):
     for line in text.splitlines():
         if line.startswith("system /system "):
             line = line.replace(",avb=vbmeta_system,avb_keys=/avb", "").replace(",avb=vbmeta_system", "")
+            if os.environ.get("AE_SYSTEM_PMEM") and " erofs " in line:
+                # agent-emu: /system from the shared read-only pmem image, mapped with DAX.
+                line = "/dev/block/pmem0 /system erofs ro,dax=always wait,first_stage_mount"
         out.append(line)
     return ("\n".join(out) + "\n").encode()
 

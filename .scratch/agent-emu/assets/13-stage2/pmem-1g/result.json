@@ -1,0 +1,58 @@
+{
+ "tag": "pmem-1g",
+ "mem": "1024",
+ "extra": "--socket PIPE:ae-vm --pmem path=C:/dev/agent-emu-work/run/system-pmem.img,ro=true",
+ "boot_s": 24.2,
+ "pm_ready_s": 24.3,
+ "install": "Success",
+ "launch": "Status: ok\nTotalTime: 702",
+ "app_pid": "4322",
+ "screenshot": "C:/dev/agent-emu-work/results/pmem-1g/first-screen.png",
+ "guest": "Total RAM:   980,572K (status normal)\n Free RAM:   152,143K (    6,759K cached pss +   100,076K cached kernel +    45,308K free)\n Used RAM: 1,143,070K (  719,414K used pss +   423,656K kernel)\n           TOTAL PSS:   190490            TOTAL RSS:    47136       TOTAL SWAP PSS:   156976",
+ "host": [
+  {
+   "pid": 50740,
+   "ws_mb": 11,
+   "wspriv_mb": 1,
+   "private_mb": 2,
+   "role": "--block"
+  },
+  {
+   "pid": 50316,
+   "ws_mb": 9,
+   "wspriv_mb": 1,
+   "private_mb": 1,
+   "role": "run"
+  },
+  {
+   "pid": 31776,
+   "ws_mb": 1461,
+   "wspriv_mb": 6,
+   "private_mb": 48,
+   "role": "run"
+  },
+  {
+   "pid": 9716,
+   "ws_mb": 582,
+   "wspriv_mb": 3,
+   "private_mb": 6,
+   "role": "device"
+  },
+  {
+   "pid": 3260,
+   "ws_mb": 84,
+   "wspriv_mb": 1,
+   "private_mb": 4,
+   "role": "device"
+  },
+  {
+   "pid": 44532,
+   "ws_mb": 10,
+   "wspriv_mb": 1,
+   "private_mb": 3,
+   "role": "device"
+  }
+ ],
+ "host_total_ws_mb": 2157,
+ "host_total_private_mb": 64
+}

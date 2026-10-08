@@ -1,0 +1,348 @@
+From 2643cd5111b8880fe99b990884d8944df45205d7 Mon Sep 17 00:00:00 2001
+From: Aaron Lilla <55731138+aaronlilla@users.noreply.github.com>
+Date: Wed, 7 Oct 2026 18:20:53 -0700
+Subject: [PATCH] Windows: read-only virtio-pmem on WHPX
+
+--pmem path=<img>,ro=true now builds a main-process virtio-pmem device on Windows.
+Image is one PAGE_READONLY file view, mapped with WHvMapGpaRange read|execute.
+Image size must be a multiple of 2 MiB. Writable pmem, vma-size and swap-interval are refused.
+FLUSH answers OK in the worker; DISCARD and pageout never run on Windows.
+---
+ base/src/sys/windows/mmap.rs | 24 +++++++++-
+ devices/src/virtio/mod.rs    | 10 ++--
+ devices/src/virtio/pmem.rs   | 77 ++++++++++++++++++++++++-------
+ src/sys/windows.rs           | 89 ++++++++++++++++++++++++++++++++++++
+ 4 files changed, 179 insertions(+), 21 deletions(-)
+
+diff --git a/base/src/sys/windows/mmap.rs b/base/src/sys/windows/mmap.rs
+index a06e4c15d..c883bd558 100644
+--- a/base/src/sys/windows/mmap.rs
++++ b/base/src/sys/windows/mmap.rs
+@@ -5,6 +5,7 @@
+ use libc::c_void;
+ use win_util::create_file_mapping;
+ use win_util::duplicate_handle;
++use winapi::um::winnt::PAGE_READONLY;
+ use winapi::um::winnt::PAGE_READWRITE;
+ 
+ pub use super::mmap_platform::MemoryMappingArena;
+@@ -183,7 +184,13 @@ impl<'a> MemoryMappingBuilder<'a> {
+                         create_file_mapping(
+                             Some(descriptor.as_raw_descriptor()),
+                             self.size as u64,
+-                            PAGE_READWRITE,
++                            // agent-emu: a read-only file (pmem image) needs a PAGE_READONLY
++                            // section; PAGE_READWRITE fails on a read-only handle.
++                            if self.protection.is_some_and(|p| !p.write) {
++                                PAGE_READONLY
++                            } else {
++                                PAGE_READWRITE
++                            },
+                             None,
+                         )
+                     }
+@@ -260,6 +267,21 @@ mod tests {
+         }
+     }
+ 
++    // agent-emu: a read-only handle must map with Protection::read() (pmem image path).
++    #[test]
++    fn read_only_file_map() {
++        use std::io::Write;
++        let mut f = tempfile::NamedTempFile::new().unwrap();
++        f.write_all(&[7u8; 4096]).unwrap();
++        let ro = std::fs::File::open(f.path()).unwrap();
++        let m = crate::MemoryMappingBuilder::new(4096)
++            .from_file(&ro)
++            .protection(Protection::read())
++            .build()
++            .unwrap();
++        assert_eq!(m.read_obj::<u8>(4095).unwrap(), 7);
++    }
++
+     #[test]
+     fn basic_map() {
+         let shm = SharedMemory::new("test", 1028).unwrap();
+diff --git a/devices/src/virtio/mod.rs b/devices/src/virtio/mod.rs
+index e570ca44a..95bec43c8 100644
+--- a/devices/src/virtio/mod.rs
++++ b/devices/src/virtio/mod.rs
+@@ -85,10 +85,15 @@ pub use self::virtio_pci_device::VirtioPciShmCap;
+ #[cfg(feature = "pvclock")]
+ pub use self::DeviceType::Pvclock;
+ 
++// agent-emu: pmem builds on Windows too (read-only images only, see pmem.rs).
++mod pmem;
++pub use self::pmem::MemSlotConfig;
++pub use self::pmem::Pmem;
++pub use self::pmem::PmemConfig;
++
+ cfg_if::cfg_if! {
+     if #[cfg(any(target_os = "android", target_os = "linux"))] {
+         mod p9;
+-        mod pmem;
+ 
+         #[cfg(feature = "virtio_wl")]
+         pub mod wl;
+@@ -96,9 +101,6 @@ cfg_if::cfg_if! {
+ 
+         pub use self::iommu::sys::linux::vfio_wrapper;
+         pub use self::p9::P9;
+-        pub use self::pmem::Pmem;
+-        pub use self::pmem::PmemConfig;
+-        pub use self::pmem::MemSlotConfig;
+         #[cfg(feature = "virtio_wl")]
+         pub use self::wl::Wl;
+     } else if #[cfg(windows)] {
+diff --git a/devices/src/virtio/pmem.rs b/devices/src/virtio/pmem.rs
+index 44a58ee2e..f302e500a 100644
+--- a/devices/src/virtio/pmem.rs
++++ b/devices/src/virtio/pmem.rs
+@@ -16,15 +16,18 @@ use base::Error as SysError;
+ use base::Event;
+ use base::RawDescriptor;
+ use base::Result as SysResult;
++#[cfg(any(target_os = "android", target_os = "linux"))]
+ use base::Timer;
+ use base::Tube;
+ use base::TubeError;
+ use base::WorkerThread;
+ use cros_async::select2;
++#[cfg(any(target_os = "android", target_os = "linux"))]
+ use cros_async::select3;
+ use cros_async::AsyncError;
+ use cros_async::EventAsync;
+ use cros_async::Executor;
++#[cfg(any(target_os = "android", target_os = "linux"))]
+ use cros_async::TimerAsync;
+ use data_model::Le32;
+ use data_model::Le64;
+@@ -33,7 +36,9 @@ use remain::sorted;
+ use snapshot::AnySnapshot;
+ use thiserror::Error;
+ use vm_control::MemSlot;
++#[cfg(any(target_os = "android", target_os = "linux"))]
+ use vm_control::VmMemoryMappingRequest;
++#[cfg(any(target_os = "android", target_os = "linux"))]
+ use vm_control::VmMemoryMappingResponse;
+ use vm_memory::GuestAddress;
+ use vm_memory::GuestMemory;
+@@ -111,6 +116,7 @@ enum Error {
+ 
+ type Result<T> = ::std::result::Result<T, Error>;
+ 
++#[cfg(any(target_os = "android", target_os = "linux"))]
+ async fn pageout(
+     ex: &Executor,
+     swap_interval: Duration,
+@@ -148,6 +154,7 @@ async fn pageout(
+     }
+ }
+ 
++#[cfg(any(target_os = "android", target_os = "linux"))]
+ fn execute_request(
+     request_type: u32,
+     start_address: u64,
+@@ -218,6 +225,30 @@ fn execute_request(
+     }
+ }
+ 
++// agent-emu: Windows pmem is read-only only (Pmem::new refuses writable), so DISCARD is never
++// offered and pageout never runs. A read-only file view has no dirty pages, so FLUSH has nothing
++// to write back and is answered here without a main-process round trip.
++#[cfg(windows)]
++fn execute_request(
++    request_type: u32,
++    _start_address: u64,
++    _size: u64,
++    _pmem_device_tube: &Tube,
++    _mapping_arena_slot: u32,
++    _mapping_size: usize,
++) -> u32 {
++    match request_type {
++        VIRTIO_PMEM_REQ_TYPE_FLUSH => VIRTIO_PMEM_RESP_TYPE_OK,
++        _ => {
++            error!(
++                "pmem: unsupported request type on Windows: {}",
++                request_type
++            );
++            VIRTIO_PMEM_RESP_TYPE_EIO
++        }
++    }
++}
++
+ fn handle_request(
+     avail_desc: &mut DescriptorChain,
+     pmem_device_tube: &Tube,
+@@ -326,24 +357,31 @@ fn run_worker(
+     let kill = async_utils::await_and_exit(&ex, kill_evt);
+     pin_mut!(kill);
+ 
+-    let interval = swap_interval.unwrap_or(Duration::ZERO);
+-    if interval.is_zero() {
+-        if let Err(e) = ex.run_until(select2(queue_fut, kill)) {
+-            error!("error happened in executor: {}", e);
+-        }
+-    } else {
+-        let pageout_fut = pageout(
+-            &ex,
+-            interval,
+-            pmem_device_tube,
+-            mapping_arena_slot,
+-            mapping_size,
+-        );
+-        pin_mut!(pageout_fut);
+-        if let Err(e) = ex.run_until(select3(queue_fut, kill, pageout_fut)) {
+-            error!("error happened in executor: {}", e);
++    #[cfg(any(target_os = "android", target_os = "linux"))]
++    {
++        let interval = swap_interval.unwrap_or(Duration::ZERO);
++        if !interval.is_zero() {
++            let pageout_fut = pageout(
++                &ex,
++                interval,
++                pmem_device_tube,
++                mapping_arena_slot,
++                mapping_size,
++            );
++            pin_mut!(pageout_fut);
++            if let Err(e) = ex.run_until(select3(queue_fut, kill, pageout_fut)) {
++                error!("error happened in executor: {}", e);
++            }
++            return;
+         }
+     }
++    // agent-emu: Windows never pages out; Pmem::new rejects swap_interval there.
++    #[cfg(windows)]
++    let _ = swap_interval;
++
++    if let Err(e) = ex.run_until(select2(queue_fut, kill)) {
++        error!("error happened in executor: {}", e);
++    }
+ }
+ 
+ /// Specifies how memory slot is initialized.
+@@ -400,6 +438,13 @@ impl Pmem {
+             return Err(SysError::new(libc::EOVERFLOW));
+         }
+ 
++        // agent-emu: Windows only maps read-only images (PAGE_READONLY view, WHPX read|execute).
++        #[cfg(windows)]
++        if cfg.mapping_writable || cfg.swap_interval.is_some() {
++            error!("pmem on Windows supports read-only images only (ro=true, no swap-interval)");
++            return Err(SysError::new(libc::EINVAL));
++        }
++
+         let mut avail_features = base_features;
+         if cfg.mapping_writable {
+             if let MemSlotConfig::LazyInit { .. } = cfg.mem_slot {
+diff --git a/src/sys/windows.rs b/src/sys/windows.rs
+index 75844fb2c..a316f4399 100644
+--- a/src/sys/windows.rs
++++ b/src/sys/windows.rs
+@@ -416,6 +416,90 @@ fn create_balloon_device(
+     })
+ }
+ 
++// agent-emu: virtio-pmem for a read-only image file, created in the main process (no
++// vhost-user backend). The file is mapped as one PAGE_READONLY view and handed to WHPX with
++// WHvMapGpaRange read|execute, so guest DAX reads hit the file's page-cache pages directly.
++fn create_pmem_device(
++    cfg: &Config,
++    vm: &dyn VmArch,
++    resources: &mut SystemAllocator,
++    pmem: &crate::crosvm::config::PmemOption,
++    index: usize,
++) -> DeviceResult {
++    if !pmem.ro || pmem.vma_size.is_some() || pmem.swap_interval.is_some() {
++        bail!("--pmem on Windows needs ro=true and no vma-size/swap-interval");
++    }
++    let disk_image = open_file_or_duplicate(&pmem.path, OpenOptions::new().read(true))
++        .with_context(|| format!("failed to open pmem image {}", pmem.path.display()))?;
++    let disk_size = disk_image
++        .metadata()
++        .with_context(|| format!("failed to stat pmem image {}", pmem.path.display()))?
++        .len();
++    // Linux needs the pmem region 2 MiB aligned. Linux crosvm pads with an anonymous arena tail;
++    // a read-only Windows section cannot extend past EOF, so require a pre-padded image instead.
++    const PMEM_ALIGN: u64 = 2 * 1024 * 1024;
++    if disk_size == 0 || disk_size % PMEM_ALIGN != 0 {
++        bail!(
++            "pmem image {} is {} bytes; it must be a non-zero multiple of 2 MiB (pad the file)",
++            pmem.path.display(),
++            disk_size
++        );
++    }
++    let mapping =
++        base::MemoryMappingBuilder::new(usize::try_from(disk_size).context("pmem image too big")?)
++            .from_file(&disk_image)
++            .protection(base::Protection::read())
++            .build()
++            .context("failed to map pmem image")?;
++
++    let mapping_address = vm_memory::GuestAddress(
++        resources
++            .allocate_mmio(
++                disk_size,
++                resources::Alloc::PmemDevice(index),
++                format!("pmem_disk_image_{index}"),
++                resources::AllocOptions::new()
++                    .top_down(false)
++                    .prefetchable(true)
++                    // Linux requires pmem namespaces to be 128 MiB aligned.
++                    .align(128 * 1024 * 1024),
++            )
++            .context("failed to allocate guest address space for pmem")?,
++    );
++    let slot = vm
++        .add_memory_region(
++            mapping_address,
++            Box::new(mapping),
++            /* read_only= */ true,
++            /* log_dirty_pages= */ false,
++            hypervisor::MemCacheType::CacheCoherent,
++        )
++        .context("failed to map pmem image into the guest")?;
++
++    // The worker answers requests locally on Windows (see devices pmem.rs); this tube has no
++    // main-process listener.
++    let (pmem_device_tube, _unused_host_tube) =
++        Tube::pair().exit_context(Exit::CreateTube, "failed to create tube")?;
++    let dev = virtio::Pmem::new(
++        virtio::base_features(cfg.protection_type),
++        virtio::PmemConfig {
++            disk_image: Some(disk_image),
++            mapping_address,
++            mem_slot: virtio::MemSlotConfig::MemSlot { idx: slot },
++            mapping_size: disk_size,
++            pmem_device_tube,
++            swap_interval: None,
++            mapping_writable: false,
++        },
++    )
++    .context("failed to create pmem device")?;
++
++    Ok(VirtioDeviceStub {
++        dev: Box::new(dev),
++        jail: None,
++    })
++}
++
+ fn create_virtio_devices(
+     cfg: &mut Config,
+     vm: &dyn VmArch,
+@@ -445,6 +529,11 @@ fn create_virtio_devices(
+         ));
+     }
+ 
++    // agent-emu: read-only virtio-pmem images (DAX system image).
++    for (index, pmem) in cfg.pmems.iter().enumerate() {
++        devs.push(("pmem", create_pmem_device(cfg, vm, resources, pmem, index)?));
++    }
++
+     #[cfg(feature = "audio")]
+     {
+         let snd_split_configs = std::mem::take(&mut cfg.snd_split_configs);
+-- 
+2.55.0.windows.4
+
