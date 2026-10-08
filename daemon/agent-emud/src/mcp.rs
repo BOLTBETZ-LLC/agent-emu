@@ -20,7 +20,7 @@ fn tools() -> Value {
         required.extend_from_slice(req);
         json!({"name": name, "description": desc, "inputSchema": {"type": "object", "properties": props, "required": required}})
     };
-    json!([
+    let mut v = json!([
         tool("screenshot", "JPEG q75 of the screen, with scale, capture time and generation.", json!({"size": {"type": "string", "description": "fit inside WxH"}}), &[], false),
         tool("tap", "Tap at x,y (pixels of the last frame received). Returns a settled screenshot.", json!({"x": num, "y": num}), &["x", "y"], true),
         tool("swipe", "Swipe from x1,y1 to x2,y2 over ms. Returns a settled screenshot.", json!({"x1": num, "y1": num, "x2": num, "y2": num, "ms": num}), &["x1", "y1", "x2", "y2"], true),
@@ -29,7 +29,9 @@ fn tools() -> Value {
         tool("ui_tree", "uiautomator XML of the current screen.", json!({}), &[], false),
         tool("lease", "Take exclusive input control of a Device.", json!({}), &[], false),
         tool("release", "Give up the lease.", json!({}), &[], false),
-    ])
+    ]);
+    v.as_array_mut().unwrap().extend(crate::controls::tools());
+    v
 }
 
 struct Conn { r: BufReader<TcpStream>, w: TcpStream }
