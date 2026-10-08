@@ -327,7 +327,9 @@ async fn feed(st: &State, id: &str, n: Option<u32>, o: &StreamOpts, full: bool, 
         }
         let s = d.frame_seq();
         if (s != last && sent.elapsed() >= o.gap) || sent.elapsed() > Duration::from_secs(2) {
-            let rec = d.capture().await.and_then(|f| {
+            // A new frame is already in the mapping; the 2 s keepalive asks crosvm to refresh it.
+            let f = if s != last { d.capture_posted().await } else { d.capture().await };
+            let rec = f.and_then(|f| {
                 // The record carries the device size, which a page draws at and maps clicks to.
                 let (w, h) = f.rgb.dimensions();
                 let (jpg, ..) = device::encode_q(&f.rgb, if full { None } else { o.size(w, h) }, o.quality)?;

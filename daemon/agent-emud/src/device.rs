@@ -588,6 +588,17 @@ impl Device {
         self.capture_via(false).await
     }
 
+    /// The frame crosvm last posted to the scanout mapping, without asking it to refresh first (streams call
+    /// this after the seq moved, so the mapping already holds that frame). Falls back to `capture`.
+    pub async fn capture_posted(&self) -> R<Frame> {
+        let Some(fb) = self.fb.get().cloned() else { return self.capture().await };
+        let (t0, captured_ms) = (Instant::now(), now_ms());
+        let r = tokio::task::spawn_blocking(move || fb.read()).await.map_err(|e| e.to_string())?
+            .ok_or("scanout mapping: no consistent frame")?;
+        Ok(Frame { rgb: r.rgb, captured_ms, generation: r.seq, capture_ms: t0.elapsed().as_millis() as u64,
+            age_ms: Some(captured_ms.saturating_sub(r.flush_us / 1000)) })
+    }
+
     /// `console` forces guest `screencap` even when the scanout mapping is open.
     pub async fn capture_via(&self, console: bool) -> R<Frame> {
         let (t0, captured_ms) = (Instant::now(), now_ms());
@@ -816,3 +827,4 @@ mod tests {
         assert_eq!(encode(&img, None).unwrap().5, 1.0);
     }
 }
+
