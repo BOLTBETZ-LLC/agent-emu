@@ -209,6 +209,17 @@ pub fn resumed_package(line: &str) -> Option<&str> {
     Some(comp.split('/').next()?.trim())
 }
 
+/// true on a cameraserver connect line, false on its disconnect line (a dying client is disconnected too).
+pub fn camera_open(line: &str) -> Option<bool> {
+    if line.contains("CameraService::connect call") {
+        Some(true)
+    } else if line.contains("CameraService: disconnect: Disconnected client") {
+        Some(false)
+    } else {
+        None
+    }
+}
+
 // ---------- crash and ANR events ----------
 
 /// Crash/ANR events parsed from the log as it is written. Each event has a `seq` (1, 2, ...).
@@ -330,6 +341,13 @@ mod tests {
         let l = "10-08 22:01:16.687   893  3811 I wm_set_resumed_activity: [0,org.mozilla.firefox/org.mozilla.fenix.customtabs.ExternalAppBrowserActivity,realStartActivityLocked - onActivityStateChanged]";
         assert_eq!(resumed_package(l), Some("org.mozilla.firefox"));
         assert_eq!(resumed_package("10-08 I wm_on_top_resumed_gained_called: [1,x,y]"), None);
+    }
+
+    #[test]
+    fn camera_open_and_close_from_log() {
+        assert_eq!(camera_open("10-09 02:53:38.427   816   923 I CameraService: CameraService::connect call (PID 1866 \"com.boltbetz.staging\", camera ID 0) and Camera API version 2"), Some(true));
+        assert_eq!(camera_open("10-09 02:59:32.319   816   923 I CameraService: disconnect: Disconnected client for camera 0 for PID 1866"), Some(false));
+        assert_eq!(camera_open("10-09 I CameraService: Start camera streaming for x"), None);
     }
 
     #[test]

@@ -382,7 +382,8 @@ const BROWSER_HEADROOM_MB: u64 = 256;
 const REINFLATE_AFTER: Duration = Duration::from_secs(10);
 
 /// Watches which app is in front (`wm_set_resumed_activity` lines in the host's copy of logcat, so the guest
-/// pays nothing for the watch). Holds the browser headroom in the balloon except while `browser` is in front.
+/// pays nothing for the watch). Holds the browser headroom in the balloon except while `browser` is in front
+/// or a camera is open.
 /// Runs until the Device stops.
 async fn browser_balloon(d: &Device, browser: &str, ev: &tokio::sync::broadcast::Sender<Value>) {
     let pipe = format!(r"\\.\pipe\ae-vm-{}", d.idx());
@@ -402,26 +403,33 @@ async fn browser_balloon(d: &Device, browser: &str, ev: &tokio::sync::broadcast:
     set(true).await;
     let path = d.dir.join("logcat.log");
     let mut cursor = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
-    let (mut front_browser, mut since) = (false, Instant::now());
+    // The headroom is out of the balloon while the browser is in front or the camera is open (the scanner's
+    // camera buffers took the guest's last ~90 MB, 2026-10-08: MemAvailable 0, lmkd thrashing kills).
+    let (mut front_browser, mut camera, mut since) = (false, false, Instant::now());
     while d.ready.load(Ordering::SeqCst) {
         tokio::time::sleep(Duration::from_secs(1)).await;
+        let was = front_browser || camera;
         if let Ok(mut f) = std::fs::File::open(&path) {
             use std::io::{Read, Seek};
             let mut buf = String::new();
             if f.seek(std::io::SeekFrom::Start(cursor)).is_ok() && f.read_to_string(&mut buf).is_ok() {
                 cursor += buf.len() as u64;
                 if let Some(p) = buf.lines().filter_map(logs::resumed_package).last() {
-                    let b = p == browser;
-                    if b != front_browser {
-                        (front_browser, since) = (b, Instant::now());
-                    }
+                    front_browser = p == browser;
+                }
+                if let Some(c) = buf.lines().filter_map(logs::camera_open).last() {
+                    camera = c;
                 }
             }
         }
+        let need = front_browser || camera;
+        if need != was {
+            since = Instant::now();
+        }
         let on = d.headroom_on.load(Ordering::SeqCst);
-        if front_browser && on {
+        if need && on {
             set(false).await;
-        } else if !front_browser && !on && since.elapsed() >= REINFLATE_AFTER {
+        } else if !need && !on && since.elapsed() >= REINFLATE_AFTER {
             set(true).await;
         }
     }
