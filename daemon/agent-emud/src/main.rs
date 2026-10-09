@@ -297,7 +297,7 @@ async fn start_device(st: &State, idx: u32, req: &Value) -> R<(Arc<Device>, f64)
     };
     phase("booting");
     if let Err(e) = d.wait_boot(Duration::from_secs(900), st.cfg.min_avail_mb, &phase).await {
-        d.stop().await;
+        if let Err(se) = d.stop().await { eprintln!("{se}"); }
         st.devs.lock().unwrap().remove(&id);
         emit(st, json!({"type": "device", "device": id, "phase": "stopped"}));
         return Err(fail(e));
@@ -512,7 +512,7 @@ async fn start_many(st: &Arc<State>, req: &Value) -> R<Value> {
 
 async fn stop_one(st: &State, id: &str) -> R<()> {
     let d = st.dev(id).ok_or(format!("no Device `{id}`"))?;
-    d.stop().await;
+    d.stop().await?;
     st.devs.lock().unwrap().remove(id);
     emit(st, json!({"type": "device", "device": id, "phase": "stopped"}));
     Ok(())
@@ -581,7 +581,7 @@ async fn stop_all(st: &State) -> Vec<String> {
     let _g = st.lifecycle.lock().await;
     let all: Vec<(String, Arc<Device>)> = std::mem::take(&mut *st.devs.lock().unwrap()).into_iter().map(|(k, s)| (k, s.dev)).collect();
     for (_, d) in &all {
-        d.stop().await;
+        if let Err(e) = d.stop().await { eprintln!("{e}"); }
     }
     all.into_iter().map(|(k, _)| k).collect()
 }

@@ -683,13 +683,36 @@ impl Device {
         self.boot.lock().await.as_ref().and_then(|c| c.id())
     }
 
-    pub async fn stop(&self) {
+    /// Kills the Device and returns only once its boot powershell, crosvm broker and every helper have
+    /// exited (they hold fleet\dN\*.img open: a keep_data start right after an early return failed with
+    /// os error 32 on frp.img). Err names the pids still alive after STOP_WAIT; a later stop waits on them again.
+    pub async fn stop(&self) -> R<()> {
         // Flush the guest's page cache so userdata survives for a keep_data start (the kill is a power cut).
         if self.ready.swap(false, Ordering::SeqCst) {
             let _ = self.con.exec("sync", Duration::from_secs(15)).await;
         }
-        if let Some(c) = self.boot.lock().await.take() {
+        let boot = self.boot.lock().await.take();
+        let mut pids: Vec<u32> = self.pids.lock().unwrap().iter().map(|p| p.0).collect();
+        if let Some(bp) = boot.as_ref().and_then(|c| c.id()) {
+            pids.push(bp);
+            match crate::squeeze::procs(bp).await {
+                Ok(p) => pids.extend(p.iter().map(|p| p.pid)),
+                Err(e) => eprintln!("{}: stop: process list: {e}", self.id),
+            }
+        }
+        pids.sort_unstable();
+        pids.dedup();
+        // Handles first, so a pid reused after the kill is never mistaken for ours.
+        let hs = open_procs(&pids);
+        if let Some(c) = &boot {
             kill_tree(c.id()).await;
+        }
+        let alive = tokio::task::spawn_blocking(move || wait_procs(hs, STOP_WAIT)).await.map_err(|e| e.to_string())?;
+        *self.pids.lock().unwrap() = alive.iter().map(|&p| (p, false)).collect();
+        if alive.is_empty() {
+            Ok(())
+        } else {
+            Err(format!("{}: still running {} s after the kill: pids {alive:?}", self.id, STOP_WAIT.as_secs()))
         }
     }
 
@@ -803,6 +826,32 @@ fn wait_quiet(seq: &dyn Fn() -> u64, s0: u64, t_in: Instant, quiet: Duration, de
     }
 }
 
+const STOP_WAIT: Duration = Duration::from_secs(15);
+const SYNCHRONIZE: u32 = 0x0010_0000;
+
+extern "system" {
+    fn OpenProcess(access: u32, inherit: i32, pid: u32) -> isize;
+    fn WaitForSingleObject(h: isize, ms: u32) -> u32;
+    fn CloseHandle(h: isize) -> i32;
+}
+
+/// (pid, SYNCHRONIZE handle) for each pid still running; ones already gone are skipped.
+fn open_procs(pids: &[u32]) -> Vec<(u32, isize)> {
+    // SAFETY: OpenProcess returns 0 or a handle that wait_procs closes.
+    pids.iter().filter_map(|&p| Some((p, unsafe { OpenProcess(SYNCHRONIZE, 0, p) })).filter(|h| h.1 != 0)).collect()
+}
+
+/// Waits until every process exits or `limit` passes, closes the handles, returns the pids still running.
+fn wait_procs(hs: Vec<(u32, isize)>, limit: Duration) -> Vec<u32> {
+    let end = std::time::Instant::now() + limit;
+    hs.into_iter().filter_map(|(p, h)| {
+        let ms = end.saturating_duration_since(std::time::Instant::now()).as_millis() as u32;
+        // SAFETY: `h` is a live handle from open_procs, closed once here.
+        let alive = unsafe { let r = WaitForSingleObject(h, ms); CloseHandle(h); r != 0 };
+        alive.then_some(p)
+    }).collect()
+}
+
 async fn kill_tree(pid: Option<u32>) {
     if let Some(pid) = pid {
         let _ = Command::new("taskkill").args(["/F", "/T", "/PID", &pid.to_string()]).creation_flags(CREATE_NO_WINDOW).output().await;
@@ -812,6 +861,15 @@ async fn kill_tree(pid: Option<u32>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn wait_procs_sees_exit_and_live() {
+        let mut c = std::process::Command::new("cmd").args(["/c", "ping -n 2 127.0.0.1 >nul"]).spawn().unwrap();
+        let hs = open_procs(&[c.id(), std::process::id()]);
+        assert_eq!(hs.len(), 2);
+        assert_eq!(wait_procs(hs, Duration::from_secs(3)), vec![std::process::id()], "child exits, this test process does not");
+        let _ = c.wait();
+    }
 
     #[test]
     fn reply_parsed_and_echo_ignored() {
