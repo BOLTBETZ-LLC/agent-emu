@@ -194,9 +194,8 @@ right thing.
   `FATAL EXCEPTION|ReactNativeJS.*(Unhandled|TypeError|Invariant Violation)`.
 - **What went wrong overall:** `issues` with the package filter.
 - **The dashboard itself** (when you change `ui.html`/`ui.rs`, not when testing the app): open
-  `http://127.0.0.1:7401/` in a browser. The panel connects to the local Reticle bridge (`:4400`, token from
-  `~/.reticle/pairing-token`, project `agent-emu-c538482c`, config `.reticle.json`), so Reticle-aware agents can
-  inspect the live panel. Live streams: `/mux?devices=d0,d1,d2,d3`, events `/events` (`daemon/API.md`).
+  `http://127.0.0.1:7401/` in a browser (no Reticle snippet: Aaron removed it 2026-10-09, it asked him to sign up).
+  Live streams: `/mux?devices=d0,d1,d2,d3`, events `/events` (`daemon/API.md`).
 
 ## Test runner
 
