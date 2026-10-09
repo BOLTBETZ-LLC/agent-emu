@@ -318,7 +318,9 @@ python run.py --phones d0,d1,d2,d3 --matrix cases --areas L1,L2,L3,L4       # th
 
 Env: `AE_API` (daemon HTTP, default `http://127.0.0.1:7401`), `AE_RUNS_DIR` (results root, default
 `tests/boltbetz/results`, gitignored), `ASM_EXEC` (asm-exec script, default `C:/dev/dev-harness/tools/asm-exec.ps1`),
-`AE_SANDBOX_NOTE` (test-card note for card cases, default `C:/dev/boltbetz-docs/70-ops/ops-sandbox-test-account.md`).
+`AE_TEST_CARD` (`number|MMYY|CVV|name`, card cases; else `AE_SANDBOX_NOTE`, the test-card note, default
+`C:/dev/boltbetz-docs/70-ops/ops-sandbox-test-account.md`). Installed app: the keys typed in Setup > Secrets reach the
+runner through `aekeys.py` (`<install>\keys\*.dpapi`), so no asm-exec, AWS or `C:\dev` is needed.
 Runs before 2026-10-09 stay in `.scratch/test-matrix/runner/results`.
 
 ### Plans
@@ -478,8 +480,8 @@ are valid 3 minutes, and only the newest code works.
    Done when `ui_tree` shows `home-screen`.
 
 Codex has no Gmail connector: stop at step 1's screen and ask Aaron, or hand step 2 to a Claude session.
-New account + ID check: `signup.py` docstring (Plaid sandbox identities; SSN last 4 from
-`C:\dev\bb-infra\docs\70-ops\ops-dev-kyc-walkthrough.md`, passed as env `PLAID_SSN4`). Background:
+New account + ID check: `signup.py` docstring (Plaid sandbox identities; SSN last 4 defaults to Plaid's public
+sandbox `6789`, env `PLAID_SSN4` overrides). No Gmail at all: `python newaccount.py dN` (sidecar QA token only). Background:
 `.scratch/test-matrix/issues/02-test-accounts-and-sign-in.md`.
 
 ## Staging and Synkros
