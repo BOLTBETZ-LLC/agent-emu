@@ -89,9 +89,10 @@ function writeRunnerKey(name, value) {
   fs.mkdirSync(dir, { recursive: true });
   const script = "Add-Type -AssemblyName System.Security; $v = [Console]::In.ReadToEnd(); " +
     "$b = [Security.Cryptography.ProtectedData]::Protect([Text.Encoding]::UTF8.GetBytes($v), $null, 'CurrentUser'); " +
-    "[IO.File]::WriteAllBytes($args[0], $b)";
+    "[IO.File]::WriteAllBytes($env:AE_KEYFILE, $b)";  // path via env: -Command does not fill $args
   return new Promise((resolve) => {
-    const p = spawn("powershell.exe", ["-NoProfile", "-Command", script, path.join(dir, `${name}.dpapi`)], { windowsHide: true, stdio: ["pipe", "ignore", "ignore"] });
+    const p = spawn("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script],
+      { windowsHide: true, stdio: ["pipe", "ignore", "ignore"], env: { ...process.env, AE_KEYFILE: path.join(dir, `${name}.dpapi`) } });
     p.on("close", resolve); p.on("error", resolve);
     p.stdin.end(value);
   });
