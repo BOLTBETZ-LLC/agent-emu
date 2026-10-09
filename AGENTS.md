@@ -147,7 +147,7 @@ started later without `keep_data` installs at boot (and what `install_bundled`/`
 
 | Source | Example |
 | --- | --- |
-| local APK | `C:\builds\app-staging.apk` |
+| local APK or App Bundle | `C:\builds\app-staging.apk`, `C:\builds\app.aab` |
 | any https APK URL | `https://expo.dev/artifacts/eas/PrDreXFiALCuSSTALkhmPQvdrc-OwQNJ9stUadTzgN0.apk` |
 | expo.dev build page | `https://expo.dev/accounts/boltbetz/projects/<project>/builds/4cd7f3dc-7570-4c66-b85f-349fe5b5e3a9` |
 | EAS build id | `4cd7f3dc-7570-4c66-b85f-349fe5b5e3a9` |
@@ -157,7 +157,7 @@ started later without `keep_data` installs at boot (and what `install_bundled`/`
   clear error; the artifact URL works without eas.
 - The reply names `package`, `version_name`, `version_code`, Expo `runtime` and `channel`, read from the APK itself.
 - `.aab` (store builds) works too: bundletool turns it into a universal APK signed with this PC's debug key
-  (`%LOCALAPPDATA%gent-emu\keystore\debug.keystore`, made on first use, never in a repo). Needs Java + bundletool:
+  (`%LOCALAPPDATA%\agent-emu\keystore\debug.keystore`, made on first use, never in a repo). Needs Java + bundletool:
   the installed app downloads both; elsewhere set `AE_JAVA` and `AE_BUNDLETOOL`. A store `.aab` is often a production
   build (`channel: production`): install it, never launch it against production.
 - Installer builds of agent-emu ship base images with no app at all; until `set_default_app` runs, `install_bundled`
