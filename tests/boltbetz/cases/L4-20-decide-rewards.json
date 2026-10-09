@@ -1,0 +1,92 @@
+{
+ "id": "L4-20-decide-rewards",
+ "lane": "L4",
+ "timeout_s": 90,
+ "preconditions": {
+  "signed_in": true,
+  "kyc": true,
+  "venue_card": false
+ },
+ "steps": [
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/hooks?on=1"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "tap_id": "tab-home",
+   "optional": true,
+   "wait_s": 2
+  },
+  {
+   "wait_id": "home-screen",
+   "wait_s": 15
+  },
+  {
+   "decide": "See my rewards and offers",
+   "until_id": "rewards-screen",
+   "max_steps": 3
+  },
+  {
+   "check": {
+    "ui_any": [
+     "rewards-no-card",
+     "rewards-list-scroll"
+    ]
+   }
+  },
+  {
+   "check": {
+    "screenshot": "rewards"
+   }
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "tap_id": "tab-home",
+   "optional": true,
+   "wait_s": 2
+  },
+  {
+   "wait_id": "home-screen",
+   "wait_s": 15
+  }
+ ],
+ "checks": [
+  {
+   "ui": "home-screen"
+  },
+  {
+   "no_crash": "com.boltbetz.staging"
+  },
+  {
+   "logs_lack": "FATAL EXCEPTION|ReactNativeJS.*(Unhandled|TypeError|Invariant Violation)",
+   "filter": "com.boltbetz.staging"
+  }
+ ],
+ "cleanup": [
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/fault?clear=1"
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  }
+ ],
+ "note": "Decide demo: reaches Rewards from Home by goal only (model picks the tap, decide.py). Same end state as L4-02."
+}

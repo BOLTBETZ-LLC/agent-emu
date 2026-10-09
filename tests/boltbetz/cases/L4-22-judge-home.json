@@ -1,0 +1,94 @@
+{
+ "id": "L4-22-judge-home",
+ "lane": "L4",
+ "timeout_s": 90,
+ "preconditions": {
+  "signed_in": true,
+  "kyc": true,
+  "venue_card": true
+ },
+ "steps": [
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/hooks?on=1"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "tap_id": "tab-home",
+   "optional": true,
+   "wait_s": 2
+  },
+  {
+   "wait_id": "home-screen",
+   "wait_s": 15
+  },
+  {
+   "check": {
+    "ui": "home-quick-actions-title"
+   }
+  },
+  {
+   "check": {
+    "judge": "Home shows a $25.00 card balance"
+   }
+  },
+  {
+   "check": {
+    "judge": "Home shows Quick Actions with Deposit and Withdraw buttons"
+   }
+  },
+  {
+   "check": {
+    "screenshot": "home"
+   }
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "tap_id": "tab-home",
+   "optional": true,
+   "wait_s": 2
+  },
+  {
+   "wait_id": "home-screen",
+   "wait_s": 15
+  }
+ ],
+ "checks": [
+  {
+   "ui": "home-screen"
+  },
+  {
+   "no_crash": "com.boltbetz.staging"
+  },
+  {
+   "logs_lack": "FATAL EXCEPTION|ReactNativeJS.*(Unhandled|TypeError|Invariant Violation)",
+   "filter": "com.boltbetz.staging"
+  }
+ ],
+ "cleanup": [
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/fault?clear=1"
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  }
+ ],
+ "note": "Judge demo: model verdicts on Home (decide.py). The $25.00 claim needs lane 4's linked emulator card."
+}

@@ -36,7 +36,7 @@ def nodes(device):
     for m in re.finditer(r"<node [^>]*>", xml):
         a = dict(re.findall(r'([\w-]+)="([^"]*)"', m.group(0)))
         x1, y1, x2, y2 = map(int, re.findall(r"\d+", a.get("bounds", "[0,0][0,0]")))
-        a["center"] = ((x1 + x2) // 2, (y1 + y2) // 2)
+        a["center"], a["b"] = ((x1 + x2) // 2, (y1 + y2) // 2), [x1, y1, x2, y2]
         out.append(a)
     return out
 
@@ -67,9 +67,37 @@ def screen_scale(device):
     return _scale[device]
 
 
-def do_step(device, step):
+def do_decide(device, step, ctx):
+    """{"decide": goal, "until_id": id, "max_steps": 5}: model picks a tap (decide.py) until until_id shows up.
+    Without until_id it makes max_steps (default 1) taps. Unsure = FAIL with the reason: an agent takes over."""
+    import decide
+    until, goal = step.get("until_id"), step["decide"]
+    for _ in range(step.get("max_steps", 5 if until else 1)):
+        ns = nodes(device)
+        if until and find(ns, until):
+            return
+        pick, entry = decide.next_tap(goal, ns, ctx["decisions"])
+        if pick is None:
+            raise RuntimeError(f"decide {goal!r}: unsure ({entry.get('reason')}, picked {entry.get('choice')}), agent takes over")
+        if pick == "scroll_down":
+            w = screen_scale(device) * 1320
+            call(device, "swipe", x1=w // 2, y1=round(w * 1.74), x2=w // 2, y2=round(w * 0.53),
+                 device_px=True, screenshot=False)
+        else:
+            call(device, "tap", x=pick["center"][0], y=pick["center"][1], device_px=True, screenshot=False)
+        if until:
+            wait_for(device, [until], 2)
+        else:
+            time.sleep(0.5)
+    if until and not wait_for(device, [until], 3)[0]:
+        raise RuntimeError(f"decide {goal!r}: {until} not reached in {step.get('max_steps', 5)} steps")
+
+
+def do_step(device, step, ctx=None):
     step = dict(step)
-    if "tap_id" in step:  # runner helper: tap the center of a ui_tree node
+    if "decide" in step:
+        do_decide(device, step, ctx)
+    elif "tap_id" in step:  # runner helper: tap the center of a ui_tree node
         # ui_tree is ~80 ms now: an optional tap only needs a short look before giving up.
         wait = min(step.get("wait_s", 10), 0.5) if step.get("optional") else step.get("wait_s", 10)
         n, _ = wait_for(device, [step["tap_id"]], wait)
@@ -199,6 +227,13 @@ def do_check(device, chk, ctx, shot_dir, case_id):
         if hit and "enabled" in chk and (hit.get("enabled") == "true") != chk["enabled"]:
             return False, f"{chk['ui']} enabled={hit.get('enabled')}"
         return True, f"{chk['ui']} ok"
+    if "judge" in chk:  # {"judge": "Home shows a $25.00 card balance"}: model verdict on the ui_tree (decide.py)
+        import decide
+        time.sleep(chk.get("settle_s", 1))  # let the screen finish loading before one look
+        v, e = decide.judge(chk["judge"], nodes(device), ctx["decisions"])
+        if v is None:
+            return False, f"judge unsure ({e.get('reason')}, p_true={e.get('p_true')}), agent takes over"
+        return v, f"judge {v} p_true={e.get('p_true')} {e['model']} {e['latency_ms']} ms"
     if "foreground" in chk:
         ns = nodes(device)
         pkg = ns[0].get("package") if ns else None
@@ -267,7 +302,7 @@ def lane_setup(device, lane):
 
 def run_case(device, case, shot_dir):
     t0 = time.time()
-    ctx = {"vars": {}, "shots": [], "crash_seq": call(device, "crash_events")["last"],
+    ctx = {"vars": {}, "shots": [], "decisions": [], "crash_seq": call(device, "crash_events")["last"],
            "log_cursor": call(device, "logs", max_lines=0)["cursor"]}
     res = {"id": case["id"], "lane": case["lane"], "device": device, "checks": [], "shots": ctx["shots"]}
     try:
@@ -281,7 +316,7 @@ def run_case(device, case, shot_dir):
                 ok, detail = do_check(device, s["check"], ctx, shot_dir, case["id"])
                 res["checks"].append({"check": s["check"], "ok": ok, "detail": detail})
             else:
-                do_step(device, s)
+                do_step(device, s, ctx)
         for c in case.get("checks", []):
             ok, detail = do_check(device, c, ctx, shot_dir, case["id"])
             res["checks"].append({"check": c, "ok": ok, "detail": detail})
@@ -300,6 +335,8 @@ def run_case(device, case, shot_dir):
             res.setdefault("cleanup_errors", []).append(str(e))
     if time.time() - t0 > case.get("timeout_s", 120):
         res["status"], res["error"] = "FAIL", res.get("error") or "timeout"
+    if ctx["decisions"]:
+        res["decisions"] = ctx["decisions"]
     res["wall_s"] = round(time.time() - t0, 1)
     print(f"{res['status']} {case['id']} on {device} {res['wall_s']}s {res.get('error', '')}", flush=True)
     return res

@@ -22,6 +22,8 @@ Full guide: `C:\dev\agent-emu\AGENTS.md`. Read the section a step names when you
    `cd C:/dev/agent-emu && python tests/boltbetz/run.py --phones d3 --case <id>`, or MCP `run_case`
    `{"device":"d3","case":"<id>"}` (`run_lanes` `{"phones":[...]}` for lanes). Check for a live run first.
    AGENTS.md "Test runner".
+   Steps by goal instead of testID: `{"decide": "<goal>", "until_id": "<id>"}` and check `{"judge": "<claim>"}`
+   (Jev, key `TYPESAFE_API_KEY`; unsure = FAIL, you take over): AGENTS.md "Decide and judge steps".
 
 Stuck: AGENTS.md "Gotchas", then "Troubleshooting".
 

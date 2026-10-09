@@ -285,6 +285,29 @@ Open the PNGs of anything that failed before you call it an app bug.
 }
 ```
 
+**Decide and judge steps (Jev, optional).** A case can name a goal instead of a testID, and check a plain-English
+claim instead of an id. Both send the compact `ui_tree` (testIDs, labels, text) to Jev, TypeSafe's hosted System One
+typed-question API (`tests/boltbetz/decide.py`):
+```jsonc
+{"decide": "Open my responsible gaming limits", "until_id": "responsible-gaming-screen", "max_steps": 6}
+    // Jev picks one tappable testID (or "scroll_down") per step; the runner taps it until until_id shows.
+    // Not reached in max_steps (default 5; 1 tap without until_id) = FAIL.
+{"check": {"judge": "Home shows a $25.00 card balance"}}
+    // Jev yes/no on the screen after settle_s (default 1). PASS only on a confident yes.
+```
+- **Unsure = FAIL with the reason** (`decide ...: unsure (confidence 0.31 < 0.5, picked X), agent takes over`). No
+  fallback model: the agent reading the result takes over that step. Tap confidence is Jev's for the chosen option;
+  judge confidence is `|2p - 1|`, so at the default bar 0.5 a `p_true` between 0.25 and 0.75 is unsure.
+- **Env:** `TYPESAFE_API_KEY` (read from the process env, else the Windows USER variable; never logged or written),
+  `AE_DECIDE_MIN_CONF` (default `0.5`). No key = every decide/judge step is unsure.
+- **Log:** each case with such steps gets `decisions` in `results.json`: kind, goal, candidates count, choice,
+  confidence (`p_true` for judges), model, latency_ms, cost_usd, and `reason` when unsure.
+- **Cost and speed:** ~$0.00004 per decision, ~0.14-0.3 s each from this PC. Offline eval (60 decisions,
+  `.scratch/jev-exp/results.md`): 29/30 taps, 28/30 judges; every tap at confidence >= 0.5 was right.
+- The ui_tree text of the test accounts goes to TypeSafe's service. Typed values (amounts, emails) never come from
+  Jev: keep `fill` steps. Decide picks any tappable testID on screen, so keep goals away from money-moving buttons.
+- Demo cases: `L4-20-decide-rewards`, `L4-21-decide-responsible-gaming`, `L4-22-judge-home`.
+
 **Add a case:** copy the closest case in the same lane, change id/steps/checks, keep the hooks-on + route-Home
 opening and the cleanup, then run it alone (`--case <id>`) twice; both PASS and the screenshots show what the
 note claims. Cases read but never change money or limits.
