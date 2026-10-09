@@ -675,6 +675,7 @@ function onEvent(e) {
   }
   if (e.type === "device") {
     const id = e.device; if (!W[id]) return;
+    if (!e.phase) return; // balloon / memory_mode updates carry no phase; they must not reset a running tile to "Starting the VM"
     if (e.phase === "stopped") { if (S.devs[id]) { delete S.devs[id]; gone(id); } render(); return; }
     const d = S.devs[id] || (S.devs[id] = { id, uptime_s: 0 });
     if (e.info) Object.assign(d, e.info);
