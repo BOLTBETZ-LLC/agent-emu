@@ -83,6 +83,12 @@ fn tools() -> Value {
                 "image": {"type": "string"}, "screen": {"type": "string"}, "keep_data": {"type": "boolean"}, "mem": num, "auto_squeeze": {"type": "boolean"}}}}),
         json!({"name": "stop_many", "description": "Stop the listed Devices at once (default: all).",
             "inputSchema": {"type": "object", "properties": {"devices": ids.clone()}}}),
+        json!({"name": "bugs", "description": "The live bug feed: test runner FAILs folded into bugs by dedupe key (area|step|endpoint|failed check;             fault preset, phone, lane, attempt and build dropped). Newest first, each with count, cases, phones and its newest occurrence             (`last`: case, failing step and check, error, screenshot paths, app error log lines, phone, build/runtime, decisions).             full = every kept occurrence.",
+            "inputSchema": {"type": "object", "properties": {"status": {"type": "string", "description": "open (all bugs are open for now)"},
+                "kind": {"type": "string", "description": "unsorted | runner"}, "area": {"type": "string"}, "key": {"type": "string"},
+                "case": {"type": "string", "description": "case id prefix"}, "q": {"type": "string", "description": "text in the title"},
+                "since": {"type": "number", "description": "unix ms; bugs seen since"}, "limit": {"type": "number", "description": "default 200"},
+                "full": {"type": "boolean"}}}}),
         // Test runner (tests/boltbetz/run.py), run by this MCP process, not the daemon. Blocks until done.
         json!({"name": "run_case", "description": "Run BoltBetz test case(s) on one Device with tests/boltbetz/run.py. \
             case = id or id prefix, comma list allowed (e.g. L4-01). Returns the PASS/FAIL grid, exit code and results folder.",
@@ -254,14 +260,14 @@ mod tests {
     #[test]
     fn every_tool_takes_device() {
         for t in tools().as_array().unwrap() {
-            if ["fleet", "fleet_stop", "status", "start_many", "stop_many", "run_lanes", "run_matrix"].contains(&t["name"].as_str().unwrap()) {
+            if ["fleet", "fleet_stop", "status", "start_many", "stop_many", "run_lanes", "run_matrix", "bugs"].contains(&t["name"].as_str().unwrap()) {
                 continue;
             }
             assert_eq!(t["inputSchema"]["required"][0], "device", "{}", t["name"]);
         }
         let names: Vec<_> = tools().as_array().unwrap().iter().map(|t| t["name"].clone()).collect();
         for n in ["fleet", "fleet_stop", "status", "start", "stop", "start_many", "stop_many", "install_bundled", "issues", "shell",
-            "run_case", "run_lanes", "run_matrix"] {
+            "run_case", "run_lanes", "run_matrix", "bugs"] {
             assert!(names.contains(&json!(n)), "{n}");
         }
     }

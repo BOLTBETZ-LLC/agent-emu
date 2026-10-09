@@ -20,13 +20,15 @@ is under 4000 MB (`AE_MIN_AVAIL_MB`).
 | GET | `/` | the panel page (`AE_UI_FILE=<path>` serves it from disk on each load) |
 | GET | `/health` | `ok` |
 | POST | `/api` | JSON call, see below. `"async": true` makes it return `202 {"ok":true,"job":"j7"}` at once |
-| GET | `/events` | Server-Sent Events: device phases, jobs, metrics once a second, crashes, errors |
+| GET | `/events` | Server-Sent Events: device phases, jobs, metrics once a second, crashes, errors, bugs |
 | GET | `/frames?device=d0` | frame stream of one Device |
 | GET | `/mux?devices=d0,d1,d2&full=d1` | frame streams of several Devices on one connection |
 | GET | `/screenshot.png?device=d0` | one full-size PNG |
 | POST | `/upload?device=d0` | body = APK, installed with adb |
 | GET | `/runs` | test runner results, newest 30: `{runs: [{stamp, total, passed, failed, wall_s}]}` (`AE_RUNS_DIR`, else `tests/boltbetz/results` above the exe, plus the old `.scratch/test-matrix/runner/results`) |
 | GET | `/runs/<stamp>/<file>` | one file of a run: `results.json`, `grid.md` or a `.png`. Read-only, plain names, that folder only |
+| POST | `/bugs` | body = one bug occurrence (the `bug` call's arguments, no `call`); reply `{ok, key, new, count}` |
+| GET | `/bugs?status=open&area=home&full=1` | the bugs, as the `bugs` call (query values are its arguments) |
 
 A browser opens at most 6 HTTP/1.1 connections per host. An 8-tile dashboard should use one `/mux` and one
 `/events`. Separate `/frames` streams per tile would run out of connections.
@@ -62,6 +64,8 @@ The body is `{"call": "<name>", "device": "d0", ...}`. The reply is `{"ok": true
 | `memory` | | the Device's crosvm processes: `ws_mb, own_mb, shared_mb`, per-process caps |
 | `squeeze` | `balloon_mb, cap_main_mb, cap_helper_mb` | balloon plus working-set caps |
 | `deep_link`, `set_location`, `clock`, `permission`, `shell`, `ui_tree`, `lease`, `release`, `fleet`, `fleet_stop` | | as on the agent API |
+| `bug` | `case` (required), `area`, `step`, `endpoint`, `check`, plus any evidence fields (below) | records one test FAIL. Also `POST /bugs`. Reply `key`, `new` (first time this key was seen), `count` |
+| `bugs` | `key`, `status`, `kind`, `area`, `case` (id prefix of any of its cases), `q` (text in title or signature), `since` (ms, last seen), `limit` (200), `full` | bugs, newest `last_seen` first: `{key, sig, title, kind, status, area, step, endpoint, check, first_seen, last_seen, count, cases, phones, runs}` plus `last` (newest occurrence), or `occurrences` (newest 30) with `full: true`. Reply also `total`, `open`, `matched`, `file`. Also `GET /bugs` |
 | `quit` | | stops every Device and exits the daemon |
 | `quit` + `keep_devices: true` | | exits, phones keep running; the next daemon on the same agent address adopts them. Refused while a Device is still booting |
 | `restart` | `exe` (optional: the build to run next, default this exe) | saves every Device, starts the next daemon with the same arguments, exits. The next one waits for this one to exit, binds the ports and adopts the phones: same boot, `phase` `ready`, fast input and frames, logs and `crash_events` cursors still valid. Refused while a Device is still booting |
@@ -102,6 +106,27 @@ app's `databases/updates.db` (latest `last_accessed`): `update_id`, `update_runt
 `update_embedded`. `expected_runtime` = `AE_EXPECTED_RUNTIME`, else the first word of `<work>/expected-runtime.txt`
 (the staging channel's current runtime; set it when staging moves). When set and different, `runtime_match: false`
 and a warning: the phone never takes the staging OTA.
+
+### Bug feed (`bug`, `bugs`)
+
+The test runner (`tests/boltbetz/run.py`, also `plan.py`) sends every final FAIL as an occurrence. The daemon folds
+occurrences into bugs by **dedupe key** = 12 hex of FNV-1a 64 over `ui|area|step|endpoint|check`: `step` and
+`endpoint` lowercased with only letters and digits kept (`home_load` = `homeload`), `endpoint` `none` when empty,
+`check` = the first failed check as `kind:target` (`ui:<id>:present|absent`, `ui_text:<id>`, `judge:<goal>`,
+`value:<source>`) or `error:<error, digits as #>`. The variant (fault preset, Synkros code, lifecycle, amount, lane,
+phone, attempt, build) is not in the key, so the same bug on another phone, retry or build only bumps `count`. On the
+real run 20261009-132949: 99 FAILs -> 33 bugs.
+
+Every occurrence is appended to `AE_BUGS_FILE` (default `%LOCALAPPDATA%\agent-emu\bugs.jsonl`), one JSON per line
+with its `key`, `sig` and `ts`; the daemon rebuilds the bug list from it on start and keeps the newest 30 occurrences
+per bug in memory. Each one is also a `bug` event on `/events`.
+
+Occurrence fields the runner sends: `case`, `area`, `step`, `endpoint`, `check`, `title`, `kind` (`unsorted`, or
+`runner` for reset/setup/retired-phone errors), `run` (results folder stamp), `attempt`, `phone`, `lane`, `variant`
+(the matrix row), `failed_step {n, step}` (the step that threw), `failed_check {check, ok, detail}`, `error`, `shots`
+(PNG paths in the run folder, served by `/runs/<run>/<file>`), `logs` (app E lines), `decisions` (Jev), `flaky_first`,
+`build` (`version_name, version_code, eas_build, runtime, update_id, runtime_match, health` from `health`).
+Not yet: `PATCH` of kind/status/jira (every bug is `open`), ui_tree, network.
 
 ### Screens (`start.screen`)
 
@@ -149,6 +174,7 @@ es.onmessage = (m) => { const e = JSON.parse(m.data); /* switch (e.type) */ };
 | `error` | `device, call, error` (a failed start, for example) |
 | `health` | `device, health` (as the `health` call) |
 | `claim` | `device, claim` (null after `unclaim`) |
+| `bug` | `key, new, count, bug` (the bug without occurrences), `occurrence` (the one just recorded) |
 | `lagged` | `missed`: the client fell behind and that many events were dropped |
 
 Metrics fields:

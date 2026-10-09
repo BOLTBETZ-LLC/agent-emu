@@ -6,9 +6,11 @@ python run.py --phones d3 --case L4-01                # one case (id prefix; com
 python run.py --phones d0,d1,d2,d3 --matrix cases/matrix [--areas a,b] [--shard 1/2]   # work queue, see matrix_main
 python run.py --phones d1 --lanes L2 --restore {lane}-golden    # put snapshot "L2-golden" back on d1 first
 python run.py --phones d0,d1 --golden {lane}-golden             # a phone left signed out gets its golden snapshot back
+python run.py --post-bugs results/<stamp>                        # re-send a recorded run's FAILs to the bug feed
   (names: {phone} and {lane} are filled in per phone; snapshots are made with the daemon's `snapshot` call)
 
 The run claims its phones (owner run.py-<pid>) and drops the claims at the end.
+Every final FAIL goes to the daemon's bug feed (POST $AE_API/bugs) and to results/<stamp>/bugs.jsonl.
 
 A step {"check": {...}} runs a check mid-case; "cleanup" steps always run after the case (pass or fail).
 
@@ -411,13 +413,14 @@ def run_case(device, case, shot_dir, lane=None, hard=False, say=True):
         _tl.deadline = t0 + case.get("timeout_s", 120)
     ctx = {"vars": {}, "shots": [], "decisions": [], "crash_seq": call(device, "crash_events")["last"],
            "log_cursor": call(device, "logs", max_lines=0)["cursor"]}
-    res = {"id": case["id"], "lane": lane or case.get("lane"), "device": device, "checks": [], "shots": ctx["shots"]}
+    res = {"id": case["id"], "lane": lane or case.get("lane"), "device": device, "checks": [], "shots": ctx["shots"], **case_tags(case)}
     try:
         case = for_lane(case, res["lane"])
         pre = case.get("preconditions", {})
         if pre.get("app_launched"):
             call(device, "app", launch=pre["app_launched"])
-        for s in case.get("steps", []):
+        for i, s in enumerate(case.get("steps", [])):
+            ctx["at"] = (i, s)
             if time.time() - t0 > case.get("timeout_s", 120):
                 raise RuntimeError("timeout")
             if "check" in s:  # mid-case check: same forms as "checks", taken on the screen under test
@@ -426,6 +429,7 @@ def run_case(device, case, shot_dir, lane=None, hard=False, say=True):
             else:
                 do_step(device, s, ctx)
         for c in case.get("checks", []):
+            ctx["at"] = ("check", c)
             ok, detail = do_check(device, c, ctx, shot_dir, case["id"])
             res["checks"].append({"check": c, "ok": ok, "detail": detail})
         res["status"] = "PASS" if all(c["ok"] for c in res["checks"]) else "FAIL"
@@ -435,6 +439,8 @@ def run_case(device, case, shot_dir, lane=None, hard=False, say=True):
             res["stable_screen"] = a == screen_print(device)
     except (Exception, SystemExit) as e:  # a step error is a FAIL, not a crash of the runner (SystemExit once killed a lane silently)
         res["status"], res["error"] = "FAIL", str(e) or type(e).__name__
+        if "at" in ctx:
+            res["fail_step"] = {"n": ctx["at"][0], "step": json.dumps(ctx["at"][1])[:200]}
     if hard:  # screenshot, logs and cleanup get their own 30 s past the case's limit
         _tl.deadline = time.time() + 30
     if res["status"] == "FAIL":  # what was on screen when it failed, and the app's error log lines
@@ -590,7 +596,7 @@ class Matrix:
     @staticmethod
     def stub(c, lane, status, error, device=None):
         return {"id": c["id"], "area": c["_area"], "lane": lane, "device": device, "status": status, "error": error,
-                "checks": [], "shots": []}
+                "checks": [], "shots": [], **case_tags(c)}
 
     def next(self, phone):
         with self.cv:
@@ -660,6 +666,7 @@ class Matrix:
 
     def final(self, res):  # caller holds the lock
         self.results.append(res)
+        report_bug(res, self.out)
         tag = "FLAKY" if res.get("flaky") else "REPEAT-FAIL" if res.get("repeat_fail") else res["status"]
         el = round(time.time() - self.t0)
         print(f"[{len(self.results)}/{self.total}] {tag} {res['id']} on {res.get('device')} {round(res.get('wall_s') or 0, 1)}s"
@@ -813,7 +820,118 @@ def matrix_report(m, out):
     return 0 if all(r["status"] != "FAIL" for r in rs) else 1
 
 
+# ---------- bug feed: each final FAIL goes to the daemon (POST /bugs), which folds it into a bug by dedupe key ----------
+
+def case_tags(case):
+    """The case's matrix row (its variant) and the RTK endpoint it faults: what the bug key needs from the case."""
+    row = (case.get("matrix") or {}).get("row") or {}
+    # a matrix row names its faulted endpoint (FaultEndpoint) or has none (an AppFault's endpoint is variant); a lane
+    # case's is the one its fault link names
+    ep = row.get("FaultEndpoint") if row else next(iter(re.findall(r"fault\?endpoint=(\w+)", json.dumps(case.get("steps", [])))), None)
+    return {**({"variant": row} if row else {}), **({"endpoint": ep} if ep and ep != "none" else {})}
+
+
+def check_sig(res):
+    """The first failed check as kind:target, or the error with numbers folded (dedupe key part)."""
+    failed = [c for c in res.get("checks", []) if not c["ok"]]
+    if not failed:
+        return "error:" + re.sub(r"\d+(\.\d+)?", "#", (res.get("error") or "")[:80])
+    c = failed[0]["check"]
+    if "judge" in c: return "judge:" + c["judge"]
+    if "ui" in c: return f"ui:{c['ui']}:{'absent' if c.get('present') is False else 'present'}"
+    if "ui_text" in c: return "ui_text:" + c["ui_text"]
+    if "value" in c: return "value:" + json.dumps(c["value"], sort_keys=True)
+    return "check:" + json.dumps(c, sort_keys=True)
+
+
+MATRIX_EP = re.compile(r"^(get|accept|tokenized|generate|update)")  # endpoint token of a matrix case id
+RUNNER_ERR = re.compile(r"^(reset:|setup:|phone retired|never ran|lane thread died|failed; no other phone)")
+
+
+def bug_of(res, run):
+    """One occurrence for the daemon's `bug` call. Key parts: area, step, endpoint, check. A matrix id
+    M-<area>-<nnn>-<step>-<variant...> gives the step (and the faulted endpoint when the case file is gone); other
+    cases use their id as the step."""
+    failed = next((c for c in res.get("checks", []) if not c["ok"]), None)
+    v, toks = res.get("variant") or {}, res["id"].split("-")
+    matrix = res["id"].startswith("M-") and len(toks) > 3
+    area, step = res.get("area") or res.get("lane") or "?", toks[3] if matrix else res["id"]
+    ep = res.get("endpoint") or (next((t for t in toks[4:] if MATRIX_EP.match(t)), None) if matrix and not v else None)
+    o = {"case": res["id"], "area": area, "step": step, "endpoint": ep or "none", "check": check_sig(res),
+         "title": f"{area} {step}: " + (f"not so: {failed['check']['judge']}" if failed and "judge" in failed["check"]
+                                         else failed["detail"] if failed else res.get("error") or "?")[:140],
+         "kind": "runner" if not failed and RUNNER_ERR.search(res.get("error") or "") else "unsorted",
+         "run": run, "attempt": res.get("attempt", 1), "phone": res.get("device"), "lane": res.get("lane"), "variant": v,
+         "failed_step": res.get("fail_step"), "failed_check": failed, "error": res.get("error"), "shots": res.get("shots"),
+         "logs": res.get("logs"), "decisions": res.get("decisions"), "flaky_first": res.get("first_attempt")}
+    return {k: x for k, x in o.items() if x not in (None, [], {}, "")}
+
+
+_builds, _bug_lock = {}, threading.Lock()
+
+
+def build_of(phone):
+    """App build and running OTA of `phone` from the daemon's `health` (cached 5 min per phone)."""
+    hit = _builds.get(phone)
+    if hit and time.time() - hit[0] < 300:
+        return hit[1]
+    try:
+        h = call(phone, "health", _wait=40)["health"]
+        b = {k: h.get("build", {}).get(k) for k in ("version_name", "version_code", "eas_build", "runtime", "update_id", "runtime_match")}
+        b["health"] = h.get("level")
+    except Exception as e:
+        b = {"error": str(e)[:160]}
+    _builds[phone] = (time.time(), b)
+    return b
+
+
+def post_bug(o):
+    req = urllib.request.Request(API + "/bugs", data=json.dumps(o).encode(), headers={"Content-Type": "application/json"})
+    r = json.load(urllib.request.urlopen(req, timeout=10))
+    if not r.get("ok"):
+        raise RuntimeError(r.get("error"))
+    return r
+
+
+def report_bug(res, out):
+    """A FAIL -> the bug feed, on its own thread (a slow or absent daemon never holds up or fails a case).
+    Always also appended to <run>/bugs.jsonl."""
+    if res.get("status") != "FAIL":
+        return
+    o = bug_of(res, out.name)
+
+    def send():
+        if o.get("phone"):
+            o["build"] = build_of(o["phone"])
+        with _bug_lock:
+            with open(out / "bugs.jsonl", "a", encoding="utf-8") as f:
+                f.write(json.dumps(o) + "\n")
+        try:
+            post_bug(o)
+        except Exception as e:
+            print(f"bug feed: {res['id']} not sent ({e}); kept in {out / 'bugs.jsonl'}", flush=True)
+    threading.Thread(target=send, daemon=False).start()  # non-daemon: the process waits for it before exiting
+
+
+def post_bugs(run_dir):
+    """Re-send every FAIL of a recorded run (results.json, matrix rows from the case files) to the bug feed."""
+    run_dir = Path(run_dir) if Path(run_dir).exists() else HERE / run_dir
+    cases = {}
+    for p in (HERE / "cases").rglob("*.json"):
+        try:
+            c = json.loads(p.read_text(encoding="utf-8"))
+            cases[c["id"]] = c
+        except Exception:
+            pass
+    fails = [r for r in json.loads((run_dir / "results.json").read_text(encoding="utf-8"))["results"] if r["status"] == "FAIL"]
+    keys = {post_bug(bug_of({**case_tags(cases.get(r["id"], {})), **r}, run_dir.name))["key"] for r in fails}
+    print(f"{len(fails)} FAILs -> {len(keys)} bugs (sent to {API}/bugs)", flush=True)
+    return 0
+
+
 def main(argv):
+    if argv[:1] == ["--post-bugs"]:
+        return post_bugs(argv[1])
     phones, only, pick, cases_dir = ["d0"], None, None, HERE / "cases"
     matrix, areas, shard, first, golden = None, None, None, None, None
     it = iter(argv)
@@ -870,6 +988,7 @@ def lanes_main(phones, only, pick, cases_dir, golden):
         for c in (c for c in cases if c["lane"] == lane):
             results.append(run_case(deal[lane], c, out) if lane in deal else
                            {"id": c["id"], "lane": lane, "status": "SKIP", "error": "no phone"})
+            report_bug(results[-1], out)
             if results[-1]["status"] == "FAIL" and lane in deal and heal(deal[lane], lane, golden):
                 results[-1]["golden_restored"] = True
 
@@ -879,6 +998,8 @@ def lanes_main(phones, only, pick, cases_dir, golden):
     done = {r["id"] for r in results}  # a case that never reported is a FAIL, never a silent gap
     results += [{"id": c["id"], "lane": c["lane"], "status": "FAIL", "error": "lane thread died before this case"}
                 for c in cases if c["lane"] in lanes and c["id"] not in done]
+    for r in results[len(done):]:
+        report_bug(r, out)
     results.sort(key=lambda r: r["id"])
     total = round(time.time() - t0, 1)
     (out / "results.json").write_text(json.dumps({"deal": deal, "total_wall_s": total, "results": results}, indent=2))

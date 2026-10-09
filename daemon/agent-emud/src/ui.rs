@@ -13,6 +13,7 @@
 //                                  [u32 jpeg_len][u64 seq][u32 w][u32 h][u32 device n][jpeg], LE; `full` goes unscaled
 //   GET  /screenshot.png?device=d0 one PNG download
 //   POST /upload?device=d0         body = APK, installed with adb
+//   POST /bugs                     one bug occurrence from the test runner (bugs.rs); GET /bugs?status=open&full=1 the bugs
 //   GET  /runs                     test runner results, newest first (tests/boltbetz/results, plus the old .scratch runner folder)
 //   GET  /runs/<stamp>/<file>      one file of a run (results.json, grid.md, *.png), read-only, that folder only
 // Localhost only; no auth (the panel can do what the binary API can). See daemon/API.md.
@@ -313,6 +314,15 @@ async fn conn(st: &Arc<State>, mut sock: TcpStream) -> R<()> {
         ("POST", "/upload") => {
             let rep = upload(st, req.q("device").unwrap_or("d0"), &body).await.unwrap_or_else(|e| json!({"ok": false, "error": e}));
             send(&mut sock, 200, "application/json", rep.to_string().as_bytes(), c).await
+        }
+        ("POST", "/bugs") => {
+            let r: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
+            let rep = crate::bugs::record(st, &r).unwrap_or_else(|e| json!({"ok": false, "error": e}));
+            send(&mut sock, 200, "application/json", rep.to_string().as_bytes(), c).await
+        }
+        ("GET", "/bugs") => {
+            let q: serde_json::Map<String, Value> = req.query.iter().map(|(k, v)| (k.clone(), json!(v))).collect();
+            send(&mut sock, 200, "application/json", crate::bugs::list(&Value::Object(q)).to_string().as_bytes(), c).await
         }
         ("GET", "/runs") => send(&mut sock, 200, "application/json", runs_list().to_string().as_bytes(), c).await,
         ("GET", p) if p.starts_with("/runs/") => match {
@@ -647,7 +657,7 @@ fn record_of(e: &Enc, mjpeg: bool, n: Option<u32>) -> Vec<u8> {
 }
 
 /// GET /events: Server-Sent Events, one JSON object per `data:` line, each with a `type`
-/// (snapshot, device, job, metrics, crash, error, lagged). Starts with a `snapshot` (the `status` reply).
+/// (snapshot, device, job, metrics, crash, error, bug, lagged). Starts with a `snapshot` (the `status` reply).
 async fn events(st: &Arc<State>, sock: &mut TcpStream, cors: &str) -> R<()> {
     let mut rx = st.events.subscribe();
     let head = format!("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nCache-Control: no-store\r\n{cors}Connection: close\r\n\r\n");

@@ -260,8 +260,28 @@
   .empty { color: var(--ink-2); padding: 6px 0; }
 
   /* ---------- test runs view ---------- */
-  #runs { height: calc(100dvh - var(--bar-h)); display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 24px; padding: 22px 28px 20px; }
-  #runlist { overflow: auto; border-radius: 18px; background: var(--card); box-shadow: 0 0 0 .5px var(--line-2); padding: 8px; }
+  #runs, #bugs { height: calc(100dvh - var(--bar-h)); display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 24px; padding: 22px 28px 20px; }
+  #bugs { grid-template-columns: 380px minmax(0, 1fr); }
+  #runlist, #buglist { overflow: auto; border-radius: 18px; background: var(--card); box-shadow: 0 0 0 .5px var(--line-2); padding: 8px; }
+  #buglist { display: grid; align-content: start; gap: 2px; }
+  #buglist .bar { display: flex; align-items: center; gap: 8px; padding: 4px 4px 8px; flex-wrap: wrap; }
+  #buglist .bar h2 { font: 650 18px var(--disp); margin-right: auto; } #buglist .bar h2 b { color: var(--red); }
+  #buglist .bug { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; text-align: left; border: 0; background: transparent; padding: 9px 12px; border-radius: 11px; }
+  #buglist .bug:hover { background: var(--fill); }
+  #buglist .bug[aria-current=true] { background: var(--card-solid); box-shadow: 0 1px 3px var(--shadow), 0 0 0 .5px var(--line-2); }
+  #buglist .bug .t { font-weight: 560; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #buglist .bug .n { font-weight: 650; font-variant-numeric: tabular-nums; color: var(--red); }
+  #buglist .bug .s2 { color: var(--ink-2); font-size: 12px; grid-column: 1 / -1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #buglist .bug.runner .n { color: var(--ink-2); }
+  #buglist .bug.fresh { animation: fresh 1.6s var(--ease); }
+  @keyframes fresh { from { background: light-dark(rgb(204 51 38 / .14), rgb(255 109 96 / .18)); } }
+  #bugdetail { overflow: auto; min-width: 0; display: grid; align-content: start; grid-auto-rows: max-content; gap: 18px; padding-right: 4px; }
+  #bugdetail h2 { font: 650 22px/1.2 var(--disp); letter-spacing: -.01em; overflow-wrap: anywhere; }
+  .kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 14px; font-size: 12.5px; margin: 0; }
+  .kv dt { color: var(--ink-2); } .kv dd { margin: 0; overflow-wrap: anywhere; } .kv dd.bad { color: var(--red); }
+  pre.logl { font: 11px/1.5 var(--mono); white-space: pre-wrap; word-break: break-all; margin: 0; color: var(--red); border-radius: 10px; background: light-dark(#f3f2ef, #0e0e10); padding: 8px 10px; max-height: 220px; overflow: auto; }
+  .cases .occ { padding: 4px 16px 12px 44px; display: grid; gap: 10px; }
+  .cases .occ .shots { grid-template-columns: repeat(auto-fill, minmax(110px, 140px)); }
   #runlist button { width: 100%; display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; text-align: left; border: 0; background: transparent; padding: 10px 12px; border-radius: 11px; }
   #runlist button:hover { background: var(--fill); }
   #runlist button[aria-current=true] { background: var(--card-solid); box-shadow: 0 1px 3px var(--shadow), 0 0 0 .5px var(--line-2); }
@@ -321,7 +341,7 @@
     #phones { height: auto; display: block; container-type: normal; padding: 16px; }
     #grid { --ph: 300px; grid-template-columns: repeat(2, max-content); justify-content: center; }
     #focus { display: block; margin-top: 24px; } #stagebox { display: none; } #insp { backdrop-filter: none; }
-    #runs { height: auto; grid-template-columns: 1fr; padding: 16px; } #runlist { max-height: 240px; }
+    #runs, #bugs { height: auto; grid-template-columns: 1fr; padding: 16px; } #runlist, #buglist { max-height: 240px; }
     .pop { right: 8px; left: 8px; width: auto; }
   }
   @media (prefers-reduced-motion: reduce) {
@@ -354,6 +374,7 @@
   <div class="seg" id="views" role="tablist" aria-label="View">
     <button role="tab" id="v-phones" aria-selected="true" aria-controls="phones">Phones</button>
     <button role="tab" id="v-runs" aria-selected="false" aria-controls="runs">Test runs</button>
+    <button role="tab" id="v-bugs" aria-selected="false" aria-controls="bugs">Bugs <span id="bugn" class="num"></span></button>
   </div>
   <div class="right">
     <button id="membtn" popovertarget="mempop" title="Host memory"><span class="mini" id="memmini"></span><span class="num" id="memword">Memory</span></button>
@@ -430,6 +451,16 @@
 <main id="runs" role="tabpanel" aria-labelledby="v-runs" hidden>
   <nav id="runlist" aria-label="Runs"></nav>
   <section id="rundetail" aria-live="polite"></section>
+</main>
+
+<main id="bugs" role="tabpanel" aria-labelledby="v-bugs" hidden>
+  <nav id="buglist" aria-label="Bugs">
+    <div class="bar"><h2 id="bughead">Bugs</h2>
+      <div class="seg sm" role="group" aria-label="Sort"><button data-sort="last" aria-pressed="true">Latest</button><button data-sort="count" aria-pressed="false">Most</button></div>
+      <label class="checks"><label><input type="checkbox" id="bugrunner"> Runner</label></label></div>
+    <div id="bugrows"></div>
+  </nav>
+  <section id="bugdetail" aria-live="polite"></section>
 </main>
 
 <div popover id="startpop" class="pop"><div class="in">
@@ -913,6 +944,7 @@ function onEvent(e) {
     if (e.device === S.sel) addCrash(e.event);
     renderTile(e.device); setText($("crashn"), S.crashes[S.sel] || ""); return;
   }
+  if (e.type === "bug") { foldBug(e); return; }
   if (e.type === "error" && T[e.device]) toast(`${e.device}: ${plain(e.error, e.device)}`, { err: true });
 }
 function openEvents() {
@@ -1305,7 +1337,7 @@ async function showRun(stamp) {
 function openShot(i) {
   lbAt = (i + runShots.length) % runShots.length; const s = runShots[lbAt];
   let img = $("lbimg"); if (!img) { img = document.createElement("img"); img.id = "lbimg"; $("lbfig").prepend(img); }
-  img.src = `${BASE}/runs/${encodeURIComponent(runSel)}/${encodeURIComponent(s.file)}`; img.alt = s.file;
+  img.src = `${BASE}/runs/${encodeURIComponent(s.run || runSel)}/${encodeURIComponent(s.file)}`; img.alt = s.file;
   setText($("lbcap"), `${s.file.replace(/\.png$/, "")} · ${lbAt + 1} of ${runShots.length}`);
   if (!$("lightbox").open) $("lightbox").showModal();
 }
@@ -1313,15 +1345,91 @@ $("lbprev").onclick = () => openShot(lbAt - 1); $("lbnext").onclick = () => open
 $("lightbox").addEventListener("keydown", (e) => { if (e.key === "ArrowLeft") openShot(lbAt - 1); if (e.key === "ArrowRight") openShot(lbAt + 1); });
 $("lightbox").addEventListener("click", (e) => { if (e.target === $("lightbox")) $("lightbox").close(); });
 
+// ---------- bugs: test runner FAILs folded by dedupe key (GET /bugs once, then `bug` events) ----------
+const B = { bugs: {}, sel: null, sort: store.get("bugsort", "last"), runner: store.get("bugrunner", false), fresh: new Set(), loaded: false };
+const ago = (ms) => { const s = Math.max(0, (Date.now() - ms) / 1000); return s < 60 ? "just now" : s < 3600 ? `${Math.round(s / 60)} min ago` : s < 86400 ? `${Math.round(s / 3600)} h ago` : `${Math.round(s / 86400)} d ago`; };
+const shotUrl = (run, p, w) => `${BASE}/runs/${encodeURIComponent(run)}/${encodeURIComponent(p.split(/[\\/]/).pop())}${w ? `?w=${Math.ceil(w * (devicePixelRatio || 1))}` : ""}`;
+const shown = (b) => B.runner || b.kind !== "runner";
+async function loadBugs() {
+  let r; try { r = await (await fetch(BASE + "/bugs?full=1&limit=1000")).json(); } catch { r = null; }
+  if (!r || !r.ok) { if (!B.loaded) $("bugrows").innerHTML = `<p class="note" style="padding:10px">This daemon does not serve the bug feed yet.</p>`; return; }
+  for (const b of r.bugs) B.bugs[b.key] = b;
+  B.loaded = true; renderBugs();
+}
+function foldBug(e) {
+  const old = B.bugs[e.key], occ = [...(old?.occurrences || []), e.occurrence].slice(-30);
+  B.bugs[e.key] = { ...e.bug, occurrences: occ };
+  B.fresh.add(e.key); setTimeout(() => B.fresh.delete(e.key), 1600);
+  renderBugs();
+}
+function renderBugs() {
+  const all = Object.values(B.bugs), open = all.filter(b => b.status === "open" && b.kind !== "runner").length;
+  setText($("bugn"), open || "");
+  if (S.view !== "bugs") return;
+  const list = all.filter(shown).sort((a, b) => B.sort === "count" ? b.count - a.count || b.last_seen - a.last_seen : b.last_seen - a.last_seen);
+  const hidden = all.length - list.length;
+  $("bughead").innerHTML = open ? `<b class="num">${open}</b> open` : "Bugs";
+  $("bugrows").innerHTML = list.length ? list.map(b => `<button class="bug${b.kind === "runner" ? " runner" : ""}${B.fresh.has(b.key) ? " fresh" : ""}" data-key="${esc(b.key)}" aria-current="${b.key === B.sel}">
+      <span class="t" title="${esc(b.title)}">${esc(b.title)}</span><span class="n">×${b.count}</span>
+      <span class="s2">${esc(b.area)} · ${b.cases.length} case${b.cases.length === 1 ? "" : "s"} · ${b.phones.length} phone${b.phones.length === 1 ? "" : "s"} · ${ago(b.last_seen)}${b.kind === "runner" ? " · runner" : ""}</span></button>`).join("")
+    + (hidden ? `<p class="note" style="padding:8px 12px">${hidden} runner bug${hidden === 1 ? "" : "s"} hidden.</p>` : "")
+    : `<p class="note" style="padding:10px">${B.loaded ? "No bugs yet. Each test FAIL lands here as it happens." : "Loading…"}</p>`;
+  $("bugrows").querySelectorAll(".bug").forEach(el => el.onclick = () => { B.sel = el.dataset.key; renderBugs(); });
+  if (!B.bugs[B.sel] || !shown(B.bugs[B.sel])) B.sel = list[0]?.key || null;
+  $("bugrows").querySelectorAll(".bug").forEach(el => el.setAttribute("aria-current", el.dataset.key === B.sel));
+  renderBug();
+}
+let bugShots = [];
+function renderBug() {
+  const b = B.bugs[B.sel], el = $("bugdetail");
+  if (!b) { el.innerHTML = ""; return; }
+  if (el.dataset.key === b.key && el.dataset.count === String(b.count)) return; // nothing new: keep scroll and open rows
+  el.dataset.key = b.key; el.dataset.count = b.count;
+  const occ = [...(b.occurrences || [])].reverse(), o = occ[0] || {}, bd = o.build || {};
+  bugShots = occ.flatMap(x => (x.shots || []).map(p => ({ run: x.run, p, file: p.split(/[\\/]/).pop() })));
+  const fc = o.failed_check;
+  const kv = (rows) => `<dl class="kv">${rows.filter(r => r[1] != null && r[1] !== "").map(([k, v, c]) => `<dt>${esc(k)}</dt><dd class="${c || ""}">${esc(v)}</dd>`).join("")}</dl>`;
+  const shotsOf = (x) => (x.shots || []).length ? `<div class="shots">${x.shots.map(p => { const i = bugShots.findIndex(s => s.p === p && s.run === x.run);
+    return `<figure><button data-i="${i}" aria-label="Open ${esc(p.split(/[\\/]/).pop())}"><img loading="lazy" decoding="async" src="${shotUrl(x.run, p, 140)}" alt="" onload="this.parentNode.style.animation='none'"></button><figcaption>${esc(p.split(/[\\/]/).pop().replace(/\.png$/, ""))}</figcaption></figure>`; }).join("")}</div>` : "";
+  el.innerHTML = `<div><h2>${esc(b.title)}</h2><p class="note num">${esc(b.key)} · ${esc(b.kind)} · ${esc(b.status)} · first seen ${ago(b.first_seen)}, last ${ago(b.last_seen)}</p></div>
+    <div class="runhead"><div class="stat"><span>Seen</span><b class="bad">${b.count}</b></div><div class="stat"><span>Cases</span><b>${b.cases.length}</b></div>
+      <div class="stat"><span>Phones</span><b>${b.phones.length}</b></div><div class="stat"><span>Runs</span><b>${b.runs.length}</b></div></div>
+    <h3 class="sec">Latest</h3>
+    ${kv([["Case", o.case], ["Failed check", fc ? (fc.detail || JSON.stringify(fc.check)) : null, "bad"], ["Expected", fc ? JSON.stringify(fc.check) : null],
+      ["Error", o.error, "bad"], ["Failing step", o.failed_step ? `#${o.failed_step.n} ${o.failed_step.step}` : null], ["Endpoint", b.endpoint && b.endpoint !== "none" ? b.endpoint : null],
+      ["Variant", o.variant ? Object.entries(o.variant).map(([k, v]) => `${k}=${v}`).join(" · ") : null],
+      ["Phone", [o.phone, o.lane].filter(Boolean).join(" · ")], ["Run", o.run ? `${stampWord(o.run)} · attempt ${o.attempt || 1}` : null],
+      ["Build", bd.version_name ? `${bd.version_name} (${bd.version_code})${bd.eas_build ? " · EAS " + bd.eas_build : ""}` : bd.error],
+      ["Runtime", bd.runtime ? `${bd.runtime}${bd.runtime_match === false ? " (not staging's)" : ""}` : null, bd.runtime_match === false ? "bad" : ""],
+      ["OTA update", bd.update_id], ["Decisions", o.decisions ? o.decisions.map(d => `${d.kind} ${d.choice ?? ""} ${d.confidence ?? d.p_true ?? ""}`).join(" · ") : null]])}
+    ${shotsOf(o)}
+    ${(o.logs || []).length ? `<h3 class="sec">App error log</h3><pre class="logl">${esc(o.logs.join("\n"))}</pre>` : ""}
+    <h3 class="sec">Occurrences</h3>
+    <div class="cases">${occ.map((x, i) => `<details${i === 0 ? "" : ""}><summary><span class="dot bad"></span><span class="t">${esc(x.case)}<small>${esc(x.phone || "")}</small></span>
+      <span class="m">${esc(x.run ? stampWord(x.run) : "")}</span><span class="m">try ${x.attempt || 1}</span><span class="m">${x.ts ? ago(x.ts) : ""}</span></summary>
+      <div class="occ">${kv([["Failed", x.failed_check ? x.failed_check.detail : x.error, "bad"], ["Variant", x.variant ? Object.entries(x.variant).map(([k, v]) => `${k}=${v}`).join(" · ") : null]])}
+      ${shotsOf(x)}${(x.logs || []).length ? `<pre class="logl">${esc(x.logs.join("\n"))}</pre>` : ""}</div></details>`).join("")}</div>
+    ${b.count > occ.length ? `<p class="note">Showing the newest ${occ.length} of ${b.count}. All are in bugs.jsonl.</p>` : ""}`;
+  el.querySelectorAll(".shots button").forEach(x => x.onclick = () => openBugShot(+x.dataset.i));
+}
+function openBugShot(i) {
+  // the lightbox walks this bug's screenshots
+  runShots = bugShots.map(s => ({ file: s.file, run: s.run })); openShot(i);
+}
+document.querySelectorAll("#buglist [data-sort]").forEach(b => { b.setAttribute("aria-pressed", b.dataset.sort === B.sort);
+  b.onclick = () => { B.sort = b.dataset.sort; store.set("bugsort", B.sort); document.querySelectorAll("#buglist [data-sort]").forEach(x => x.setAttribute("aria-pressed", x === b)); renderBugs(); }; });
+$("bugrunner").checked = B.runner;
+$("bugrunner").onchange = () => { B.runner = $("bugrunner").checked; store.set("bugrunner", B.runner); renderBugs(); };
+setInterval(() => { if (S.view === "bugs" && !document.hidden) renderBugs(); }, 30000); // keeps "x min ago" honest
+
 // ---------- views ----------
 function setView(v) {
   S.view = v; store.set("view", v);
-  $("v-phones").setAttribute("aria-selected", v === "phones"); $("v-runs").setAttribute("aria-selected", v === "runs");
-  $("phones").hidden = v !== "phones"; $("runs").hidden = v !== "runs";
-  if (v === "runs") loadRuns(); else renderAll();
+  for (const k of ["phones", "runs", "bugs"]) { $("v-" + k).setAttribute("aria-selected", v === k); $(k).hidden = v !== k; }
+  if (v === "runs") loadRuns(); else if (v === "bugs") renderBugs(); else renderAll();
   syncStreams();
 }
-$("v-phones").onclick = () => setView("phones"); $("v-runs").onclick = () => setView("runs");
+$("v-phones").onclick = () => setView("phones"); $("v-runs").onclick = () => setView("runs"); $("v-bugs").onclick = () => setView("bugs");
 setInterval(() => { if (S.view === "runs" && !document.hidden) loadRuns(); }, 10000);
 
 // ---------- settings persist per field ----------
@@ -1344,8 +1452,8 @@ IDS.forEach(addTile);
 handCanvas($("stagecv"), "stage");
 if (!T[S.sel]) S.sel = IDS[0];
 FW.postMessage({ t: "stage", id: S.sel });
-setTab(tab); setView(S.view === "runs" ? "runs" : "phones");
-renderAll(); openEvents(); logLoop(); crashReset();
+setTab(tab); setView(["runs", "bugs"].includes(S.view) ? S.view : "phones");
+renderAll(); openEvents(); logLoop(); crashReset(); loadBugs();
 // Boot timers tick once a second; everything else changes only when the daemon says so.
 setInterval(() => { for (const id of IDS) if (stateOf(id) === "booting") renderTile(id); if (stateOf(S.sel) === "booting") renderStage(); }, 1000);
 </script>

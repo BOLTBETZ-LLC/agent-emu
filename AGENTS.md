@@ -108,6 +108,7 @@ HTTP 200 either way: always read `ok`.
 | `health` | `{"call":"health","device":"d2"}` | adb, network, app version, runtime vs staging, update id, foreground, signed in, last crash, stuck boot; `level` ok/warn/bad. Dashboard: dot by the phone name, hover for detail |
 | `snapshot` | `{"call":"snapshot","device":"d1","name":"L2-golden"}` | save a signed-in phone's disks (reboots it, ~2 min) |
 | `restore` | `{"call":"restore","device":"d1","name":"L2-golden"}` | put them back: disks in seconds, then a keep_data boot (~2 min); only that Device's snapshot, same image |
+| `bugs` | `{"call":"bugs","area":"home","q":"pin"}` | the live bug feed: test FAILs folded by dedupe key, newest first, each with `count`, `cases`, `phones` and its newest occurrence (`last`); `full: true` = every kept occurrence. See [Bug feed](#bug-feed) |
 
 ## Phone lifecycle
 
@@ -284,6 +285,7 @@ python run.py --phones d0,d1,d2,d3 --matrix cases --areas L1,L2,L3,L4       # th
   retried (no other phone has their account).
 - **Live:** `results.json` is rewritten after every case (`running`, `progress`, results so far), so the dashboard's
   Test runs view fills in as it goes; stdout prints `[n/N] PASS|FLAKY|FAIL <id> on <phone> ...`.
+- **Bug feed:** every final FAIL (lane, matrix and plan mode) goes to the daemon at once, see [Bug feed](#bug-feed).
 - **Output:** `grid.md` = area x PASS/FLAKY/FAIL/SKIP, total wall time, per-phone busy time and utilization, flaky
   list, failures with error, FAIL screenshot and app error log lines (also `logs` in results.json).
 - Offline self-check of the scheduler (no phones): `python test_matrix.py`.
@@ -322,6 +324,25 @@ python plan.py run plans/example.yaml --phones 2 --keep  # leaves them running
   FAILs the chunk's cases. Per case: run.py's reset + `run_case` (no retry in plan mode).
 - **Results:** same folder and `results.json`/`grid.md` as matrix mode, plus `plan.json` (chunks and deal);
   each result carries `chunk`. Offline check: `python test_plan.py`.
+
+### Bug feed
+
+Each final FAIL becomes a bug **occurrence**: the runner sends it to the daemon (`POST $AE_API/bugs`, on its own
+thread, so a slow or absent daemon never holds up or fails a case) and appends it to `results/<stamp>/bugs.jsonl`.
+The daemon folds occurrences into **bugs** by dedupe key `area|step|endpoint|first failed check`, appends each to
+`%LOCALAPPDATA%\agent-emu\bugs.jsonl` (`AE_BUGS_FILE`), and pushes a `bug` event on `/events`.
+- **Key:** step = the matrix id's step (`M-home-005-transactions-...` -> `transactions`), else the case id; endpoint
+  = the matrix row's `FaultEndpoint`, or a lane case's `fault?endpoint=` link; check = first failed check as
+  `ui:<id>:present|absent`, `judge:<goal>`, `value:...`, or the error with digits folded. Fault preset, Synkros code,
+  lifecycle, amount, phone, lane, attempt and build are dropped: the same bug elsewhere only bumps `count`.
+- **Evidence per occurrence:** case, run, attempt, phone, lane, variant (matrix row), failing step, failed check with
+  detail, error, screenshot paths, app E log lines, Jev decisions, build/runtime/OTA update id from `health` (cached 5 min per phone).
+- **Read it:** dashboard **Bugs** tab (fills live, groups occurrences under each bug, shows screenshots and logs;
+  runner-side bugs hidden unless **Runner** is ticked), the `bugs` call / MCP tool, or `GET /bugs?full=1`.
+- **Backfill a recorded run:** `python run.py --post-bugs results/<stamp>` (matrix rows from the case files; ids whose
+  case file is gone use the id's step and endpoint). 20261009-132949: 99 FAILs -> 33 bugs.
+- `kind` is `unsorted`, or `runner` for reset/setup/retired-phone errors. Every bug is `open`: no triage edits yet,
+  and nothing is filed to Jira (a draft-ticket button comes later; never auto-file).
 
 **Through MCP:** `run_case` `{"device":"d3","case":"L4-01"}` and `run_lanes` `{"phones":["d0","d1","d2","d3"],"lanes":["L4"]}`
 (`lanes` optional) run `run.py` from the MCP process and block until done. Reply: the PASS/FAIL grid, then
@@ -462,7 +483,7 @@ tool_timeout_sec = 900   # start blocks ~2 min; Codex's default is 60
 Other folders: `codex mcp add agent-emu -- C:\dev\agent-emu\daemon\target-mcp\release\agent-emud.exe mcp --addr 127.0.0.1:7400`
 (then raise `tool_timeout_sec` in `~/.codex/config.toml`). Check: `codex mcp get agent-emu`.
 
-**Tools** (36): `claim`, `unclaim`, `health`, `snapshot`, `restore`, `status`, `start`, `stop`, `start_many`, `stop_many`, `install_bundled`, `app`, `ui_tree`,
+**Tools** (37): `bugs`, `claim`, `unclaim`, `health`, `snapshot`, `restore`, `status`, `start`, `stop`, `start_many`, `stop_many`, `install_bundled`, `app`, `ui_tree`,
 `screenshot`, `tap`, `swipe`, `type_text`, `key`, `deep_link`, `permission`, `clock`, `set_location`, `shell`,
 `logs`, `issues`, `crash_events`, `memory`, `squeeze`, `lease`, `release`, `inject_camera_image`, `fleet`,
 `fleet_stop`, `run_case`, `run_lanes`, `run_matrix` (the last three run the test runner: [Test runner](#test-runner)).

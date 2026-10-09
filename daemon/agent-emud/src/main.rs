@@ -4,6 +4,7 @@
 // Request:  {"id":1,"call":"tap","device":"d0","x":100,"y":200}
 // Reply:    {"id":1,"ok":true,"ms":12,...} or {"id":1,"ok":false,"error":"..."}
 mod adopt;
+mod bugs;
 mod controls;
 mod device;
 mod fast;
@@ -767,11 +768,14 @@ async fn follow_logs(st: &State, req: &Value, w: &mut (impl AsyncWriteExt + Unpi
     }
 }
 
-/// Every call: claims, health and snapshots (ops.rs), the rest below; a call on a phone claimed by someone
+/// Every call: the bug feed (bugs.rs), claims, health and snapshots (ops.rs), the rest below; a call on a phone claimed by someone
 /// else gets a `warning` (it still runs).
 async fn handle(st: &Arc<State>, conn: u64, req: &Value) -> R<Value> {
     let call = req["call"].as_str().unwrap_or("");
     let warn = ops::claim_warning(req);
+    if bugs::CALLS.contains(&call) {
+        return bugs::handle(st, call, req);
+    }
     let mut r = if ops::CALLS.contains(&call) { ops::handle(st, call, req).await? } else { handle_call(st, conn, req).await? };
     if let Some(w) = warn {
         r["warning"] = json!(w);

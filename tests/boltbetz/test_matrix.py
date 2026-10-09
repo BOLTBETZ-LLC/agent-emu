@@ -6,6 +6,22 @@ os.environ["AE_RUNS_DIR"] = tempfile.mkdtemp()
 os.environ["SYNKROS_API_KEY"] = "offline-test"
 import run
 
+reported = []  # the bug feed, offline: what Matrix.final would send to the daemon
+run.report_bug = lambda res, out: reported.append(res["id"]) if res.get("status") == "FAIL" else None
+
+# Bug key parts: a matrix id gives the step (and the endpoint when its case file is gone); a lane case uses its id.
+o = run.bug_of({"id": "M-home-005-transactions-gettransactions-forbidden", "area": "home", "status": "FAIL",
+                "checks": [{"check": {"ui": "tx-error"}, "ok": False, "detail": "tx-error present=False"}]}, "r1")
+assert (o["step"], o["endpoint"], o["check"], o["kind"]) == ("transactions", "gettransactions", "ui:tx-error:present", "unsorted"), o
+o = run.bug_of({"id": "M-home-005-transactions-x", "area": "home", "variant": {"Step": "transactions", "FaultEndpoint": "none"},
+                "checks": [], "error": "reset: app not on Home after launch (start-screen; signed out?)"}, "r1")
+assert (o["endpoint"], o["kind"], o["check"]) == ("none", "runner", "error:reset: app not on Home after launch (start-screen; signed out?)"), o
+o = run.bug_of({"id": "L4-02-x", "lane": "L4", "endpoint": "getHomeOffers", "checks": [{"check": {"judge": "Home shows offers"}, "ok": False, "detail": "judge False"}]}, "r1")
+assert (o["area"], o["step"], o["check"], o["title"]) == ("L4", "L4-02-x", "judge:Home shows offers", "L4 L4-02-x: not so: Home shows offers"), o
+assert run.case_tags({"matrix": {"row": {"Step": "redeem", "FaultEndpoint": "acceptPlayerOffer"}}})["endpoint"] == "acceptPlayerOffer"
+assert "endpoint" not in run.case_tags({"matrix": {"row": {"AppFault": "p500"}}, "steps": [{"uri": "x/fault?endpoint=transferCwa&preset=500"}]})
+assert run.case_tags({"steps": [{"uri": "x/fault?endpoint=getLinkedPlayerAccounts&preset=500"}]}) == {"endpoint": "getLinkedPlayerAccounts"}
+
 tries = {}
 
 
@@ -107,4 +123,5 @@ p.send_signal(getattr(signal, "CTRL_BREAK_EVENT", signal.SIGTERM))
 p.wait(timeout=15)
 doc = json.loads(next(runs.glob("*/results.json")).read_text())
 assert doc["running"] is False and doc["interrupted"] is True, doc
+assert "x-fail" in reported and "x-flaky" not in reported, reported
 print("ok")

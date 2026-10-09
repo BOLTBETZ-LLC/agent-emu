@@ -3,6 +3,7 @@ import os, tempfile
 
 os.environ["AE_RUNS_DIR"] = tempfile.mkdtemp()
 import plan
+plan.run.report_bug = lambda *a: None  # offline: no bug feed posts to a daemon
 
 # RAM: (available - 4000) / 750, never negative
 assert plan.ram_max_new(3000) == 0 and plan.ram_max_new(4749) == 0 and plan.ram_max_new(4750) == 1
