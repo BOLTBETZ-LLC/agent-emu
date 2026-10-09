@@ -1,0 +1,220 @@
+{
+ "id": "L2-12-deposit-validation",
+ "lane": "L2",
+ "timeout_s": 180,
+ "preconditions": {
+  "signed_in": true,
+  "kyc": true,
+  "venue_card": true,
+  "emulator_player": 9000004,
+  "saved_card": true
+ },
+ "steps": [
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/hooks?on=1"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "tap_id": "tab-home",
+   "optional": true,
+   "wait_s": 2
+  },
+  {
+   "wait_id": "home-screen",
+   "wait_s": 15
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Wallet/WalletMain"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "wait_id": "wallet-main-screen",
+   "wait_s": 15
+  },
+  {
+   "tap_id": "wallet-action-deposit"
+  },
+  {
+   "wait_id": "wallet-deposit-screen"
+  },
+  {
+   "tap_id": "deposit-agreement-checkbox"
+  },
+  {
+   "fill": "deposit-screen-amount-input",
+   "text": "0"
+  },
+  {
+   "tap_id": "deposit-amount-title"
+  },
+  {
+   "tap_id": "wallet-deposit-submit-button"
+  },
+  {
+   "check": {
+    "ui_text": "deposit-screen-amount-input-error",
+    "contains": "greater than 0"
+   }
+  },
+  {
+   "check": {
+    "ui": "enter-pin-title",
+    "present": false,
+    "wait_s": 2
+   }
+  },
+  {
+   "fill": "deposit-screen-amount-input",
+   "text": "4"
+  },
+  {
+   "tap_id": "deposit-amount-title"
+  },
+  {
+   "tap_id": "wallet-deposit-submit-button"
+  },
+  {
+   "check": {
+    "ui_text": "deposit-screen-amount-input-error",
+    "contains": "minimum deposit is $5.00"
+   }
+  },
+  {
+   "check": {
+    "ui": "enter-pin-title",
+    "present": false,
+    "wait_s": 2
+   }
+  },
+  {
+   "fill": "deposit-screen-amount-input",
+   "text": "6000"
+  },
+  {
+   "tap_id": "deposit-amount-title"
+  },
+  {
+   "check": {
+    "ui_text": "deposit-screen-amount-input-error",
+    "contains": "more than $5,000.00 per day"
+   }
+  },
+  {
+   "check": {
+    "screenshot": "over-daily-limit"
+   }
+  },
+  {
+   "tap_id": "wallet-chrome-back-button"
+  },
+  {
+   "wait_id": "wallet-main-screen"
+  },
+  {
+   "check": {
+    "value": {
+     "ui": "deposit-limits-operator-usage"
+    },
+    "save": "used"
+   }
+  },
+  {
+   "tap_id": "wallet-action-deposit"
+  },
+  {
+   "wait_id": "wallet-deposit-screen"
+  },
+  {
+   "tap_id": "deposit-agreement-checkbox"
+  },
+  {
+   "fill": "deposit-screen-amount-input",
+   "text": "4995"
+  },
+  {
+   "tap_id": "deposit-amount-title"
+  },
+  {
+   "tap_id": "wallet-deposit-submit-button"
+  },
+  {
+   "sleep_ms": 1500
+  },
+  {
+   "check": {
+    "screenshot": "over-remaining-limit"
+   }
+  },
+  {
+   "check": {
+    "ui": "enter-pin-title",
+    "present": false,
+    "wait_s": 3
+   }
+  },
+  {
+   "tap_id": "enter-pin-close-button",
+   "optional": true
+  },
+  {
+   "sleep_ms": 1000
+  },
+  {
+   "tap_id": "wallet-chrome-back-button",
+   "optional": true
+  },
+  {
+   "wait_id": "wallet-main-screen"
+  }
+ ],
+ "checks": [
+  {
+   "ui_any": [
+    "home-screen",
+    "settings-screen",
+    "wallet-main-screen",
+    "login-screen",
+    "code-input"
+   ]
+  },
+  {
+   "no_crash": "com.boltbetz.staging"
+  },
+  {
+   "logs_lack": "FATAL EXCEPTION|ReactNativeJS.*(Unhandled|TypeError|Invariant Violation)",
+   "filter": "com.boltbetz.staging"
+  }
+ ],
+ "cleanup": [
+  {
+   "tap_id": "enter-pin-close-button",
+   "optional": true
+  },
+  {
+   "tap_id": "wallet-chrome-back-button",
+   "optional": true
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/fault?clear=1"
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  }
+ ],
+ "note": "P2. Deposit amount validation, never enters a PIN. $0 and $4 must show inline errors; $6000 must show the $5,000/day operator error. Last step: with money already deposited today (L2-10 runs first), $4,995 is over what is left of the $5,000 daily limit, so the app should refuse it before the PIN sheet. The PIN sheet is always closed without a PIN."
+}

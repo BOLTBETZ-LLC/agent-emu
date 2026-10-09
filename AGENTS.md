@@ -15,7 +15,7 @@ the how-to. Words: `GLOSSARY.md`. Dashboard: `http://127.0.0.1:7401/`.
 **Core loop** for any phone task (Claude Code also has it as skill `.claude/skills/agent-emu`):
 health + `status` phase `ready` -> `ui_tree` to see where you are -> act (`tap` with `device_px`, `deep_link` route
 or fault) -> verify (testID present, screenshot looked at, no `crash_events`, no fatal `logs`) -> repeatable work
-becomes a case run alone with `run.py --case`.
+becomes a case run alone with `run.py --case` (or MCP `run_case`).
 
 Contents: [Rules](#rules) · [60-second start](#60-second-start) · [Calls](#calls) · [Phone lifecycle](#phone-lifecycle) ·
 [Read the screen](#read-the-screen) · [Act](#act) · [BoltBetz QA hooks](#boltbetz-qa-hooks) · [Verify](#verify) ·
@@ -66,8 +66,8 @@ Each step ends on the check that proves it.
    [Accounts and sign-in](#accounts-and-sign-in).
 5. **One case passes.**
    ```sh
-   cd C:/dev/agent-emu/.scratch/test-matrix/runner
-   python run.py --phones d3 --case L4-01
+   cd C:/dev/agent-emu
+   python tests/boltbetz/run.py --phones d3 --case L4-01
    ```
    Prints `PASS L4-01-home-renders on d3 ...` and exits 0. Suite and lanes: [Test runner](#test-runner).
 
@@ -142,9 +142,9 @@ than `status`/`stop` on a phone that is not up fail with `Device dN is still boo
 Screen ids that mark where you are: `start-screen`, `login-screen`, `home-screen`, `wallet-main-screen`,
 `settings-screen`, `rewards-screen`, `machine-connected-screen`, `responsible-gaming-screen`,
 `notifications-screen`. Tabs: `tab-home`, `tab-wallet`, `tab-boltbetz` (scanner), `tab-rewards`, `tab-settings`.
-More ids: `.scratch/test-matrix/runner/cases/*.json`.
+More ids: `tests/boltbetz/cases/*.json`.
 
-Plaid's ID-check WebView often has no accessibility tree. Drive it by coordinates (`runner/signup.py` has them).
+Plaid's ID-check WebView often has no accessibility tree. Drive it by coordinates (`tests/boltbetz/signup.py` has them).
 
 ## Act
 
@@ -200,8 +200,8 @@ right thing.
 
 ## Test runner
 
-`C:\dev\agent-emu\.scratch\test-matrix\runner\run.py` (stdlib Python). Cases: one JSON per case in
-`runner/cases/` (top level only; `cases/signed-out/` and `cases/no-card/` are parked and run only when passed as
+`tests/boltbetz/run.py` in this repo (stdlib Python; it finds its cases and results beside itself). Cases: one
+JSON per case in `tests/boltbetz/cases/` (top level only; `cases/signed-out/` and `cases/no-card/` are parked and run only when passed as
 the cases dir).
 
 **Lanes.** Each case has a lane; each lane owns one account, Synkros player and machine, so lanes never share state.
@@ -216,14 +216,14 @@ Lanes are dealt to `--phones` in order. The standard deal:
 
 **Before you run:** no other run may be using your phones.
 ```sh
-ls -lt --time-style=+%H:%M C:/dev/agent-emu/.scratch/test-matrix/runner/results | sed -n 2p   # newest folder + time
-ls C:/dev/agent-emu/.scratch/test-matrix/runner/results/<that folder>                     # results.json there = finished
+ls -lt --time-style=+%H:%M C:/dev/agent-emu/tests/boltbetz/results | sed -n 2p   # newest folder + time
+ls C:/dev/agent-emu/tests/boltbetz/results/<that folder>                       # results.json there = finished
 powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name='python.exe'\" | ? CommandLine -match 'run.py' | select ProcessId,CommandLine"
 ```
 A newest folder under 10 minutes old without `results.json`, or any `run.py` process, means a run is live: wait, or use
 only phones it does not hold.
 
-**Run** (from `runner/`):
+**Run** (from `tests/boltbetz/`):
 ```sh
 python run.py --phones d0,d1,d2,d3                 # all lanes in parallel, ~60 s
 python run.py --phones d3 --lanes L4               # one lane on one phone
@@ -235,7 +235,18 @@ Before the first case of a lane the runner waits for phase `ready`, grants POST_
 denied (user-fixed: a live camera gets the app low-memory-killed), launches the app and waits for Home.
 Exit code 0 = no FAIL.
 
-**Results:** `runner/results/<yyyymmdd-hhmmss>/`: `results.json` (deal, total wall time, every check with detail,
+Env: `AE_API` (daemon HTTP, default `http://127.0.0.1:7401`), `AE_RUNS_DIR` (results root, default
+`tests/boltbetz/results`, gitignored), `ASM_EXEC` (asm-exec script, default `C:/dev/dev-harness/tools/asm-exec.ps1`),
+`AE_SANDBOX_NOTE` (test-card note for card cases, default `C:/dev/boltbetz-docs/70-ops/ops-sandbox-test-account.md`).
+Runs before 2026-10-09 stay in `.scratch/test-matrix/runner/results`.
+
+**Through MCP:** `run_case` `{"device":"d3","case":"L4-01"}` and `run_lanes` `{"phones":["d0","d1","d2","d3"],"lanes":["L4"]}`
+(`lanes` optional) run `run.py` from the MCP process and block until done. Reply: the PASS/FAIL grid, then
+`{"exit","passed","results","stderr"}` with `results` = the run's folder. The MCP finds `tests/boltbetz/run.py`
+above its exe (`AE_TESTS_DIR` overrides; `AE_PYTHON` picks the interpreter, default `python`). Same rules as the CLI:
+check for a live run first, one run per phone.
+
+**Results:** `tests/boltbetz/results/<yyyymmdd-hhmmss>/`: `results.json` (deal, total wall time, every check with detail,
 errors), `grid.md` (case x lane PASS/FAIL/SKIP + wall s), one PNG per screenshot check, `<case>-FAIL.png` on failure.
 Open the PNGs of anything that failed before you call it an app bug.
 
@@ -344,10 +355,10 @@ tool_timeout_sec = 900   # start blocks ~2 min; Codex's default is 60
 Other folders: `codex mcp add agent-emu -- C:\dev\agent-emu\daemon\target-mcp\release\agent-emud.exe mcp --addr 127.0.0.1:7400`
 (then raise `tool_timeout_sec` in `~/.codex/config.toml`). Check: `codex mcp get agent-emu`.
 
-**Tools** (28): `status`, `start`, `stop`, `start_many`, `stop_many`, `install_bundled`, `app`, `ui_tree`,
+**Tools** (30): `status`, `start`, `stop`, `start_many`, `stop_many`, `install_bundled`, `app`, `ui_tree`,
 `screenshot`, `tap`, `swipe`, `type_text`, `key`, `deep_link`, `permission`, `clock`, `set_location`, `shell`,
 `logs`, `issues`, `crash_events`, `memory`, `squeeze`, `lease`, `release`, `inject_camera_image`, `fleet`,
-`fleet_stop`. Running test cases is a CLI job: `python run.py ...` from a shell ([Test runner](#test-runner)).
+`fleet_stop`, `run_case`, `run_lanes` (the last two run the test runner: [Test runner](#test-runner)).
 MCP replies with a frame become an image block: pass `"screenshot": false` on inputs to keep context small.
 
 ## Gotchas

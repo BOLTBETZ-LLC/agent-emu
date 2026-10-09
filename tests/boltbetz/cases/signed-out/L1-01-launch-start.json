@@ -1,0 +1,5 @@
+{"id":"L1-01-launch-start","lane":"L1","timeout_s":60,
+ "preconditions":{"app_launched":"com.boltbetz.staging","signed_in":false},
+ "steps":[{"wait_id":["start-screen","login-screen"],"wait_s":20}],
+ "checks":[{"foreground":"com.boltbetz.staging"},{"ui_any":["start-screen","login-screen"]},{"no_crash":"com.boltbetz.staging"},
+           {"logs_lack":"FATAL EXCEPTION|ReactNativeJS.*(Unhandled|TypeError|Invariant Violation)","filter":"com.boltbetz.staging"},{"screenshot":"start"}]}

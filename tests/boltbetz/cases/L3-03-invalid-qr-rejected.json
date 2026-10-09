@@ -1,0 +1,119 @@
+{
+ "id": "L3-03-invalid-qr-rejected",
+ "lane": "L3",
+ "timeout_s": 90,
+ "preconditions": {
+  "signed_in": true,
+  "kyc": true,
+  "venue_card": true
+ },
+ "steps": [
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/hooks?on=1"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "tap_id": "tab-home",
+   "optional": true,
+   "wait_s": 2
+  },
+  {
+   "wait_id": "home-screen",
+   "wait_s": 15
+  },
+  {
+   "tap_id": "tab-boltbetz"
+  },
+  {
+   "wait_id": [
+    "machine-scan-help-button",
+    "qa-machine-scan-input"
+   ],
+   "wait_s": 12
+  },
+  {
+   "tap_id": "qa-machine-scan-input"
+  },
+  {
+   "call": "type_text",
+   "text": "https://example.com/not-a-machine",
+   "screenshot": false
+  },
+  {
+   "tap_id": "qa-machine-scan-submit"
+  },
+  {
+   "sleep_ms": 1500
+  },
+  {
+   "check": {
+    "screenshot": "rejected"
+   }
+  },
+  {
+   "check": {
+    "ui_any": [
+     "machine-scanner-tips-scroll",
+     "scanner-tips-dismiss-forever"
+    ]
+   }
+  },
+  {
+   "tap_id": "machine-scan-close-button",
+   "optional": true,
+   "wait_s": 3
+  },
+  {
+   "sleep_ms": 1000
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "tap_id": "tab-home",
+   "optional": true,
+   "wait_s": 2
+  },
+  {
+   "wait_id": "home-screen",
+   "wait_s": 15
+  }
+ ],
+ "checks": [
+  {
+   "ui": "home-screen"
+  },
+  {
+   "no_crash": "com.boltbetz.staging"
+  },
+  {
+   "logs_lack": "FATAL EXCEPTION|ReactNativeJS.*(Unhandled|TypeError|Invariant Violation)",
+   "filter": "com.boltbetz.staging"
+  }
+ ],
+ "cleanup": [
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/fault?clear=1"
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  }
+ ],
+ "note": "Link-shaped text is refused before machinelogin (machineQr.ts:11-23); the app answers by opening the scanner tips (ScanQRCode.tsx:274-277). Needs the lane's linked venue card, which needs staging Synkros in emulator mode (read 2026-10-09: mode=real, so emulator cards are not linkable)."
+}

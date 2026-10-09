@@ -19,14 +19,15 @@ Full guide: `C:\dev\agent-emu\AGENTS.md`. Read the section a step names when you
 4. **Verify the outcome.** Expected testID present in `ui_tree`, screenshot looked at, `crash_events` after the
    starting seq empty, `logs` (level E, cursor from before) free of fatal JS errors. AGENTS.md "Verify".
 5. **Repeatable?** Write it as a case and run it alone:
-   `cd C:/dev/agent-emu/.scratch/test-matrix/runner && python run.py --phones d3 --case <id>`.
-   Check for a live run first. AGENTS.md "Test runner".
+   `cd C:/dev/agent-emu && python tests/boltbetz/run.py --phones d3 --case <id>`, or MCP `run_case`
+   `{"device":"d3","case":"<id>"}` (`run_lanes` `{"phones":[...]}` for lanes). Check for a live run first.
+   AGENTS.md "Test runner".
 
 Stuck: AGENTS.md "Gotchas", then "Troubleshooting".
 
 ## Calling the daemon
 
-- MCP tools `agent-emu` (`status`, `start`, `ui_tree`, `tap`, `deep_link`, `logs`, ...): AGENTS.md "MCP setup".
+- MCP tools `agent-emu` (`status`, `start`, `ui_tree`, `tap`, `deep_link`, `logs`, `run_case`, `run_lanes`, ...): AGENTS.md "MCP setup".
 - Or HTTP: `curl -s localhost:7401/api -d '{"call":"ui_tree","device":"d3"}'`. Every reply has `ok`; read it.
 
 ## Hard lines

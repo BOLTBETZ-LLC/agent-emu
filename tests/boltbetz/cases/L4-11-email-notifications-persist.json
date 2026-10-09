@@ -1,0 +1,196 @@
+{
+ "id": "L4-11-email-notifications-persist",
+ "lane": "L4",
+ "timeout_s": 240,
+ "preconditions": {
+  "signed_in": true,
+  "kyc": true,
+  "venue_card": true,
+  "emulator_player": 9000006
+ },
+ "steps": [
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/hooks?on=1"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "tap_id": "tab-home",
+   "optional": true,
+   "wait_s": 2
+  },
+  {
+   "wait_id": "home-screen",
+   "wait_s": 15
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Settings"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "wait_id": "settings-screen",
+   "wait_s": 15
+  },
+  {
+   "check": {
+    "ui": "settings-email-notifications-track-on"
+   }
+  },
+  {
+   "tap_id": "settings-email-notifications"
+  },
+  {
+   "sleep_ms": 2500
+  },
+  {
+   "check": {
+    "ui": "settings-email-notifications-track-on",
+    "present": false,
+    "wait_s": 5
+   }
+  },
+  {
+   "call": "shell",
+   "cmd": "am force-stop com.boltbetz.staging"
+  },
+  {
+   "sleep_ms": 1000
+  },
+  {
+   "call": "app",
+   "launch": "com.boltbetz.staging"
+  },
+  {
+   "wait_id": "home-screen",
+   "wait_s": 60
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/hooks?on=1"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Settings"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "wait_id": "settings-screen",
+   "wait_s": 15
+  },
+  {
+   "sleep_ms": 2500
+  },
+  {
+   "check": {
+    "ui": "settings-email-notifications-track-on",
+    "present": false,
+    "wait_s": 3
+   }
+  },
+  {
+   "check": {
+    "screenshot": "off-after-restart"
+   }
+  },
+  {
+   "tap_id": "settings-email-notifications"
+  },
+  {
+   "sleep_ms": 2500
+  },
+  {
+   "check": {
+    "ui": "settings-email-notifications-track-on",
+    "wait_s": 8
+   }
+  },
+  {
+   "call": "shell",
+   "cmd": "am force-stop com.boltbetz.staging"
+  },
+  {
+   "sleep_ms": 1000
+  },
+  {
+   "call": "app",
+   "launch": "com.boltbetz.staging"
+  },
+  {
+   "wait_id": "home-screen",
+   "wait_s": 60
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/hooks?on=1"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Settings"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "wait_id": "settings-screen",
+   "wait_s": 15
+  },
+  {
+   "sleep_ms": 2500
+  },
+  {
+   "check": {
+    "ui": "settings-email-notifications-track-on",
+    "wait_s": 8
+   }
+  }
+ ],
+ "checks": [
+  {
+   "ui_any": [
+    "home-screen",
+    "settings-screen",
+    "wallet-main-screen",
+    "login-screen",
+    "code-input"
+   ]
+  },
+  {
+   "no_crash": "com.boltbetz.staging"
+  },
+  {
+   "logs_lack": "FATAL EXCEPTION|ReactNativeJS.*(Unhandled|TypeError|Invariant Violation)",
+   "filter": "com.boltbetz.staging"
+  }
+ ],
+ "cleanup": [
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/fault?clear=1"
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  }
+ ],
+ "note": "P1. Settings > Email Notifications off, force-stop + relaunch the app, still off; back on, relaunch, still on. Server-side preference. Ends on. Responsible Gaming limits are NOT changed by any case: the app says a set limit cannot be raised or removed, so a case could not restore the lane."
+}

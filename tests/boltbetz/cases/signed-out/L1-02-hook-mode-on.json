@@ -1,0 +1,6 @@
+{"id":"L1-02-hook-mode-on","lane":"L1","timeout_s":60,
+ "preconditions":{"app_launched":"com.boltbetz.staging","signed_in":false},
+ "steps":[{"call":"deep_link","uri":"boltbetz-staging://e2e-session/hooks?on=1"},{"sleep_ms":2000},
+          {"tap_id":"start-login","optional":true,"wait_s":3},{"wait_id":"login-screen"}],
+ "checks":[{"foreground":"com.boltbetz.staging"},{"ui":"login-screen"},{"ui":"login-identifier-input"},{"no_crash":"com.boltbetz.staging"},
+           {"logs_lack":"FATAL EXCEPTION|ReactNativeJS.*(Unhandled|TypeError|Invariant Violation)","filter":"com.boltbetz.staging"},{"screenshot":"login"}]}

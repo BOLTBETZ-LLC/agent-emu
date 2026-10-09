@@ -1,0 +1,155 @@
+{
+ "id": "L3-05-machine-connect-qr",
+ "lane": "L3",
+ "timeout_s": 120,
+ "preconditions": {
+  "signed_in": true,
+  "kyc": true,
+  "venue_card": true,
+  "emulator_machine": "EMU-L3"
+ },
+ "steps": [
+  {
+   "emu": "end_session",
+   "asset": "EMU-L3",
+   "optional": true
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/hooks?on=1"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "tap_id": "tab-home",
+   "optional": true,
+   "wait_s": 2
+  },
+  {
+   "wait_id": "home-screen",
+   "wait_s": 15
+  },
+  {
+   "tap_id": "tab-boltbetz"
+  },
+  {
+   "wait_id": [
+    "machine-scan-help-button",
+    "qa-machine-scan-input"
+   ],
+   "wait_s": 12
+  },
+  {
+   "tap_id": "qa-machine-scan-input"
+  },
+  {
+   "emu": "type_qr",
+   "asset": "EMU-L3"
+  },
+  {
+   "tap_id": "qa-machine-scan-submit"
+  },
+  {
+   "wait_id": "machine-connected-screen",
+   "wait_s": 20
+  },
+  {
+   "check": {
+    "screenshot": "connected"
+   }
+  },
+  {
+   "check": {
+    "ui": "machine-connected-screen"
+   }
+  },
+  {
+   "tap_id": "machine-session-disconnect-button",
+   "wait_s": 8
+  },
+  {
+   "tap_id": "machine-session-disconnect-confirm-button",
+   "wait_s": 8
+  },
+  {
+   "sleep_ms": 2500
+  },
+  {
+   "check": {
+    "ui": "Add Tip"
+   }
+  },
+  {
+   "check": {
+    "screenshot": "after-disconnect-tip-prompt"
+   }
+  },
+  {
+   "tap_id": "machine-tips-sheet-close-button",
+   "wait_s": 8
+  },
+  {
+   "sleep_ms": 2000
+  },
+  {
+   "check": {
+    "ui": "machine-tips-sheet",
+    "present": false
+   }
+  },
+  {
+   "sleep_ms": 1000
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "tap_id": "tab-home",
+   "optional": true,
+   "wait_s": 2
+  },
+  {
+   "wait_id": "home-screen",
+   "wait_s": 15
+  }
+ ],
+ "checks": [
+  {
+   "ui": "home-screen"
+  },
+  {
+   "no_crash": "com.boltbetz.staging"
+  },
+  {
+   "logs_lack": "FATAL EXCEPTION|ReactNativeJS.*(Unhandled|TypeError|Invariant Violation)",
+   "filter": "com.boltbetz.staging"
+  }
+ ],
+ "cleanup": [
+  {
+   "emu": "end_session",
+   "asset": "EMU-L3"
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/fault?clear=1"
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  }
+ ],
+ "note": "Real machine connect: QR text from GET /machine/EMU-L3/feed pasted in the QA box, connected screen, then end the session in-app (admin end-session in cleanup as backstop). No transfer, deposit or withdraw. Run under asm-exec with SYNKROS_API_KEY. Needs the lane's linked venue card, which needs staging Synkros in emulator mode (read 2026-10-09: mode=real, so emulator cards are not linkable). After Disconnect the app shows the tip prompt by design (MachineConnected.tsx:108-120); the case leaves by deep link Home. On d2 camera is denied (user-fixed) so the scanner uses the camera-off branch, which also has the paste box: the live camera got the app low-memory-killed on these 1 GB phones. The tip prompt is closed with its own close button: left open, it stays over Home after a deep link to Home and blocks the tabs."
+}

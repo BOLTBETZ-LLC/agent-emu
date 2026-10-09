@@ -76,8 +76,59 @@ fn tools() -> Value {
                 "image": {"type": "string"}, "screen": {"type": "string"}, "keep_data": {"type": "boolean"}, "mem": num, "auto_squeeze": {"type": "boolean"}}}}),
         json!({"name": "stop_many", "description": "Stop the listed Devices at once (default: all).",
             "inputSchema": {"type": "object", "properties": {"devices": ids.clone()}}}),
+        // Test runner (tests/boltbetz/run.py), run by this MCP process, not the daemon. Blocks until done.
+        json!({"name": "run_case", "description": "Run BoltBetz test case(s) on one Device with tests/boltbetz/run.py. \
+            case = id or id prefix, comma list allowed (e.g. L4-01). Returns the PASS/FAIL grid, exit code and results folder.",
+            "inputSchema": {"type": "object", "required": ["device", "case"], "properties": {"device": dev.clone(),
+                "case": {"type": "string", "description": "case id or prefix, e.g. L4-01-home-renders"}}}}),
+        json!({"name": "run_lanes", "description": "Run the BoltBetz test lanes, dealt to phones in order (L1 -> first phone, ...), \
+            in parallel. Returns the PASS/FAIL grid, exit code and results folder. One run per phone at a time.",
+            "inputSchema": {"type": "object", "required": ["phones"], "properties": {"phones": ids.clone(),
+                "lanes": {"type": "array", "items": {"type": "string"}, "description": "only these lanes, e.g. [\"L2\",\"L4\"]; default all"}}}}),
     ]);
     v
+}
+
+/// run.py: AE_TESTS_DIR, else tests/boltbetz beside the exe or in any folder above it (checkout or install root).
+fn runner() -> Result<std::path::PathBuf, String> {
+    if let Some(d) = std::env::var_os("AE_TESTS_DIR") {
+        return Ok(std::path::PathBuf::from(d).join("run.py"));
+    }
+    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    exe.ancestors().map(|a| a.join("tests").join("boltbetz").join("run.py")).find(|p| p.is_file())
+        .ok_or_else(|| format!("tests/boltbetz/run.py not found above {} (set AE_TESTS_DIR)", exe.display()))
+}
+
+/// run_case / run_lanes -> run.py argv.
+fn runner_args(name: &str, a: &Value) -> Result<Vec<String>, String> {
+    let s = |k: &str| a[k].as_str().filter(|v| !v.is_empty()).map(String::from).ok_or(format!("{k} required"));
+    let list = |k: &str| a[k].as_array().map(|v| v.iter().filter_map(Value::as_str).collect::<Vec<_>>().join(","));
+    match name {
+        "run_case" => Ok(vec!["--phones".into(), s("device")?, "--case".into(), s("case")?]),
+        _ => {
+            let phones = list("phones").filter(|p| !p.is_empty()).ok_or("phones required")?;
+            let mut v = vec!["--phones".into(), phones];
+            if let Some(l) = list("lanes").filter(|l| !l.is_empty()) { v.extend(["--lanes".into(), l]); }
+            Ok(v)
+        }
+    }
+}
+
+/// Runs run.py with AE_PYTHON (default python); stdout ends with the grid and the results folder.
+fn run_tests(name: &str, a: &Value) -> Value {
+    let res = runner_args(name, a).and_then(|args| {
+        let py = runner()?;
+        let out = std::process::Command::new(std::env::var("AE_PYTHON").unwrap_or("python".into()))
+            .arg(&py).args(&args).current_dir(py.parent().unwrap()).env("PYTHONUTF8", "1")
+            .stdin(std::process::Stdio::null()).output().map_err(|e| format!("python: {e}"))?;
+        let stdout = String::from_utf8_lossy(&out.stdout).into_owned();
+        let results = stdout.lines().rev().find(|l| !l.trim().is_empty()).unwrap_or("").trim().to_string();
+        let err = String::from_utf8_lossy(&out.stderr);
+        let tail = &err[err.len().saturating_sub(2000)..];
+        Ok(json!({"content": [{"type": "text", "text": stdout},
+            {"type": "text", "text": json!({"exit": out.status.code(), "passed": out.status.success(), "results": results, "stderr": tail}).to_string()}]}))
+    });
+    res.unwrap_or_else(|e| json!({"content": [{"type": "text", "text": e}], "isError": true}))
 }
 
 struct Conn { r: BufReader<TcpStream>, w: TcpStream }
@@ -133,6 +184,9 @@ pub fn run(addr: &str) {
                 "capabilities": {"tools": {}}, "serverInfo": {"name": "agent-emu", "version": env!("CARGO_PKG_VERSION")}})),
             "ping" => Ok(json!({})),
             "tools/list" => Ok(json!({"tools": tools()})),
+            "tools/call" if matches!(p["name"].as_str(), Some("run_case" | "run_lanes")) => {
+                Ok(run_tests(p["name"].as_str().unwrap(), &p["arguments"]))
+            }
             "tools/call" => {
                 let mut req = p["arguments"].clone();
                 if !req.is_object() { req = json!({}); }
@@ -181,14 +235,24 @@ mod tests {
     #[test]
     fn every_tool_takes_device() {
         for t in tools().as_array().unwrap() {
-            if ["fleet", "fleet_stop", "status", "start_many", "stop_many"].contains(&t["name"].as_str().unwrap()) {
+            if ["fleet", "fleet_stop", "status", "start_many", "stop_many", "run_lanes"].contains(&t["name"].as_str().unwrap()) {
                 continue;
             }
             assert_eq!(t["inputSchema"]["required"][0], "device", "{}", t["name"]);
         }
         let names: Vec<_> = tools().as_array().unwrap().iter().map(|t| t["name"].clone()).collect();
-        for n in ["fleet", "fleet_stop", "status", "start", "stop", "start_many", "stop_many", "install_bundled", "issues", "shell"] {
+        for n in ["fleet", "fleet_stop", "status", "start", "stop", "start_many", "stop_many", "install_bundled", "issues", "shell",
+            "run_case", "run_lanes"] {
             assert!(names.contains(&json!(n)), "{n}");
         }
+    }
+
+    #[test]
+    fn runner_argv() {
+        assert_eq!(runner_args("run_case", &json!({"device": "d3", "case": "L4-01"})).unwrap(), ["--phones", "d3", "--case", "L4-01"]);
+        assert_eq!(runner_args("run_lanes", &json!({"phones": ["d0", "d1"], "lanes": ["L2"]})).unwrap(),
+            ["--phones", "d0,d1", "--lanes", "L2"]);
+        assert!(runner_args("run_lanes", &json!({"phones": []})).is_err());
+        assert!(runner_args("run_case", &json!({"device": "d3"})).is_err());
     }
 }

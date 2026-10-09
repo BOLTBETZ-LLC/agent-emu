@@ -1,0 +1,107 @@
+{
+ "id": "L3-02-qa-paste-box-present",
+ "lane": "L3",
+ "timeout_s": 90,
+ "preconditions": {
+  "signed_in": true,
+  "kyc": true,
+  "venue_card": true
+ },
+ "steps": [
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/hooks?on=1"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "tap_id": "tab-home",
+   "optional": true,
+   "wait_s": 2
+  },
+  {
+   "wait_id": "home-screen",
+   "wait_s": 15
+  },
+  {
+   "tap_id": "tab-boltbetz"
+  },
+  {
+   "wait_id": [
+    "machine-scan-help-button",
+    "qa-machine-scan-input"
+   ],
+   "wait_s": 12
+  },
+  {
+   "check": {
+    "screenshot": "scanner"
+   }
+  },
+  {
+   "check": {
+    "ui": "qa-machine-scan-input"
+   }
+  },
+  {
+   "check": {
+    "ui": "qa-machine-scan-submit"
+   }
+  },
+  {
+   "tap_id": "machine-scan-close-button",
+   "optional": true,
+   "wait_s": 3
+  },
+  {
+   "sleep_ms": 1000
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "tap_id": "tab-home",
+   "optional": true,
+   "wait_s": 2
+  },
+  {
+   "wait_id": "home-screen",
+   "wait_s": 15
+  }
+ ],
+ "checks": [
+  {
+   "ui": "home-screen"
+  },
+  {
+   "no_crash": "com.boltbetz.staging"
+  },
+  {
+   "logs_lack": "FATAL EXCEPTION|ReactNativeJS.*(Unhandled|TypeError|Invariant Violation)",
+   "filter": "com.boltbetz.staging"
+  }
+ ],
+ "cleanup": [
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/fault?clear=1"
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  }
+ ],
+ "note": "BLOCKED on this account: the paste box mounts only on the camera branches (ScanQRCode.tsx:455-460,517-519); with no venue card the scanner shows 'Add a Venue Card First' instead. Needs a linked venue card (seeding). Needs the lane's linked venue card, which needs staging Synkros in emulator mode (read 2026-10-09: mode=real, so emulator cards are not linkable)."
+}

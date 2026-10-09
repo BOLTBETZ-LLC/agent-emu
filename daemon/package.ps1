@@ -4,7 +4,7 @@
 #   crosvm\      2D crosvm (crosvm-pmem build) + DLLs        crosvm-gpu\  gfxstream crosvm + patched libgfxstream_backend.dll
 #   emulator\    the SDK emulator 37 DLLs gfxstream loads   adb\         platform-tools adb
 #   images\      run dirs for -Images, stage1\unpack\vendor_boot.txt, browser\ (Firefox disk), gpu\kmod
-#   runner\      the BoltBetz test-matrix runner and cases
+#   tests\boltbetz\  the BoltBetz test runner and cases (no results); MCP run_case/run_lanes find it here
 # The daemon finds all of it beside its exe (device.rs home()); AE_HOME overrides. Image files are hard-linked
 # into dist\agent-emu (same volume, no copy), so the staging folder costs no disk until zipped.
 # Usage: powershell -NoProfile -ExecutionPolicy Bypass -File daemon\package.ps1 [-Images slim5,phone] [-NoBuild] [-NoZip]
@@ -12,7 +12,6 @@ param(
   [string[]]$Images = @("slim5"),
   [string]$Work = "C:\dev\agent-emu-work",
   [string]$Sdk = "$env:LOCALAPPDATA\Android\Sdk",
-  [string]$Runner = "",
   [string]$Target = "",
   [switch]$NoBuild,
   [switch]$NoZip
@@ -21,7 +20,6 @@ $ErrorActionPreference = "Stop"
 $Repo = Split-Path $PSScriptRoot -Parent
 $Dist = Join-Path $Repo "dist"
 if (-not $Target) { $Target = Join-Path $Dist "cargo-target" }
-if (-not $Runner) { $Runner = Join-Path $Repo ".scratch\test-matrix\runner" }
 $Out = Join-Path $Dist "agent-emu"
 
 # 1. Daemon release build in its own target dir (the dev daemon holds daemon\target\release\agent-emud.exe open).
@@ -81,9 +79,10 @@ Put (Join-Path $Work "stage1\unpack\vendor_boot.txt") "images\stage1\unpack"
 foreach ($f in "browser.img", "browser.size", "browser.pkg") { Put (Join-Path $Work "browser\$f") "images\browser" -Link }
 Put (Join-Path $Work "gpu\kmod\virtio-gpu-nobacking.cpio") "images\gpu\kmod"
 
-# 4. Test runner: scripts and cases, not results.
-Get-ChildItem "$Runner\*.py" | ForEach-Object { Put $_.FullName "runner" }
-Copy-Item -Recurse (Join-Path $Runner "cases") (Join-Path $Out "runner\cases")
+# 4. Test runner: tests\boltbetz scripts and cases, not results.
+$Tests = Join-Path $Repo "tests\boltbetz"
+Get-ChildItem "$Tests\*.py" | ForEach-Object { Put $_.FullName "tests\boltbetz" }
+Copy-Item -Recurse (Join-Path $Tests "cases") (Join-Path $Out "tests\boltbetz\cases")
 
 $bytes = (Get-ChildItem -Recurse -File $Out | Measure-Object Length -Sum).Sum
 "staged $Out : $([math]::Round($bytes / 1GB, 2)) GB, images: $($Images -join ', ')"

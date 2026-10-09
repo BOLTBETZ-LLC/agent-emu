@@ -1,0 +1,9 @@
+{"id":"L1-03-email-send-enabled","lane":"L1","timeout_s":90,
+ "preconditions":{"app_launched":"com.boltbetz.staging","signed_in":false},
+ "steps":[{"tap_id":"start-login","optional":true,"wait_s":3},{"wait_id":"login-screen"},
+          {"tap_id":"login-email-toggle","optional":true,"wait_s":2},
+          {"tap_id":"login-identifier-input"},{"call":"type_text","text":"lane1.agent@example.com","screenshot":false},
+          {"sleep_ms":1000}],
+ "checks":[{"ui":"login-send-code","enabled":true},{"ui":"lane1.agent@example.com"},{"no_crash":"com.boltbetz.staging"},
+           {"screenshot":"email-typed"}],
+ "note":"never taps login-send-code: a send emails a real inbox"}

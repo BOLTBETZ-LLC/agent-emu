@@ -1,0 +1,223 @@
+{
+ "id": "L2-11-withdraw-to-saved-card",
+ "lane": "L2",
+ "timeout_s": 180,
+ "preconditions": {
+  "signed_in": true,
+  "kyc": true,
+  "venue_card": true,
+  "emulator_player": 9000004,
+  "saved_card": true
+ },
+ "steps": [
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/hooks?on=1"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "tap_id": "tab-home",
+   "optional": true,
+   "wait_s": 2
+  },
+  {
+   "wait_id": "home-screen",
+   "wait_s": 15
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Wallet/WalletMain"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "wait_id": "wallet-main-screen",
+   "wait_s": 15
+  },
+  {
+   "emu": "set_cwa",
+   "player": 9000004,
+   "dollars": 35
+  },
+  {
+   "call": "swipe",
+   "x1": 660,
+   "y1": 800,
+   "x2": 660,
+   "y2": 2200,
+   "device_px": true,
+   "screenshot": false
+  },
+  {
+   "check": {
+    "value": {
+     "ui": "wallet-balance-amount"
+    },
+    "expect": "35",
+    "wait_s": 20
+   }
+  },
+  {
+   "check": {
+    "value": {
+     "ui": "wallet-balance-amount"
+    },
+    "save": "bal0"
+   }
+  },
+  {
+   "check": {
+    "value": {
+     "emu": "/admin/api/players/9000004",
+     "field": "cwaAvailable",
+     "scale": 100000
+    },
+    "save": "cwa0"
+   }
+  },
+  {
+   "tap_id": "wallet-action-withdraw"
+  },
+  {
+   "wait_id": "withdraw-amount-input"
+  },
+  {
+   "check": {
+    "ui_text": "withdraw-source-selector-source-name",
+    "contains": "Visa"
+   }
+  },
+  {
+   "fill": "withdraw-amount-input",
+   "text": "10"
+  },
+  {
+   "tap_id": "wallet-withdraw-balance-hero"
+  },
+  {
+   "check": {
+    "ui_text": "withdraw-fee-text",
+    "contains": "$10.00"
+   }
+  },
+  {
+   "tap_id": "withdraw-submit-button"
+  },
+  {
+   "emu": "pin",
+   "player": 9000004
+  },
+  {
+   "wait_id": "wallet-modal-title",
+   "wait_s": 45
+  },
+  {
+   "check": {
+    "screenshot": "withdraw-done"
+   }
+  },
+  {
+   "tap_id": "Check Payment Status",
+   "optional": true
+  },
+  {
+   "sleep_ms": 6000
+  },
+  {
+   "check": {
+    "screenshot": "after-status-check"
+   }
+  },
+  {
+   "tap_id": "wallet-modal-secondary-button",
+   "optional": true
+  },
+  {
+   "tap_id": "wallet-modal-close",
+   "optional": true
+  },
+  {
+   "sleep_ms": 1000
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Wallet/WalletMain"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "wait_id": "wallet-main-screen",
+   "wait_s": 15
+  },
+  {
+   "check": {
+    "value": {
+     "ui": "wallet-balance-amount"
+    },
+    "expect": "bal0 - 10",
+    "wait_s": 20
+   }
+  },
+  {
+   "check": {
+    "value": {
+     "emu": "/admin/api/players/9000004",
+     "field": "cwaAvailable",
+     "scale": 100000
+    },
+    "expect": "cwa0 - 10",
+    "wait_s": 20
+   }
+  },
+  {
+   "check": {
+    "screenshot": "wallet-after"
+   }
+  }
+ ],
+ "checks": [
+  {
+   "ui_any": [
+    "home-screen",
+    "settings-screen",
+    "wallet-main-screen",
+    "login-screen",
+    "code-input"
+   ]
+  },
+  {
+   "no_crash": "com.boltbetz.staging"
+  },
+  {
+   "logs_lack": "FATAL EXCEPTION|ReactNativeJS.*(Unhandled|TypeError|Invariant Violation)",
+   "filter": "com.boltbetz.staging"
+  }
+ ],
+ "cleanup": [
+  {
+   "emu": "set_cwa",
+   "player": 9000004,
+   "dollars": 25
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/fault?clear=1"
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  }
+ ],
+ "note": "P0. Withdraw $10 to the saved Visa. Seeds CWA to $35 on the emulator first so the withdraw lands back at $25. Checks: result modal, Wallet -$10 in app, CWA -$10 on the emulator."
+}

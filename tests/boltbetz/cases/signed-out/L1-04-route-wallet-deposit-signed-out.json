@@ -1,0 +1,6 @@
+{"id":"L1-04-route-wallet-deposit-signed-out","lane":"L1","timeout_s":60,
+ "preconditions":{"app_launched":"com.boltbetz.staging","signed_in":false},
+ "steps":[{"call":"deep_link","uri":"boltbetz-staging://e2e-session/route/MainFlow/Tabs/Wallet/WalletDeposit"},{"sleep_ms":3000}],
+ "checks":[{"screenshot":"after-route"},{"foreground":"com.boltbetz.staging"},{"no_crash":"com.boltbetz.staging"},
+           {"ui":"deposit-screen-amount-input"}],
+ "note":"probe: expected to FAIL while signed out (MainFlow is not mounted); records what the app does"}

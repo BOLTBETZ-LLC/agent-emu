@@ -1,0 +1,181 @@
+{
+ "id": "L4-10-rewards-redeem-offer",
+ "lane": "L4",
+ "timeout_s": 180,
+ "preconditions": {
+  "signed_in": true,
+  "kyc": true,
+  "venue_card": true,
+  "emulator_player": 9000006
+ },
+ "steps": [
+  {
+   "emu": "clear_offers",
+   "player": 9000006
+  },
+  {
+   "emu": "offer",
+   "player": 9000006,
+   "name": "QA Lane4 Offer",
+   "freeplay": 5
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/hooks?on=1"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "tap_id": "tab-home",
+   "optional": true,
+   "wait_s": 2
+  },
+  {
+   "wait_id": "home-screen",
+   "wait_s": 15
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Rewards"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "wait_id": "rewards-screen"
+  },
+  {
+   "call": "swipe",
+   "x1": 660,
+   "y1": 800,
+   "x2": 660,
+   "y2": 2200,
+   "device_px": true,
+   "screenshot": false
+  },
+  {
+   "wait_id": "QA Lane4 Offer",
+   "wait_s": 20
+  },
+  {
+   "check": {
+    "screenshot": "offer-listed"
+   }
+  },
+  {
+   "tap_id": "Redeem Now"
+  },
+  {
+   "wait_id": "reward-redeem-button"
+  },
+  {
+   "check": {
+    "ui_text": "rewards-modal-offer-name",
+    "contains": "QA Lane4 Offer"
+   }
+  },
+  {
+   "tap_id": "reward-redeem-button"
+  },
+  {
+   "wait_id": "rewards-redeemed-title",
+   "wait_s": 30
+  },
+  {
+   "check": {
+    "ui_text": "rewards-redeemed-message",
+    "contains": "QA Lane4 Offer"
+   }
+  },
+  {
+   "check": {
+    "screenshot": "redeemed"
+   }
+  },
+  {
+   "check": {
+    "value": {
+     "emu": "/admin/api/players/9000006",
+     "field": "offers.0.redeemed"
+    },
+    "expect": "1",
+    "wait_s": 15
+   }
+  },
+  {
+   "tap_id": "rewards-redeemed-back-button"
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/hooks?on=1"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "tap_id": "tab-home",
+   "optional": true,
+   "wait_s": 2
+  },
+  {
+   "wait_id": "home-screen",
+   "wait_s": 15
+  }
+ ],
+ "checks": [
+  {
+   "ui_any": [
+    "home-screen",
+    "settings-screen",
+    "wallet-main-screen",
+    "login-screen",
+    "code-input"
+   ]
+  },
+  {
+   "no_crash": "com.boltbetz.staging"
+  },
+  {
+   "logs_lack": "FATAL EXCEPTION|ReactNativeJS.*(Unhandled|TypeError|Invariant Violation)",
+   "filter": "com.boltbetz.staging"
+  }
+ ],
+ "cleanup": [
+  {
+   "tap_id": "rewards-redeemed-back-button",
+   "optional": true
+  },
+  {
+   "tap_id": "rewards-modal-close-button",
+   "optional": true
+  },
+  {
+   "emu": "clear_offers",
+   "player": 9000006
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/fault?clear=1"
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  }
+ ],
+ "note": "P1. Seed one offer on the Lane4 emulator player, pull to refresh Rewards, Redeem Now > confirm, 'Reward redeemed', emulator marks the offer redeemed. Offers removed before and after."
+}

@@ -1,0 +1,175 @@
+{
+ "id": "L1-20-scanner-tips-persist",
+ "lane": "L1",
+ "timeout_s": 180,
+ "preconditions": {
+  "signed_in": true,
+  "kyc": true,
+  "venue_card": true,
+  "emulator_player": 9000003
+ },
+ "steps": [
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/hooks?on=1"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "tap_id": "tab-home",
+   "optional": true,
+   "wait_s": 2
+  },
+  {
+   "wait_id": "home-screen",
+   "wait_s": 15
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Settings"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "wait_id": "settings-screen",
+   "wait_s": 15
+  },
+  {
+   "call": "swipe",
+   "x1": 660,
+   "y1": 2300,
+   "x2": 660,
+   "y2": 900,
+   "device_px": true,
+   "screenshot": false
+  },
+  {
+   "sleep_ms": 600
+  },
+  {
+   "check": {
+    "ui": "settings-show-scanner-tips-track-on"
+   }
+  },
+  {
+   "tap_id": "settings-show-scanner-tips"
+  },
+  {
+   "sleep_ms": 1500
+  },
+  {
+   "check": {
+    "ui": "settings-show-scanner-tips-track-on",
+    "present": false,
+    "wait_s": 5
+   }
+  },
+  {
+   "call": "shell",
+   "cmd": "am force-stop com.boltbetz.staging"
+  },
+  {
+   "sleep_ms": 1000
+  },
+  {
+   "call": "app",
+   "launch": "com.boltbetz.staging"
+  },
+  {
+   "wait_id": "home-screen",
+   "wait_s": 60
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/hooks?on=1"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Settings"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "wait_id": "settings-screen",
+   "wait_s": 15
+  },
+  {
+   "call": "swipe",
+   "x1": 660,
+   "y1": 2300,
+   "x2": 660,
+   "y2": 900,
+   "device_px": true,
+   "screenshot": false
+  },
+  {
+   "sleep_ms": 1500
+  },
+  {
+   "check": {
+    "ui": "settings-show-scanner-tips-track-on",
+    "present": false,
+    "wait_s": 3
+   }
+  },
+  {
+   "check": {
+    "screenshot": "off-after-restart"
+   }
+  },
+  {
+   "tap_id": "settings-show-scanner-tips"
+  },
+  {
+   "sleep_ms": 1500
+  },
+  {
+   "check": {
+    "ui": "settings-show-scanner-tips-track-on",
+    "wait_s": 5
+   }
+  }
+ ],
+ "checks": [
+  {
+   "ui_any": [
+    "home-screen",
+    "settings-screen",
+    "wallet-main-screen",
+    "login-screen",
+    "code-input"
+   ]
+  },
+  {
+   "no_crash": "com.boltbetz.staging"
+  },
+  {
+   "logs_lack": "FATAL EXCEPTION|ReactNativeJS.*(Unhandled|TypeError|Invariant Violation)",
+   "filter": "com.boltbetz.staging"
+  }
+ ],
+ "cleanup": [
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/fault?clear=1"
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  }
+ ],
+ "note": "P1. Settings > Show Scanning Tips off survives an app restart (force-stop + relaunch); turned back on at the end."
+}

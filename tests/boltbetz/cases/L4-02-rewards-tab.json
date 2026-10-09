@@ -1,0 +1,110 @@
+{
+ "id": "L4-02-rewards-tab",
+ "lane": "L4",
+ "timeout_s": 90,
+ "preconditions": {
+  "signed_in": true,
+  "kyc": true,
+  "venue_card": false
+ },
+ "steps": [
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/hooks?on=1"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "tap_id": "tab-home",
+   "optional": true,
+   "wait_s": 2
+  },
+  {
+   "wait_id": "home-screen",
+   "wait_s": 15
+  },
+  {
+   "check": {
+    "ui": "We couldn't load your rewards.",
+    "present": false,
+    "wait_s": 3
+   }
+  },
+  {
+   "check": {
+    "ui": "tab-rewards"
+   }
+  },
+  {
+   "tap_id": "tab-rewards"
+  },
+  {
+   "wait_id": "rewards-screen"
+  },
+  {
+   "check": {
+    "ui_any": [
+     "rewards-no-card",
+     "rewards-list-scroll"
+    ]
+   }
+  },
+  {
+   "check": {
+    "screenshot": "rewards"
+   }
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "tap_id": "tab-home",
+   "optional": true,
+   "wait_s": 2
+  },
+  {
+   "wait_id": "home-screen",
+   "wait_s": 15
+  }
+ ],
+ "checks": [
+  {
+   "ui": "home-screen"
+  },
+  {
+   "ui": "We couldn't load your rewards.",
+   "present": false,
+   "wait_s": 3
+  },
+  {
+   "no_crash": "com.boltbetz.staging"
+  },
+  {
+   "logs_lack": "FATAL EXCEPTION|ReactNativeJS.*(Unhandled|TypeError|Invariant Violation)",
+   "filter": "com.boltbetz.staging"
+  }
+ ],
+ "cleanup": [
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/fault?clear=1"
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  }
+ ],
+ "note": "Rewards tab is behind ext flag tabs.rewards: it is SHOWN on staging (tab-rewards present). No card: 'No Card Yet' state. Fails if Home shows \"We couldn't load your rewards.\" (playeroffers error)."
+}

@@ -1,0 +1,289 @@
+{
+ "id": "L3-11-machine-tip-voucher",
+ "lane": "L3",
+ "timeout_s": 240,
+ "preconditions": {
+  "signed_in": true,
+  "kyc": true,
+  "venue_card": true,
+  "emulator_player": 9000005,
+  "emulator_machine": "EMU-L3"
+ },
+ "steps": [
+  {
+   "tap_id": "voucher-modal-close-button",
+   "optional": true
+  },
+  {
+   "tap_id": "tip-close-button",
+   "optional": true
+  },
+  {
+   "tap_id": "machine-tips-sheet-close-button",
+   "optional": true
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "emu": "end_session",
+   "asset": "EMU-L3",
+   "optional": true
+  },
+  {
+   "emu": "set_cwa",
+   "player": 9000005,
+   "dollars": 25
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/hooks?on=1"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "tap_id": "tab-home",
+   "optional": true,
+   "wait_s": 2
+  },
+  {
+   "wait_id": "home-screen",
+   "wait_s": 15
+  },
+  {
+   "tap_id": "tab-boltbetz"
+  },
+  {
+   "wait_id": [
+    "qa-machine-scan-input"
+   ],
+   "wait_s": 12
+  },
+  {
+   "tap_id": "qa-machine-scan-input"
+  },
+  {
+   "emu": "type_qr",
+   "asset": "EMU-L3"
+  },
+  {
+   "tap_id": "qa-machine-scan-submit"
+  },
+  {
+   "wait_id": "machine-connected-screen",
+   "wait_s": 25
+  },
+  {
+   "check": {
+    "value": {
+     "emu": "/admin/api/players/9000005",
+     "field": "cwaAvailable",
+     "scale": 100000
+    },
+    "save": "cwa0"
+   }
+  },
+  {
+   "check": {
+    "value": {
+     "emu": "/admin/api/players/9000005",
+     "field": "vouchers"
+    },
+    "save": "v0"
+   }
+  },
+  {
+   "tap_id": "machine-session-disconnect-button",
+   "wait_s": 8
+  },
+  {
+   "tap_id": "machine-session-disconnect-confirm-button",
+   "wait_s": 8
+  },
+  {
+   "wait_id": "machine-tips-sheet",
+   "wait_s": 20
+  },
+  {
+   "fill": "machine-tips-amount-input",
+   "text": "1"
+  },
+  {
+   "tap_id": "machine-tips-title"
+  },
+  {
+   "tap_id": "machine-tips-submit-button"
+  },
+  {
+   "emu": "pin",
+   "player": 9000005
+  },
+  {
+   "wait_id": "wallet-modal-title",
+   "wait_s": 45
+  },
+  {
+   "check": {
+    "ui_text": "wallet-modal-title",
+    "contains": "Tip Sent"
+   }
+  },
+  {
+   "check": {
+    "ui_text": "wallet-modal-subtitle",
+    "contains": "$1.00"
+   }
+  },
+  {
+   "check": {
+    "screenshot": "tip-sent"
+   }
+  },
+  {
+   "check": {
+    "value": {
+     "emu": "/admin/api/players/9000005",
+     "field": "cwaAvailable",
+     "scale": 100000
+    },
+    "expect": "cwa0 - 1",
+    "wait_s": 15
+   }
+  },
+  {
+   "check": {
+    "value": {
+     "emu": "/admin/api/players/9000005",
+     "field": "vouchers"
+    },
+    "expect": "v0 + 1",
+    "wait_s": 15
+   }
+  },
+  {
+   "tap_id": "wallet-modal-button"
+  },
+  {
+   "sleep_ms": 1500
+  },
+  {
+   "check": {
+    "ui_text": "machine-tips-balance-text",
+    "contains": "$24.00",
+    "wait_s": 15
+   }
+  },
+  {
+   "check": {
+    "ui": "Previous Tips"
+   }
+  },
+  {
+   "check": {
+    "screenshot": "previous-tips"
+   }
+  },
+  {
+   "tap_id": "$1.00"
+  },
+  {
+   "sleep_ms": 2500
+  },
+  {
+   "check": {
+    "screenshot": "after-voucher-tap"
+   }
+  },
+  {
+   "check": {
+    "ui": "voucher-modal-code",
+    "wait_s": 8
+   }
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/hooks?on=1"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "tap_id": "tab-home",
+   "optional": true,
+   "wait_s": 2
+  },
+  {
+   "wait_id": "home-screen",
+   "wait_s": 15
+  }
+ ],
+ "checks": [
+  {
+   "ui_any": [
+    "home-screen",
+    "settings-screen",
+    "wallet-main-screen",
+    "login-screen",
+    "code-input"
+   ]
+  },
+  {
+   "no_crash": "com.boltbetz.staging"
+  },
+  {
+   "logs_lack": "FATAL EXCEPTION|ReactNativeJS.*(Unhandled|TypeError|Invariant Violation)",
+   "filter": "com.boltbetz.staging"
+  }
+ ],
+ "cleanup": [
+  {
+   "tap_id": "voucher-modal-close-button",
+   "optional": true
+  },
+  {
+   "tap_id": "tip-close-button",
+   "optional": true
+  },
+  {
+   "tap_id": "machine-tips-sheet-close-button",
+   "optional": true
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "emu": "end_session",
+   "asset": "EMU-L3",
+   "optional": true
+  },
+  {
+   "emu": "set_cwa",
+   "player": 9000005,
+   "dollars": 25
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/fault?clear=1"
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  }
+ ],
+ "note": "P1. After Disconnect the tip sheet opens; tip $1 (PIN) makes a cash-out voucher: Tip Sent, CWA -$1, one more voucher on the emulator, $24 on the sheet. Then tap a $1 tip in Previous Tips: the barcode (voucher modal) should open, as it does from Wallet > Leave a Tip (L3-12)."
+}

@@ -1,0 +1,105 @@
+{
+ "id": "L4-01-home-renders",
+ "lane": "L4",
+ "timeout_s": 90,
+ "preconditions": {
+  "signed_in": true,
+  "kyc": true,
+  "venue_card": true
+ },
+ "steps": [
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/hooks?on=1"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "tap_id": "tab-home",
+   "optional": true,
+   "wait_s": 2
+  },
+  {
+   "wait_id": "home-screen",
+   "wait_s": 15
+  },
+  {
+   "check": {
+    "ui": "home-quick-actions-title"
+   }
+  },
+  {
+   "check": {
+    "ui": "home-action-deposit"
+   }
+  },
+  {
+   "check": {
+    "screenshot": "home"
+   }
+  },
+  {
+   "check": {
+    "ui": "home-no-account-state",
+    "present": false
+   }
+  },
+  {
+   "check": {
+    "ui": "home-card-balance-97000006"
+   }
+  },
+  {
+   "check": {
+    "ui": "$25.00"
+   }
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "tap_id": "tab-home",
+   "optional": true,
+   "wait_s": 2
+  },
+  {
+   "wait_id": "home-screen",
+   "wait_s": 15
+  }
+ ],
+ "checks": [
+  {
+   "ui": "home-screen"
+  },
+  {
+   "no_crash": "com.boltbetz.staging"
+  },
+  {
+   "logs_lack": "FATAL EXCEPTION|ReactNativeJS.*(Unhandled|TypeError|Invariant Violation)",
+   "filter": "com.boltbetz.staging"
+  }
+ ],
+ "cleanup": [
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/fault?clear=1"
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  }
+ ],
+ "note": "Home renders with lane 4's linked emulator card (player 9000006, card 97000006, seeded $25.00 CWA): card balance shows, no Welcome/Add card state. Look at the screenshot for $25.00. Needs the lane's linked venue card, which needs staging Synkros in emulator mode (read 2026-10-09: mode=real, so emulator cards are not linkable)."
+}

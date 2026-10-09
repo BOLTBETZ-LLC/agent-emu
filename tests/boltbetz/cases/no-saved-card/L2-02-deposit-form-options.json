@@ -1,0 +1,111 @@
+{
+ "id": "L2-02-deposit-form-options",
+ "lane": "L2",
+ "timeout_s": 90,
+ "preconditions": {
+  "signed_in": true,
+  "kyc": true,
+  "venue_card": false
+ },
+ "steps": [
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/hooks?on=1"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "tap_id": "tab-home",
+   "optional": true,
+   "wait_s": 2
+  },
+  {
+   "wait_id": "home-screen",
+   "wait_s": 15
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Wallet/WalletDeposit"
+  },
+  {
+   "wait_id": "wallet-deposit-screen"
+  },
+  {
+   "check": {
+    "ui": "deposit-screen-amount-input"
+   }
+  },
+  {
+   "check": {
+    "ui": "wallet-preset-amount-20"
+   }
+  },
+  {
+   "check": {
+    "ui": "deposit-payment-source-selector"
+   }
+  },
+  {
+   "check": {
+    "ui": "Add Debit or Credit Card"
+   }
+  },
+  {
+   "check": {
+    "ui": "wallet-deposit-submit-button"
+   }
+  },
+  {
+   "check": {
+    "screenshot": "deposit-form"
+   }
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "tap_id": "tab-home",
+   "optional": true,
+   "wait_s": 2
+  },
+  {
+   "wait_id": "home-screen",
+   "wait_s": 15
+  }
+ ],
+ "checks": [
+  {
+   "ui": "home-screen"
+  },
+  {
+   "no_crash": "com.boltbetz.staging"
+  },
+  {
+   "logs_lack": "FATAL EXCEPTION|ReactNativeJS.*(Unhandled|TypeError|Invariant Violation)",
+   "filter": "com.boltbetz.staging"
+  }
+ ],
+ "cleanup": [
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/fault?clear=1"
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  }
+ ],
+ "note": "Route jump: the in-app Deposit tap goes to the venue picker without a venue card (L2-05). Card option is on the form; the bank option is Wallet 'Link a Bank Account' (L2-01). Never submits."
+}

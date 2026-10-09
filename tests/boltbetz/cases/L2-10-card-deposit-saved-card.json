@@ -1,0 +1,198 @@
+{
+ "id": "L2-10-card-deposit-saved-card",
+ "lane": "L2",
+ "timeout_s": 180,
+ "preconditions": {
+  "signed_in": true,
+  "kyc": true,
+  "venue_card": true,
+  "emulator_player": 9000004,
+  "saved_card": true
+ },
+ "steps": [
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/hooks?on=1"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "tap_id": "tab-home",
+   "optional": true,
+   "wait_s": 2
+  },
+  {
+   "wait_id": "home-screen",
+   "wait_s": 15
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Wallet/WalletMain"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "wait_id": "wallet-main-screen",
+   "wait_s": 15
+  },
+  {
+   "check": {
+    "value": {
+     "ui": "wallet-balance-amount"
+    },
+    "save": "bal0"
+   }
+  },
+  {
+   "check": {
+    "value": {
+     "emu": "/admin/api/players/9000004",
+     "field": "cwaAvailable",
+     "scale": 100000
+    },
+    "save": "cwa0"
+   }
+  },
+  {
+   "tap_id": "wallet-action-deposit"
+  },
+  {
+   "wait_id": "wallet-deposit-screen"
+  },
+  {
+   "check": {
+    "ui_text": "deposit-payment-source-selector-source-name",
+    "contains": "Visa"
+   }
+  },
+  {
+   "fill": "deposit-screen-amount-input",
+   "text": "10"
+  },
+  {
+   "tap_id": "deposit-amount-title"
+  },
+  {
+   "check": {
+    "ui_text": "deposit-fee-text",
+    "contains": "Transaction fee"
+   }
+  },
+  {
+   "tap_id": "deposit-agreement-checkbox"
+  },
+  {
+   "tap_id": "wallet-deposit-submit-button"
+  },
+  {
+   "emu": "pin",
+   "player": 9000004
+  },
+  {
+   "wait_id": "wallet-modal-title",
+   "wait_s": 45
+  },
+  {
+   "check": {
+    "ui_text": "wallet-modal-title",
+    "contains": "Complete"
+   }
+  },
+  {
+   "check": {
+    "ui_text": "wallet-modal-subtitle",
+    "contains": "$10.00"
+   }
+  },
+  {
+   "check": {
+    "screenshot": "deposit-done"
+   }
+  },
+  {
+   "tap_id": "wallet-modal-secondary-button"
+  },
+  {
+   "sleep_ms": 1000
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Wallet/WalletMain"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "wait_id": "wallet-main-screen",
+   "wait_s": 15
+  },
+  {
+   "check": {
+    "value": {
+     "ui": "wallet-balance-amount"
+    },
+    "expect": "bal0 + 10",
+    "wait_s": 20
+   }
+  },
+  {
+   "check": {
+    "value": {
+     "emu": "/admin/api/players/9000004",
+     "field": "cwaAvailable",
+     "scale": 100000
+    },
+    "expect": "cwa0 + 10",
+    "wait_s": 20
+   }
+  },
+  {
+   "check": {
+    "screenshot": "wallet-after"
+   }
+  }
+ ],
+ "checks": [
+  {
+   "ui_any": [
+    "home-screen",
+    "settings-screen",
+    "wallet-main-screen",
+    "login-screen",
+    "code-input"
+   ]
+  },
+  {
+   "no_crash": "com.boltbetz.staging"
+  },
+  {
+   "logs_lack": "FATAL EXCEPTION|ReactNativeJS.*(Unhandled|TypeError|Invariant Violation)",
+   "filter": "com.boltbetz.staging"
+  }
+ ],
+ "cleanup": [
+  {
+   "emu": "set_cwa",
+   "player": 9000004,
+   "dollars": 25
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/fault?clear=1"
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  }
+ ],
+ "note": "P0. Deposit $10 from the saved Worldpay cert Visa; the PIN step uses a Synkros player PIN set fresh at run time (never stored). Checks: success modal, Wallet balance +$10 in app, CWA +$10 on the emulator. Cleanup puts CWA back to $25. Needs a saved card (cases/no-saved-card/L2-13 adds one)."
+}

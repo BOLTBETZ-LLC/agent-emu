@@ -1,0 +1,200 @@
+import json
+from pathlib import Path
+R = Path(__file__).parent
+APP = "com.boltbetz.staging"
+L = "boltbetz-staging://e2e-session/"
+def link(p): return [{"call": "deep_link", "uri": L + p}, {"sleep_ms": 800}]
+HOME = link("hooks?on=1") + link("route/MainFlow/Tabs/Home") + [{"tap_id": "tab-home", "optional": True, "wait_s": 2}, {"wait_id": "home-screen", "wait_s": 15}]
+WALLET = link("route/MainFlow/Tabs/Wallet/WalletMain") + [{"wait_id": "wallet-main-screen", "wait_s": 15}]
+SETTINGS = link("route/MainFlow/Tabs/Settings") + [{"wait_id": "settings-screen", "wait_s": 15}]
+RESTART = [{"call": "shell", "cmd": f"am force-stop {APP}"}, {"sleep_ms": 1000}, {"call": "app", "launch": APP},
+           {"wait_id": "home-screen", "wait_s": 60}]
+END = [{"no_crash": APP}, {"logs_lack": "FATAL EXCEPTION|ReactNativeJS.*(Unhandled|TypeError|Invariant Violation)", "filter": APP}]
+SWIPE_UP = {"call": "swipe", "x1": 660, "y1": 2300, "x2": 660, "y2": 900, "device_px": True, "screenshot": False}
+PULL = {"call": "swipe", "x1": 660, "y1": 800, "x2": 660, "y2": 2200, "device_px": True, "screenshot": False}
+def ck(c): return {"check": c}
+def shot(n): return ck({"screenshot": n})
+def ui(i, **k): return ck({"ui": i, **k})
+def txt(i, s, **k): return ck({"ui_text": i, "contains": s, **k})
+def ui_val(i, **k): return {"value": {"ui": i}, **k}
+def cwa(pid, **k): return {"value": {"emu": f"/admin/api/players/{pid}", "field": "cwaAvailable", "scale": 100000}, **k}
+def meter(asset, **k): return {"value": {"emu": f"/machine/{asset}/feed", "field": "meterMillicents", "scale": 100000}, **k}
+def tap(i, **k): return {"tap_id": i, **k}
+def fill(i, t): return {"fill": i, "text": t}
+def case(id, lane, steps, note, pre, cleanup=(), timeout=180, sub=""):
+    c = {"id": id, "lane": lane, "timeout_s": timeout, "preconditions": pre, "steps": steps,
+         "checks": [{"ui_any": ["home-screen", "settings-screen", "wallet-main-screen", "login-screen", "code-input"]}] + END,
+         "cleanup": list(cleanup) + [{"call": "deep_link", "uri": L + "fault?clear=1"}, {"call": "deep_link", "uri": L + "route/MainFlow/Tabs/Home"}],
+         "note": note}
+    d = R / sub if sub else R
+    d.mkdir(exist_ok=True)
+    (d / f"{id}.json").write_text(json.dumps(c, indent=1) + "\n")
+P = {"L1": 9000003, "L2": 9000004, "L3": 9000005, "L4": 9000006}
+def PRE(lane, **k): return {"signed_in": True, "kyc": True, "venue_card": True, "emulator_player": P[lane], **k}
+
+# ---------------- L2 money (d1) ----------------
+case("L2-10-card-deposit-saved-card", "L2", HOME + WALLET + [
+    ck(ui_val("wallet-balance-amount", save="bal0")), ck(cwa(P["L2"], save="cwa0")),
+    tap("wallet-action-deposit"), {"wait_id": "wallet-deposit-screen"},
+    txt("deposit-payment-source-selector-source-name", "Visa"),
+    fill("deposit-screen-amount-input", "10"), tap("deposit-amount-title"),
+    txt("deposit-fee-text", "Transaction fee"),
+    tap("deposit-agreement-checkbox"), tap("wallet-deposit-submit-button"),
+    {"emu": "pin", "player": P["L2"]},
+    {"wait_id": "wallet-modal-title", "wait_s": 45}, txt("wallet-modal-title", "Complete"), txt("wallet-modal-subtitle", "$10.00"), shot("deposit-done"),
+    tap("wallet-modal-secondary-button"), {"sleep_ms": 1000}] + WALLET + [
+    ck(ui_val("wallet-balance-amount", expect="bal0 + 10", wait_s=20)), ck(cwa(P["L2"], expect="cwa0 + 10", wait_s=20)), shot("wallet-after"),
+    ], "P0. Deposit $10 from the saved Worldpay cert Visa; the PIN step uses a Synkros player PIN set fresh at run time (never stored). Checks: success modal, Wallet balance +$10 in app, CWA +$10 on the emulator. Cleanup puts CWA back to $25. Needs a saved card (cases/no-saved-card/L2-13 adds one).",
+    PRE("L2", saved_card=True), [{"emu": "set_cwa", "player": P["L2"], "dollars": 25}])
+
+case("L2-11-withdraw-to-saved-card", "L2", HOME + WALLET + [
+    {"emu": "set_cwa", "player": P["L2"], "dollars": 35}, PULL,
+    ck(ui_val("wallet-balance-amount", expect="35", wait_s=20)), ck(ui_val("wallet-balance-amount", save="bal0")), ck(cwa(P["L2"], save="cwa0")),
+    tap("wallet-action-withdraw"), {"wait_id": "withdraw-amount-input"},
+    txt("withdraw-source-selector-source-name", "Visa"),
+    fill("withdraw-amount-input", "10"), tap("wallet-withdraw-balance-hero"),
+    txt("withdraw-fee-text", "$10.00"),
+    tap("withdraw-submit-button"), {"emu": "pin", "player": P["L2"]},
+    {"wait_id": "wallet-modal-title", "wait_s": 45}, shot("withdraw-done"),
+    tap("Check Payment Status", optional=True), {"sleep_ms": 6000}, shot("after-status-check"),
+    tap("wallet-modal-secondary-button", optional=True), tap("wallet-modal-close", optional=True), {"sleep_ms": 1000}] + WALLET + [
+    ck(ui_val("wallet-balance-amount", expect="bal0 - 10", wait_s=20)), ck(cwa(P["L2"], expect="cwa0 - 10", wait_s=20)), shot("wallet-after"),
+    ], "P0. Withdraw $10 to the saved Visa. Seeds CWA to $35 on the emulator first so the withdraw lands back at $25. Checks: result modal, Wallet -$10 in app, CWA -$10 on the emulator.",
+    PRE("L2", saved_card=True), [{"emu": "set_cwa", "player": P["L2"], "dollars": 25}])
+
+case("L2-12-deposit-validation", "L2", HOME + WALLET + [
+    tap("wallet-action-deposit"), {"wait_id": "wallet-deposit-screen"}, tap("deposit-agreement-checkbox"),
+    fill("deposit-screen-amount-input", "0"), tap("deposit-amount-title"), tap("wallet-deposit-submit-button"),
+    txt("deposit-screen-amount-input-error", "greater than 0"), ui("enter-pin-title", present=False, wait_s=2),
+    fill("deposit-screen-amount-input", "4"), tap("deposit-amount-title"), tap("wallet-deposit-submit-button"),
+    txt("deposit-screen-amount-input-error", "minimum deposit is $5.00"), ui("enter-pin-title", present=False, wait_s=2),
+    fill("deposit-screen-amount-input", "6000"), tap("deposit-amount-title"),
+    txt("deposit-screen-amount-input-error", "more than $5,000.00 per day"), shot("over-daily-limit"),
+    tap("wallet-chrome-back-button"), {"wait_id": "wallet-main-screen"},
+    ck(ui_val("deposit-limits-operator-usage", save="used")),
+    tap("wallet-action-deposit"), {"wait_id": "wallet-deposit-screen"}, tap("deposit-agreement-checkbox"),
+    fill("deposit-screen-amount-input", "4995"), tap("deposit-amount-title"), tap("wallet-deposit-submit-button"),
+    {"sleep_ms": 1500}, shot("over-remaining-limit"),
+    ui("enter-pin-title", present=False, wait_s=3),
+    tap("enter-pin-close-button", optional=True), {"sleep_ms": 1000}, tap("wallet-chrome-back-button", optional=True),
+    {"wait_id": "wallet-main-screen"}], "P2. Deposit amount validation, never enters a PIN. $0 and $4 must show inline errors; $6000 must show the $5,000/day operator error. Last step: with money already deposited today (L2-10 runs first), $4,995 is over what is left of the $5,000 daily limit, so the app should refuse it before the PIN sheet. The PIN sheet is always closed without a PIN.",
+    PRE("L2", saved_card=True), [{"tap_id": "enter-pin-close-button", "optional": True}, {"tap_id": "wallet-chrome-back-button", "optional": True}])
+
+case("L2-13-add-card-and-deposit", "L2", HOME + WALLET + [
+    ck(ui_val("wallet-balance-amount", save="bal0")), ck(cwa(P["L2"], save="cwa0")),
+    tap("wallet-action-deposit"), {"wait_id": "add-card-deposit-screen"},
+    fill("deposit-amount-input", "10"),
+    {"fill": "deposit-card-name-input", "secret": "card.name"}, {"fill": "deposit-card-number-input", "secret": "card.pan"},
+    {"fill": "deposit-expiry-input", "secret": "card.exp"}, {"fill": "deposit-cvv-input", "secret": "card.cvv"},
+    tap("add-card-details-title"), txt("deposit-card-fee-text", "Transaction fee"),
+    tap("deposit-agreement-checkbox"), tap("deposit-submit-button"), {"emu": "pin", "player": P["L2"]},
+    {"wait_id": "wallet-modal-title", "wait_s": 45}, txt("wallet-modal-subtitle", "$10.00"), shot("deposit-done"),
+    tap("wallet-modal-secondary-button"), {"sleep_ms": 1000}] + WALLET + [
+    ck(ui_val("wallet-balance-amount", expect="bal0 + 10", wait_s=20)), ck(cwa(P["L2"], expect="cwa0 + 10", wait_s=20)),
+    ], "P0. First card: Add Card and Deposit $10 with the Worldpay cert Visa, card details read at run time from boltbetz-docs ops-sandbox-test-account.md (never stored). Save card stays on (default). Only for an account with no saved card; walked by hand 2026-10-09 on d1 (Transfer Complete, $25 -> $35).",
+    PRE("L2", saved_card=False), [{"emu": "set_cwa", "player": P["L2"], "dollars": 25}], sub="no-saved-card")
+
+# ---------------- L3 machine (d2) ----------------
+CONNECT = [tap("tab-boltbetz"), {"wait_id": ["qa-machine-scan-input"], "wait_s": 12}, tap("qa-machine-scan-input"),
+           {"emu": "type_qr", "asset": "EMU-L3"}, tap("qa-machine-scan-submit"), {"wait_id": "machine-connected-screen", "wait_s": 25}]
+DISCONNECT = [tap("machine-session-disconnect-button", wait_s=8), tap("machine-session-disconnect-confirm-button", wait_s=8),
+              {"wait_id": "machine-tips-sheet", "wait_s": 20}]
+SHEETS = [{"tap_id": "voucher-modal-close-button", "optional": True}, {"tap_id": "tip-close-button", "optional": True},
+          {"tap_id": "machine-tips-sheet-close-button", "optional": True}, {"sleep_ms": 800}]
+START3 = SHEETS + [{"emu": "end_session", "asset": "EMU-L3", "optional": True}, {"emu": "set_cwa", "player": P["L3"], "dollars": 25}]
+END3 = SHEETS + [{"emu": "end_session", "asset": "EMU-L3", "optional": True}, {"emu": "set_cwa", "player": P["L3"], "dollars": 25}]
+case("L3-10-machine-transfer-cashout", "L3", START3 + HOME + CONNECT + [
+    ck(cwa(P["L3"], save="cwa0")), ck(meter("EMU-L3", expect="0")),
+    ck(ui_val("machine-play-option-value-cwa", expect="cwa0", wait_s=15)),
+    tap("machine-play-option-info-button-cwa"), {"wait_id": "machine-transfer-sheet"},
+    fill("machine-transfer-amount", "5"), tap("machine-transfer-title"), tap("machine-transfer-submit"),
+    {"emu": "pin", "player": P["L3"]}, {"sleep_ms": 2000},
+    ck(meter("EMU-L3", expect="5", wait_s=25)), ck(cwa(P["L3"], expect="cwa0 - 5", wait_s=15)),
+    ck(ui_val("machine-play-option-value-cwa", expect="cwa0 - 5", wait_s=15)), shot("on-machine")] + DISCONNECT + [
+    ck(meter("EMU-L3", expect="0", wait_s=20)), ck(cwa(P["L3"], expect="cwa0", wait_s=20)),
+    txt("machine-tips-balance-text", "$25.00", wait_s=15), shot("cashed-out"),
+    tap("machine-tips-sheet-close-button", wait_s=8), {"sleep_ms": 1500}, ui("machine-tips-sheet", present=False)] + HOME,
+    "P0. Connect EMU-L3 by QA paste box, Fund Machine $5 from Wallet Balance (PIN): emulator meter $5 and CWA -$5, app shows $20. Disconnect cashes out: meter $0, CWA back to $25 on the emulator and on the tip sheet.",
+    PRE("L3", emulator_machine="EMU-L3"), END3, timeout=240)
+
+case("L3-11-machine-tip-voucher", "L3", START3 + HOME + CONNECT + [ck(cwa(P["L3"], save="cwa0")),
+    ck({"value": {"emu": f"/admin/api/players/{P['L3']}", "field": "vouchers"}, "save": "v0"})] + DISCONNECT + [
+    fill("machine-tips-amount-input", "1"), tap("machine-tips-title"), tap("machine-tips-submit-button"),
+    {"emu": "pin", "player": P["L3"]},
+    {"wait_id": "wallet-modal-title", "wait_s": 45}, txt("wallet-modal-title", "Tip Sent"), txt("wallet-modal-subtitle", "$1.00"), shot("tip-sent"),
+    ck(cwa(P["L3"], expect="cwa0 - 1", wait_s=15)),
+    ck({"value": {"emu": f"/admin/api/players/{P['L3']}", "field": "vouchers"}, "expect": "v0 + 1", "wait_s": 15}),
+    tap("wallet-modal-button"), {"sleep_ms": 1500},
+    txt("machine-tips-balance-text", "$24.00", wait_s=15), ui("Previous Tips"), shot("previous-tips"),
+    tap("$1.00"), {"sleep_ms": 2500}, shot("after-voucher-tap"),
+    ui("voucher-modal-code", wait_s=8)] + HOME,
+    "P1. After Disconnect the tip sheet opens; tip $1 (PIN) makes a cash-out voucher: Tip Sent, CWA -$1, one more voucher on the emulator, $24 on the sheet. Then tap a $1 tip in Previous Tips: the barcode (voucher modal) should open, as it does from Wallet > Leave a Tip (L3-12).",
+    PRE("L3", emulator_machine="EMU-L3"), END3, timeout=240)
+
+case("L3-12-wallet-tip-voucher-show", "L3", START3 + HOME + [ck(cwa(P["L3"], save="cwa0")),
+    tap("home-action-tip"), {"wait_id": "tip-title", "wait_s": 15},
+    fill("tip-amount-input", "2"), tap("tip-title"), tap("tip-submit-button"),
+    {"emu": "pin", "player": P["L3"]},
+    {"wait_id": "wallet-modal-title", "wait_s": 45}, txt("wallet-modal-title", "Tip Sent"), shot("tip-sent"),
+    ck(cwa(P["L3"], expect="cwa0 - 2", wait_s=15)),
+    tap("wallet-modal-button"), {"sleep_ms": 1500},
+    tap("tip-voucher-row-0", wait_s=15), {"wait_id": "voucher-modal-code", "wait_s": 10},
+    txt("voucher-modal-title", "Scan Barcode"), shot("voucher-barcode"),
+    tap("voucher-modal-close-button"), {"sleep_ms": 800}, tap("tip-close-button"), {"sleep_ms": 1200},
+    ui("tip-title", present=False, wait_s=5)] + HOME,
+    "P1. Wallet path: Home > Leave a Tip, tip $2 (PIN; $2 so it is not the same as L3-11's $1 tip, which the duplicate guard blocks for about a minute), Tip Sent, CWA -$2 on the emulator, the newest voucher row opens the barcode modal.",
+    PRE("L3"), END3, timeout=180)
+
+# ---------------- L4 browse (d3) ----------------
+case("L4-10-rewards-redeem-offer", "L4", [{"emu": "clear_offers", "player": P["L4"]},
+    {"emu": "offer", "player": P["L4"], "name": "QA Lane4 Offer", "freeplay": 5}] + HOME + link("route/MainFlow/Tabs/Rewards") + [
+    {"wait_id": "rewards-screen"}, PULL,
+    {"wait_id": "QA Lane4 Offer", "wait_s": 20}, shot("offer-listed"),
+    tap("Redeem Now"), {"wait_id": "reward-redeem-button"}, txt("rewards-modal-offer-name", "QA Lane4 Offer"),
+    tap("reward-redeem-button"), {"wait_id": "rewards-redeemed-title", "wait_s": 30}, txt("rewards-redeemed-message", "QA Lane4 Offer"), shot("redeemed"),
+    ck({"value": {"emu": f"/admin/api/players/{P['L4']}", "field": "offers.0.redeemed"}, "expect": "1", "wait_s": 15}),
+    tap("rewards-redeemed-back-button")] + HOME,
+    "P1. Seed one offer on the Lane4 emulator player, pull to refresh Rewards, Redeem Now > confirm, 'Reward redeemed', emulator marks the offer redeemed. Offers removed before and after.",
+    PRE("L4"), [{"tap_id": "rewards-redeemed-back-button", "optional": True}, {"tap_id": "rewards-modal-close-button", "optional": True},
+                {"emu": "clear_offers", "player": P["L4"]}])
+
+case("L4-11-email-notifications-persist", "L4", HOME + SETTINGS + [
+    ui("settings-email-notifications-track-on"),
+    tap("settings-email-notifications"), {"sleep_ms": 2500},
+    ui("settings-email-notifications-track-on", present=False, wait_s=5)] + RESTART + link("hooks?on=1") + SETTINGS + [{"sleep_ms": 2500},
+    ui("settings-email-notifications-track-on", present=False, wait_s=3), shot("off-after-restart"),
+    tap("settings-email-notifications"), {"sleep_ms": 2500},
+    ui("settings-email-notifications-track-on", wait_s=8)] + RESTART + link("hooks?on=1") + SETTINGS + [{"sleep_ms": 2500},
+    ui("settings-email-notifications-track-on", wait_s=8)],
+    "P1. Settings > Email Notifications off, force-stop + relaunch the app, still off; back on, relaunch, still on. Server-side preference. Ends on. Responsible Gaming limits are NOT changed by any case: the app says a set limit cannot be raised or removed, so a case could not restore the lane.",
+    PRE("L4"), [], timeout=240)
+
+# ---------------- L1 identity (d0) ----------------
+case("L1-20-scanner-tips-persist", "L1", HOME + SETTINGS + [SWIPE_UP, {"sleep_ms": 600},
+    ui("settings-show-scanner-tips-track-on"), tap("settings-show-scanner-tips"), {"sleep_ms": 1500},
+    ui("settings-show-scanner-tips-track-on", present=False, wait_s=5)] + RESTART + link("hooks?on=1") + SETTINGS + [SWIPE_UP, {"sleep_ms": 1500},
+    ui("settings-show-scanner-tips-track-on", present=False, wait_s=3), shot("off-after-restart"),
+    tap("settings-show-scanner-tips"), {"sleep_ms": 1500}, ui("settings-show-scanner-tips-track-on", wait_s=5)],
+    "P1. Settings > Show Scanning Tips off survives an app restart (force-stop + relaunch); turned back on at the end.",
+    PRE("L1"), [], timeout=180)
+
+case("L1-21-dark-mode-toggle", "L1", HOME + SETTINGS + [SWIPE_UP, {"sleep_ms": 600},
+    ui("settings-dark-mode-toggle-track-on", present=False), tap("settings-dark-mode-toggle"), {"sleep_ms": 1500},
+    ui("settings-dark-mode-toggle-track-on", wait_s=5), shot("dark-settings")] + link("route/MainFlow/Tabs/Home") + [
+    {"wait_id": "home-screen"}, {"sleep_ms": 1000}, shot("dark-home")] + SETTINGS + [SWIPE_UP, {"sleep_ms": 600},
+    tap("settings-dark-mode-toggle"), {"sleep_ms": 1500}, ui("settings-dark-mode-toggle-track-on", present=False, wait_s=5)],
+    "P1. Dark Mode on: Settings and Home in the dark look (screenshots), then off again.",
+    PRE("L1"), [], timeout=150)
+
+case("L1-99-sign-out-send-code", "L1", HOME + SETTINGS + [
+    {"call": "swipe", "x1": 660, "y1": 2300, "x2": 660, "y2": 700, "device_px": True, "screenshot": False}, {"sleep_ms": 600},
+    tap("settings-logout"), {"wait_id": "logout-confirm"}, tap("logout-confirm"),
+    {"wait_id": ["start-login", "login-screen"], "wait_s": 30}, shot("signed-out"),
+    tap("start-login", optional=True, wait_s=3), {"wait_id": "login-screen"},
+    tap("login-email-toggle", optional=True, wait_s=2), tap("login-identifier-input"),
+    {"call": "shell", "cmd": "input keyevent KEYCODE_MOVE_END " + "67 " * 60},
+    {"call": "type_text", "text": "aaron+lane1@boltbetz.com", "screenshot": False}, {"sleep_ms": 800},
+    tap("login-send-code"), {"wait_id": "code-input", "wait_s": 30}, shot("enter-code")],
+    "P0. Log Out from Settings lands on Start; Log in by email sends a code and shows EnterCode. Last L1 case on purpose: the agent then reads the code from Gmail and types it (signin.py code d0 <code>) to finish sign-in and checks Home.",
+    {"signed_in": True}, [], timeout=150)
+print("ok")

@@ -1,0 +1,239 @@
+{
+ "id": "L3-12-wallet-tip-voucher-show",
+ "lane": "L3",
+ "timeout_s": 180,
+ "preconditions": {
+  "signed_in": true,
+  "kyc": true,
+  "venue_card": true,
+  "emulator_player": 9000005
+ },
+ "steps": [
+  {
+   "tap_id": "voucher-modal-close-button",
+   "optional": true
+  },
+  {
+   "tap_id": "tip-close-button",
+   "optional": true
+  },
+  {
+   "tap_id": "machine-tips-sheet-close-button",
+   "optional": true
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "emu": "end_session",
+   "asset": "EMU-L3",
+   "optional": true
+  },
+  {
+   "emu": "set_cwa",
+   "player": 9000005,
+   "dollars": 25
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/hooks?on=1"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "tap_id": "tab-home",
+   "optional": true,
+   "wait_s": 2
+  },
+  {
+   "wait_id": "home-screen",
+   "wait_s": 15
+  },
+  {
+   "check": {
+    "value": {
+     "emu": "/admin/api/players/9000005",
+     "field": "cwaAvailable",
+     "scale": 100000
+    },
+    "save": "cwa0"
+   }
+  },
+  {
+   "tap_id": "home-action-tip"
+  },
+  {
+   "wait_id": "tip-title",
+   "wait_s": 15
+  },
+  {
+   "fill": "tip-amount-input",
+   "text": "2"
+  },
+  {
+   "tap_id": "tip-title"
+  },
+  {
+   "tap_id": "tip-submit-button"
+  },
+  {
+   "emu": "pin",
+   "player": 9000005
+  },
+  {
+   "wait_id": "wallet-modal-title",
+   "wait_s": 45
+  },
+  {
+   "check": {
+    "ui_text": "wallet-modal-title",
+    "contains": "Tip Sent"
+   }
+  },
+  {
+   "check": {
+    "screenshot": "tip-sent"
+   }
+  },
+  {
+   "check": {
+    "value": {
+     "emu": "/admin/api/players/9000005",
+     "field": "cwaAvailable",
+     "scale": 100000
+    },
+    "expect": "cwa0 - 2",
+    "wait_s": 15
+   }
+  },
+  {
+   "tap_id": "wallet-modal-button"
+  },
+  {
+   "sleep_ms": 1500
+  },
+  {
+   "tap_id": "tip-voucher-row-0",
+   "wait_s": 15
+  },
+  {
+   "wait_id": "voucher-modal-code",
+   "wait_s": 10
+  },
+  {
+   "check": {
+    "ui_text": "voucher-modal-title",
+    "contains": "Scan Barcode"
+   }
+  },
+  {
+   "check": {
+    "screenshot": "voucher-barcode"
+   }
+  },
+  {
+   "tap_id": "voucher-modal-close-button"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "tap_id": "tip-close-button"
+  },
+  {
+   "sleep_ms": 1200
+  },
+  {
+   "check": {
+    "ui": "tip-title",
+    "present": false,
+    "wait_s": 5
+   }
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/hooks?on=1"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "tap_id": "tab-home",
+   "optional": true,
+   "wait_s": 2
+  },
+  {
+   "wait_id": "home-screen",
+   "wait_s": 15
+  }
+ ],
+ "checks": [
+  {
+   "ui_any": [
+    "home-screen",
+    "settings-screen",
+    "wallet-main-screen",
+    "login-screen",
+    "code-input"
+   ]
+  },
+  {
+   "no_crash": "com.boltbetz.staging"
+  },
+  {
+   "logs_lack": "FATAL EXCEPTION|ReactNativeJS.*(Unhandled|TypeError|Invariant Violation)",
+   "filter": "com.boltbetz.staging"
+  }
+ ],
+ "cleanup": [
+  {
+   "tap_id": "voucher-modal-close-button",
+   "optional": true
+  },
+  {
+   "tap_id": "tip-close-button",
+   "optional": true
+  },
+  {
+   "tap_id": "machine-tips-sheet-close-button",
+   "optional": true
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "emu": "end_session",
+   "asset": "EMU-L3",
+   "optional": true
+  },
+  {
+   "emu": "set_cwa",
+   "player": 9000005,
+   "dollars": 25
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/fault?clear=1"
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  }
+ ],
+ "note": "P1. Wallet path: Home > Leave a Tip, tip $2 (PIN; $2 so it is not the same as L3-11's $1 tip, which the duplicate guard blocks for about a minute), Tip Sent, CWA -$2 on the emulator, the newest voucher row opens the barcode modal."
+}

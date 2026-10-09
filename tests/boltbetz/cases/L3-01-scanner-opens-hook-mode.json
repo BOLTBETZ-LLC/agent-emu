@@ -1,0 +1,112 @@
+{
+ "id": "L3-01-scanner-opens-hook-mode",
+ "lane": "L3",
+ "timeout_s": 90,
+ "preconditions": {
+  "signed_in": true,
+  "kyc": true,
+  "venue_card": true
+ },
+ "steps": [
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/hooks?on=1"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "tap_id": "tab-home",
+   "optional": true,
+   "wait_s": 2
+  },
+  {
+   "wait_id": "home-screen",
+   "wait_s": 15
+  },
+  {
+   "tap_id": "tab-boltbetz"
+  },
+  {
+   "wait_id": [
+    "machine-scan-help-button",
+    "qa-machine-scan-input"
+   ],
+   "wait_s": 12
+  },
+  {
+   "check": {
+    "ui": "qa-state"
+   }
+  },
+  {
+   "check": {
+    "ui": "machine-scan-close-button"
+   }
+  },
+  {
+   "check": {
+    "ui": "qa-machine-scan-input"
+   }
+  },
+  {
+   "check": {
+    "screenshot": "scanner"
+   }
+  },
+  {
+   "tap_id": "machine-scan-close-button",
+   "optional": true,
+   "wait_s": 3
+  },
+  {
+   "sleep_ms": 1000
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "tap_id": "tab-home",
+   "optional": true,
+   "wait_s": 2
+  },
+  {
+   "wait_id": "home-screen",
+   "wait_s": 15
+  }
+ ],
+ "checks": [
+  {
+   "ui": "home-screen"
+  },
+  {
+   "no_crash": "com.boltbetz.staging"
+  },
+  {
+   "logs_lack": "FATAL EXCEPTION|ReactNativeJS.*(Unhandled|TypeError|Invariant Violation)",
+   "filter": "com.boltbetz.staging"
+  }
+ ],
+ "cleanup": [
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/fault?clear=1"
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  }
+ ],
+ "note": "Center tab opens the scanner; qa-state readout proves hook mode is on."
+}
