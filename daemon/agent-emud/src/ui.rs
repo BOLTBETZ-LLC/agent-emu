@@ -1,6 +1,8 @@
 // Human control panel: a small HTTP/1.1 server on 127.0.0.1:7401 (AE_UI_ADDR) serving one embedded page.
 //   GET  /                         the page (ui.html, compiled in)
 //   GET  /health                   "ok" (the launcher checks it)
+//   GET  /reticle.local.js         Reticle pairing token from ~/.reticle/pairing-token (404 without one); the page's
+//                                  dev-only snippet connects to the Reticle bridge (:4400) only when it gets one
 //   POST /api                      JSON request -> the same handler as the binary API ({"call": ...});
 //                                  with "async": true -> 202 {"job": "j1"} at once, the result as a `job` event
 //   GET  /events                   Server-Sent Events: device phases, jobs, metrics (1/s), crashes, errors
@@ -234,6 +236,19 @@ async fn conn(st: &Arc<State>, mut sock: TcpStream) -> R<()> {
             Err(_) => send(&mut sock, 200, "text/html; charset=utf-8", PAGE.as_bytes(), c).await,
         },
         ("GET", "/health") => send(&mut sock, 200, "text/plain", b"ok", c).await,
+        // Reticle pairing token for the page's dev-only connect snippet, read at request time from this
+        // machine's ~/.reticle/pairing-token (written by `reticle init`); never in the repo. Loopback only; 404 without one.
+        ("GET", "/reticle.local.js") => {
+            let loopback = sock.peer_addr().is_ok_and(|a| a.ip().is_loopback());
+            let tok = std::env::var_os("USERPROFILE").or_else(|| std::env::var_os("HOME"))
+                .and_then(|h| std::fs::read_to_string(std::path::Path::new(&h).join(".reticle").join("pairing-token")).ok())
+                .map(|t| t.trim().to_string())
+                .filter(|t| loopback && !t.is_empty() && t.chars().all(|ch| ch.is_ascii_alphanumeric()));
+            match tok {
+                Some(t) => send(&mut sock, 200, "text/javascript", format!("export const token = '{t}';\n").as_bytes(), "").await,
+                None => send(&mut sock, 404, "text/plain", b"not found", "").await,
+            }
+        }
         ("GET", "/events") => events(st, &mut sock, c).await,
         ("POST", "/api") => {
             let r: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);

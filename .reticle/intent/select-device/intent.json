@@ -1,0 +1,18 @@
+{
+  "intents": {
+    "flow:select-device": {
+      "declaredAt": 1791553750489,
+      "id": "flow:select-device",
+      "state": "declared",
+      "statement": "Clicking a well id on the device grid focuses that Device in the stage",
+      "status": "proposed",
+      "subject": "select-device",
+      "surface": {
+        "flow": "select-device"
+      },
+      "updatedAt": 1791553750490
+    }
+  },
+  "subject": "select-device",
+  "version": 1
+}

@@ -1,0 +1,42 @@
+{
+  "version": 2,
+  "name": "select-device",
+  "projectId": "agent-emu-c538482c",
+  "createdAt": 1791553750489,
+  "steps": [
+    {
+      "tool": "reticle_act",
+      "anchor": {
+        "kind": "role",
+        "role": "button",
+        "name": "d3"
+      },
+      "args": {},
+      "action": "click",
+      "expect": {
+        "kind": "text",
+        "contains": "Start d3",
+        "scope": "#stage"
+      },
+      "page": "/"
+    }
+  ],
+  "startPath": "/",
+  "intent": "Clicking a well id on the device grid focuses that Device in the stage",
+  "requires": [
+    {
+      "kind": "route",
+      "pathname": "/"
+    }
+  ],
+  "ensures": [
+    {
+      "kind": "route",
+      "pathname": "/"
+    }
+  ],
+  "author": {
+    "agent": "agent-emu-flow"
+  },
+  "intentId": "flow:select-device"
+}

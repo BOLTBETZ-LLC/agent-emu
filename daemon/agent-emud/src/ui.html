@@ -1138,5 +1138,16 @@ addEventListener("resize", () => { clearTimeout(window._rz); window._rz = setTim
 buildPlate(); render(); openEvents(); openMux(); logLoop(); crashReset();
 setInterval(render, 1000);
 </script>
+    <!-- reticle:connect (dev only, written by reticle init) -->
+    <!-- The daemon serves ./reticle.local.js from this machine's ~/.reticle/pairing-token; 404 (no token) = no connect. -->
+    <script type="module">
+      if (['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)) {
+        import('./reticle.local.js').then((local) => local.token &&
+          import('https://cdn.jsdelivr.net/npm/@reticlehq/browser@3.6.0/+esm')
+            .then(({ reticle }) => reticle.connect({ projectId: 'agent-emu-c538482c', token: local.token })))
+          .catch(() => {});
+      }
+    </script>
+    <!-- /reticle:connect -->
 </body>
 </html>

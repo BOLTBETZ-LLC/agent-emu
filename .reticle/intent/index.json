@@ -1,0 +1,11 @@
+{
+  "entries": [
+    {
+      "id": "flow:select-device",
+      "statement": "Clicking a well id on the device grid focuses that Device in the stage",
+      "status": "proposed",
+      "subject": "select-device"
+    }
+  ],
+  "version": 1
+}
