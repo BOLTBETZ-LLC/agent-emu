@@ -101,6 +101,18 @@ fn fold(bugs: &mut BTreeMap<String, Value>, o: Value) -> (Value, bool) {
     (b.clone(), new)
 }
 
+/// GET /bugshot: screenshot `p` (absolute .png/.jpg) only when a kept occurrence of bug `key` lists it in `shots`,
+/// so runs outside tests/boltbetz/results (AE_RUNS_DIR, plan runs) show their images and nothing else is served.
+pub fn shot_path(key: &str, p: &str) -> Option<PathBuf> {
+    let ext = std::path::Path::new(p).extension()?.to_str()?.to_ascii_lowercase();
+    if !["png", "jpg", "jpeg"].contains(&ext.as_str()) {
+        return None;
+    }
+    let listed = with_book(|b| b.bugs.get(key).and_then(|b| b["occurrences"].as_array().cloned()))?
+        .iter().any(|o| o["shots"].as_array().is_some_and(|s| s.iter().any(|x| x == p)));
+    Some(PathBuf::from(p)).filter(|p| listed && p.is_absolute() && p.is_file())
+}
+
 /// A bug without its occurrences (lists, events).
 fn head(b: &Value) -> Value {
     let mut h = b.clone();

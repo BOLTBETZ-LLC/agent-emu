@@ -1337,7 +1337,7 @@ async function showRun(stamp) {
 function openShot(i) {
   lbAt = (i + runShots.length) % runShots.length; const s = runShots[lbAt];
   let img = $("lbimg"); if (!img) { img = document.createElement("img"); img.id = "lbimg"; $("lbfig").prepend(img); }
-  img.src = `${BASE}/runs/${encodeURIComponent(s.run || runSel)}/${encodeURIComponent(s.file)}`; img.alt = s.file;
+  img.src = s.p ? shotUrl(s.run, s.p) : `${BASE}/runs/${encodeURIComponent(s.run || runSel)}/${encodeURIComponent(s.file)}`; img.alt = s.file;
   setText($("lbcap"), `${s.file.replace(/\.png$/, "")} · ${lbAt + 1} of ${runShots.length}`);
   if (!$("lightbox").open) $("lightbox").showModal();
 }
@@ -1348,7 +1348,10 @@ $("lightbox").addEventListener("click", (e) => { if (e.target === $("lightbox"))
 // ---------- bugs: test runner FAILs folded by dedupe key (GET /bugs once, then `bug` events) ----------
 const B = { bugs: {}, sel: null, sort: store.get("bugsort", "last"), runner: store.get("bugrunner", false), fresh: new Set(), loaded: false };
 const ago = (ms) => { const s = Math.max(0, (Date.now() - ms) / 1000); return s < 60 ? "just now" : s < 3600 ? `${Math.round(s / 60)} min ago` : s < 86400 ? `${Math.round(s / 3600)} h ago` : `${Math.round(s / 86400)} d ago`; };
-const shotUrl = (run, p, w) => `${BASE}/runs/${encodeURIComponent(run)}/${encodeURIComponent(p.split(/[\\/]/).pop())}${w ? `?w=${Math.ceil(w * (devicePixelRatio || 1))}` : ""}`;
+// Absolute shot paths (any results folder, e.g. AE_RUNS_DIR) go through /bugshot; relative ones through /runs.
+const shotUrl = (run, p, w) => { const q = w ? `w=${Math.ceil(w * (devicePixelRatio || 1))}` : "";
+  return /^([A-Za-z]:)?[\\/]/.test(p) ? `${BASE}/bugshot?key=${encodeURIComponent(B.sel)}&p=${encodeURIComponent(p)}${q ? "&" + q : ""}`
+    : `${BASE}/runs/${encodeURIComponent(run)}/${encodeURIComponent(p.split(/[\\/]/).pop())}${q ? "?" + q : ""}`; };
 const shown = (b) => B.runner || b.kind !== "runner";
 async function loadBugs() {
   let r; try { r = await (await fetch(BASE + "/bugs?full=1&limit=1000")).json(); } catch { r = null; }

@@ -15,6 +15,7 @@
 //   POST /upload?device=d0         body = APK, installed with adb
 //   POST /bugs                     one bug occurrence from the test runner (bugs.rs); GET /bugs?status=open&full=1 the bugs
 //   GET  /runs                     test runner results, newest first (tests/boltbetz/results, plus the old .scratch runner folder)
+//   GET  /bugshot?key=&p=&w=      a screenshot a bug occurrence lists (absolute .png/.jpg), any results folder
 //   GET  /runs/<stamp>/<file>      one file of a run (results.json, grid.md, *.png), read-only, that folder only
 // Localhost only; no auth (the panel can do what the binary API can). See daemon/API.md.
 use crate::device::{self, R};
@@ -324,6 +325,17 @@ async fn conn(st: &Arc<State>, mut sock: TcpStream) -> R<()> {
             let q: serde_json::Map<String, Value> = req.query.iter().map(|(k, v)| (k.clone(), json!(v))).collect();
             send(&mut sock, 200, "application/json", crate::bugs::list(&Value::Object(q)).to_string().as_bytes(), c).await
         }
+        ("GET", "/bugshot") => match {
+            let (key, p, w) = (req.q("key").unwrap_or("").to_string(), req.q("p").unwrap_or("").to_string(), req.q("w").and_then(|w| w.parse::<u32>().ok()));
+            tokio::task::spawn_blocking(move || {
+                let path = crate::bugs::shot_path(&key, &p)?;
+                let jpg = path.extension().is_some_and(|e| !e.eq_ignore_ascii_case("png"));
+                image_reply(if jpg { "image/jpeg" } else { "image/png" }, std::fs::read(path).ok()?, w)
+            }).await.ok().flatten()
+        } {
+            Some((ctype, bytes)) => send(&mut sock, 200, ctype, &bytes, c).await,
+            None => send(&mut sock, 404, "text/plain", b"not found", c).await,
+        },
         ("GET", "/runs") => send(&mut sock, 200, "application/json", runs_list().to_string().as_bytes(), c).await,
         ("GET", p) if p.starts_with("/runs/") => match {
             let (rest, w) = (p[6..].to_string(), req.q("w").and_then(|w| w.parse::<u32>().ok()));
@@ -387,9 +399,13 @@ fn run_file(rest: &str, w: Option<u32>) -> Option<(&'static str, Vec<u8>)> {
         "md" => "text/plain; charset=utf-8",
         _ => return None,
     };
-    let bytes = std::fs::read(run_dir(stamp)?.join(file)).ok()?;
+    image_reply(ctype, std::fs::read(run_dir(stamp)?.join(file)).ok()?, w)
+}
+
+/// `w` (16-2000) on an image: a JPEG thumbnail that wide; otherwise the bytes as they are.
+fn image_reply(ctype: &'static str, bytes: Vec<u8>, w: Option<u32>) -> Option<(&'static str, Vec<u8>)> {
     match w {
-        Some(w) if ctype == "image/png" && (16..=2000).contains(&w) => {
+        Some(w) if ctype.starts_with("image/") && (16..=2000).contains(&w) => {
             let img = image::load_from_memory(&bytes).ok()?.to_rgb8();
             let h = (img.height() as u64 * w as u64 / img.width().max(1) as u64).max(1) as u32;
             let small = if w < img.width() { image::imageops::thumbnail(&img, w, h) } else { img };

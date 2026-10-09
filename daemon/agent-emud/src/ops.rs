@@ -99,6 +99,27 @@ pub fn max_check(running: usize, req: &Value) -> R<()> {
     Ok(())
 }
 
+/// Phones on this PC, the count `max_check` takes: this daemon's Devices plus every crosvm broker no Device of
+/// this daemon owns (another daemon's, a test daemon's). Aaron's cap is per PC, not per daemon.
+pub async fn phones_on_pc(st: &State) -> usize {
+    let devs: Vec<Arc<Device>> = st.devs.lock().unwrap().values().map(|s| s.dev.clone()).collect();
+    let mut own = vec![];
+    for d in &devs {
+        own.extend(d.boot_pid().await);
+    }
+    devs.len() + foreign_brokers(&crate::squeeze::rows().await.unwrap_or_default(), &own)
+}
+
+/// Brokers in `squeeze::rows` ("pid|ppid|..."): a crosvm whose parent is not a crosvm, one per running phone.
+/// Ours have our Devices' boot powershell as parent.
+fn foreign_brokers(rows: &str, own_boot: &[u32]) -> usize {
+    let procs: Vec<(u32, u32)> = rows.lines().filter_map(|l| {
+        let mut f = l.split('|');
+        Some((f.next()?.trim().parse().ok()?, f.next()?.trim().parse().ok()?))
+    }).collect();
+    procs.iter().filter(|&&(_, pp)| !procs.iter().any(|p| p.0 == pp) && !own_boot.contains(&pp)).count()
+}
+
 // ---------- health and build ----------
 
 /// device -> last health (from `health` or the idle loop).
@@ -502,7 +523,7 @@ async fn restore(st: &Arc<State>, id: &str, req: &Value) -> R<Value> {
     std::fs::write(ddir.join("data.id"), &need).map_err(|e| format!("data.id: {e}"))?;
     let disks_s = t0.elapsed().as_secs_f64();
     if !running {
-        crate::ops::max_check(st.devs.lock().unwrap().len(), req)?;
+        crate::ops::max_check(phones_on_pc(st).await, req)?;
     }
     let ready_s = boot_again(st, id, &meta["image_name"], &meta["screen"]).await?;
     Ok(json!({"ok": true, "device": id, "name": name, "disks_s": disks_s, "ready_s": ready_s, "was_running": running}))
@@ -616,6 +637,15 @@ mod tests {
         assert!(max_check(3, &json!({})).is_ok());
         assert!(max_check(4, &json!({})).unwrap_err().contains("max 4"));
         assert!(max_check(4, &json!({"force": true})).is_ok());
+        // Two phones: ours (broker 10, parent = our boot powershell 1) and another daemon's (broker 20, parent 2).
+        let rows = "10|1|0|crosvm run-mp
+11|10|0|crosvm run-main
+20|2|0|crosvm run-mp
+21|20|0|crosvm device block
+";
+        assert_eq!(foreign_brokers(rows, &[1]), 1);
+        assert_eq!(foreign_brokers(rows, &[]), 2);
+        assert_eq!(foreign_brokers("", &[1]), 0);
     }
 
     #[test]

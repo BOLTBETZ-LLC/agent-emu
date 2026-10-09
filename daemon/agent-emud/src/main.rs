@@ -280,12 +280,13 @@ async fn start_device(st: &State, idx: u32, req: &Value) -> R<(Arc<Device>, f64)
         "screen": {"name": if screen.is_empty() { "iphone17promax" } else { screen }, "width": sw, "height": sh, "dpi": dpi}});
     let d = {
         let _g = st.lifecycle.lock().await;
+        let on_pc = ops::phones_on_pc(st).await;
         let booting: u64 = {
             let devs = st.devs.lock().unwrap();
             if devs.contains_key(&id) {
                 return Err(fail(format!("Device `{id}` is already running")));
             }
-            ops::max_check(devs.len(), req).map_err(fail)?;
+            ops::max_check(on_pc, req).map_err(fail)?;
             devs.values().filter(|s| !s.dev.ready.load(Ordering::SeqCst)).filter_map(|s| s.info["mem"].as_str()?.parse::<u64>().ok()).sum()
         };
         let avail = device::available_mb();
