@@ -68,8 +68,10 @@ def run(dev, first, last):
     call(dev, "permission", pkg="com.boltbetz.staging", perm="android.permission.CAMERA", action="grant")
     if find(nodes(dev), "no-account-create"):
         tap(dev, "no-account-create")
-    tap(dev, "home-action-deposit", 40)
-    log(dev, "Home reached, opening ID check")
+    hit, _ = wait_for(dev, ["affirmations-screen", "home-action-deposit"], 40)
+    if hit and hit.get("resource-id") == "home-action-deposit":  # older builds: ID check starts from Deposit
+        tap(dev, "home-action-deposit")
+    log(dev, "opening ID check")  # 4cd7f3dc build (2026-10-09): Create account goes straight to the affirmations
     tap(dev, "affirmation-agree-box")
     time.sleep(1)
     tap(dev, "affirmations-continue")
