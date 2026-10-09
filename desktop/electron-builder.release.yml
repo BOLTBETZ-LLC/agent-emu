@@ -1,0 +1,16 @@
+# Release build: signed with Azure Artifact Signing, update feed on CloudFront in front of S3 (bucket policy +
+# CloudFront only; no IAM role). Needs AZURE_TENANT_ID / AZURE_CLIENT_ID / AZURE_CLIENT_SECRET in the build env.
+# Fill the REPLACE values once the signing account and the feed exist.
+extends: ./electron-builder.yml
+win:
+  target: nsis
+  signExecutable: true
+  signExts: [".exe"]          # also signs agent-emud.exe, crosvm.exe, adb.exe, python.exe from extraResources
+  azureSignOptions:
+    publisherName: "REPLACE CN=BoltBetz"
+    endpoint: "https://REPLACE.codesigning.azure.net/"
+    codeSigningAccountName: REPLACE
+    certificateProfileName: REPLACE
+publish:
+  provider: generic
+  url: https://REPLACE-cloudfront-domain/app/

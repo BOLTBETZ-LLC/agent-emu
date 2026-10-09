@@ -1,0 +1,24 @@
+{
+  "name": "agent-emu",
+  "productName": "agent-emu",
+  "version": "0.1.0",
+  "description": "Android phone fleet for agent testing",
+  "author": "BoltBetz",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "prepare-payload": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/prepare.ps1",
+    "dist": "electron-builder --win nsis --publish never"
+  },
+  "dependencies": {
+    "electron-updater": "6.8.9"
+  },
+  "devDependencies": {
+    "electron": "44.7.0",
+    "electron-builder": "26.15.3"
+  },
+  "agentEmu": {
+    "imageManifest": ""
+  }
+}

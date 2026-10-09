@@ -1,0 +1,75 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'">
+<title>agent-emu setup</title>
+<style>
+  body { font: 14px system-ui, sans-serif; margin: 24px; color: #1b1b1b; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: #666; margin-bottom: 16px; }
+  ol { padding-left: 20px; } li { margin: 6px 0; }
+  .st { display: inline-block; width: 64px; font-weight: 600; }
+  .ok { color: #137a2a; } .bad { color: #b3261e; } .warn { color: #8a5a00; } .run { color: #555; }
+  button { font: inherit; padding: 6px 12px; margin: 4px 6px 4px 0; }
+  .row { margin: 10px 0; } input { font: inherit; width: 340px; padding: 4px; }
+  pre { background: #f4f4f4; height: 220px; overflow: auto; padding: 8px; font-size: 12px; white-space: pre-wrap; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<h1>agent-emu setup</h1>
+<div class="sub" id="sub"></div>
+<ol id="steps"></ol>
+<div class="row">
+  <button id="again">Run setup again</button>
+  <button id="whp" hidden>Turn on Hypervisor Platform (admin)</button>
+  <button id="zip">Use a local zip for phone images</button>
+  <button id="doctor" title="Boots one phone, launches the app, checks the screen, stops it (~3 min)">Run doctor</button>
+  <button id="done" hidden>Open dashboard</button>
+</div>
+<div class="row">
+  <b>Secrets</b> (encrypted for your Windows user; never shown again):
+  <div id="secrets"></div>
+</div>
+<pre id="log"></pre>
+<script>
+const STEPS = [["setup", "Check this PC and install"], ["images", "Phone images"], ["secrets", "Secrets"],
+  ["daemon", "Start the daemon"], ["mcp", "Connect Claude Code and Codex"]];
+const $ = (id) => document.getElementById(id);
+const logEl = $("log");
+ae.onLog((m) => { logEl.textContent += m + "\n"; logEl.scrollTop = logEl.scrollHeight; if (/Hypervisor Platform is off/.test(m)) $("whp").hidden = false; });
+$("steps").innerHTML = STEPS.map(([k, t]) => `<li><span class="st" id="st-${k}">-</span>${t}</li>`).join("");
+const mark = (k, cls, txt) => { const e = $("st-" + k); e.className = "st " + cls; e.textContent = txt; };
+
+async function chain() {
+  $("done").hidden = true;
+  for (const [k] of STEPS) {
+    mark(k, "run", "...");
+    const r = await ae.step(k);
+    mark(k, r.ok ? (r.warn ? "warn" : "ok") : "bad", r.ok ? (r.warn ? "check" : "ok") : "failed");
+    if (!r.ok) return;
+  }
+  await renderSecrets();
+  $("done").hidden = false;
+  await ae.step("finish");
+}
+async function renderSecrets() {
+  const st = await ae.secretsStatus();
+  $("secrets").innerHTML = Object.entries(st).map(([n, has]) =>
+    `<div class="row"><code>${n}</code> <span class="${has ? "ok" : "warn"}">${has ? "stored" : "missing"}</span><br>
+     <input type="password" id="in-${n}" placeholder="paste to ${has ? "replace" : "set"}"> <button data-n="${n}">Save</button></div>`).join("");
+  for (const b of $("secrets").querySelectorAll("button")) b.onclick = async () => {
+    const i = $("in-" + b.dataset.n); if (await ae.secretSave(b.dataset.n, i.value)) { i.value = ""; renderSecrets(); }
+  };
+}
+$("again").onclick = chain;
+$("whp").onclick = () => ae.step("fix-whp");
+$("zip").onclick = async () => mark("images", (await ae.step("local-zip")).ok ? "ok" : "bad", "zip");
+$("doctor").onclick = async () => { $("doctor").disabled = true; const r = await ae.step("doctor"); $("doctor").disabled = false; logEl.textContent += (r.ok ? "DOCTOR PASS" : "DOCTOR FAIL") + "\n"; };
+$("done").onclick = () => ae.step("finish");
+ae.info().then((i) => { $("sub").textContent = `Installs to ${i.root}. Dashboard ${i.url}. MCP name ${i.mcpName}. v${i.version}`; });
+renderSecrets().then(chain);
+</script>
+</body>
+</html>

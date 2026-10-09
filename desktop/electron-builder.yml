@@ -1,0 +1,38 @@
+# Local unsigned build: npm run prepare-payload, then npm run dist -> out\agent-emu-Setup-<ver>.exe
+# Release (signed, update feed): npx electron-builder --win nsis -c electron-builder.release.yml
+appId: com.boltbetz.agentemu
+productName: agent-emu
+artifactName: agent-emu-Setup-${version}.${ext}
+directories:
+  output: out
+  buildResources: build
+files:
+  - main.js
+  - preload.js
+  - wizard.html
+  - package.json
+# Daemon payload staged by daemon\package.ps1 (dist\agent-emu), minus phone images: those download on first run.
+extraResources:
+  - from: ../dist/agent-emu
+    to: agent-emu
+    filter: ["**/*", "!images/**", "!logs/**", "!config.cmd"]
+  - from: payload/python
+    to: agent-emu/python
+  # Runner data package.ps1 does not stage yet (lanes.json, PICT matrix, plans); run.py needs lanes.json at import.
+  - from: ../tests/boltbetz
+    to: agent-emu/tests/boltbetz
+    filter: ["*.json", "*.py", "matrix/**", "plans/**", "!**/__pycache__/**"]
+win:
+  target: nsis
+  signExecutable: false
+nsis:
+  oneClick: false
+  perMachine: false          # installer.nsh forces the per-user mode: no UAC
+  include: build/installer.nsh
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  runAfterFinish: true
+# Update feed (electron-updater, generic provider). Placeholder until the S3 + CloudFront feed exists.
+publish:
+  provider: generic
+  url: https://updates.agent-emu.invalid/app/
