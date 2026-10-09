@@ -11,6 +11,7 @@ Confidence bar AE_DECIDE_MIN_CONF (default 0.5). Tap confidence = the chosen opt
 Measured 2026-10-09 (.scratch/jev-exp/results.md): Jev 29/30 taps, 28/30 judge, ~0.18 s, ~$0.00004 per decision.
 """
 import json, os, subprocess, time, urllib.request
+import aekeys  # noqa: F401  keys the installed app stored
 
 JEV_URL = "https://api.typesafe.ai/v1/systemone"
 MIN_CONF = float(os.environ.get("AE_DECIDE_MIN_CONF", "0.5"))

@@ -3,7 +3,7 @@
 # Boot one Device: crosvm on WHPX, Cuttlefish-based guest, direct kernel boot.
 # Env: AE_DIR (Device dir, default run), AE_ID (pipe suffix), AE_MEM, AE_CPUS, AE_EXTRA,
 #      AE_KERNEL, AE_INITRD (file names inside AE_DIR), AE_CROSVM (binary path).
-$W = if ($env:AE_WORK) { $env:AE_WORK } else { "C:\dev\agent-emu-work" }
+$W = if ($env:AE_WORK) { $env:AE_WORK } elseif (Test-Path "$PSScriptRoot\images") { "$PSScriptRoot\images" } else { "C:\dev\agent-emu-work" }
 $R = if ($env:AE_DIR) { $env:AE_DIR } else { "$W\run" }
 Set-Location $R
 # Network (slirp) only when an adb host port is asked for.
