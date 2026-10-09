@@ -75,6 +75,16 @@ const TRIM: &str = "(for p in com.android.ondevicepersonalization.services com.a
     settings put global wifi_scan_always_enabled 0; settings put global ble_scan_always_enabled 0; \
     settings put secure location_mode 0; echo 200 > /proc/sys/vm/vfs_cache_pressure) </dev/null >/dev/null 2>&1 &";
 
+// Lean images only: zram swap recompressed with zstd instead of the image's lz4. Exp F 2026-10-09 (slim5 d7,
+// 20-tap protocol + cold push): 347 MB swapped took 78 MB of guest RAM (4.45:1) against ~117 MB on lz4 (2.9-3.3:1),
+// tap p50 62 ms, 0 kills. The kernel lists zstd but the image sets lz4 before swapon, so the device is rebuilt here
+// at the same size. Skipped unless MemAvailable covers the swapped pages plus 100 MB (swapoff pulls them back in).
+const ZRAM: &str = "(z=/sys/block/zram0; s=$(cat $z/disksize); \
+    u=$(awk '/SwapTotal/{t=$2} /SwapFree/{f=$2} END{print t-f}' /proc/meminfo); a=$(awk '/MemAvailable/{print $2}' /proc/meminfo); \
+    if grep -q zstd $z/comp_algorithm && ! grep -q '\\[zstd\\]' $z/comp_algorithm && [ $((a - u)) -gt 102400 ] && swapoff /dev/block/zram0; then \
+    echo 1 > $z/reset; echo zstd > $z/comp_algorithm; echo $s > $z/disksize; mkswap /dev/block/zram0; swapon /dev/block/zram0; fi) \
+    </dev/null >/dev/null 2>&1 &";
+
 // Packages an older TRIM disabled that boot, home, telephony or storage need. com.android.settings hosts
 // FallbackHome, the only HOME on slim images: disabled, a keep_data reboot logs "No home screen found" and
 // sys.boot_completed never comes (2026-10-09: d0-d3 stuck in "android" 10+ min, RIL flooding logcat.log to
@@ -669,7 +679,7 @@ impl Device {
         let setup = if self.phone {
             SETUP.replace("cmd connectivity airplane-mode enable; ", "cmd bluetooth_manager disable; ").replace(PHONE_NET_FROM, PHONE_NET_TO)
         } else {
-            format!("{SETUP}; {TRIM}")
+            format!("{SETUP}; {ZRAM} {TRIM}")
         };
         // The image's bootconfig fixes androidboot.lcd_density=320; the screen profile's density wins here.
         let setup = format!("wm density {}; {setup}", self.density);
