@@ -23,6 +23,7 @@ $AE_RUNS_DIR (default results/ beside this file). Port 7400 is newline-delimited
 over raw TCP, which urllib cannot speak; every 7400 call is also on 7401 /api (API.md).
 """
 import atexit, json, os, re, signal, sys, threading, time, urllib.request
+import aekeys  # noqa: F401  keys the installed app stored (no AWS login needed)
 from pathlib import Path
 
 API = os.environ.get("AE_API", "http://127.0.0.1:7401").rstrip("/")

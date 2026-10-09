@@ -56,8 +56,8 @@ async function chain() {
 }
 async function renderSecrets() {
   const st = await ae.secretsStatus();
-  $("secrets").innerHTML = Object.entries(st).map(([n, has]) =>
-    `<div class="row"><code>${n}</code> <span class="${has ? "ok" : "warn"}">${has ? "stored" : "missing"}</span><br>
+  $("secrets").innerHTML = st.map(({ name: n, label, has }) =>
+    `<div class="row">${label} <code>${n}</code> <span class="${has ? "ok" : "warn"}">${has ? "stored" : "missing"}</span><br>
      <input type="password" id="in-${n}" placeholder="paste to ${has ? "replace" : "set"}"> <button data-n="${n}">Save</button></div>`).join("");
   for (const b of $("secrets").querySelectorAll("button")) b.onclick = async () => {
     const i = $("in-" + b.dataset.n); if (await ae.secretSave(b.dataset.n, i.value)) { i.value = ""; renderSecrets(); }

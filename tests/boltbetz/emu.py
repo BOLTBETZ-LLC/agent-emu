@@ -8,6 +8,7 @@ from asm-exec at ASM_EXEC (default C:/dev/dev-harness/tools/asm-exec.ps1) ({{res
   python emu.py end EMU-L3               # end the machine session
 """
 import json, os, subprocess, sys, urllib.request, urllib.error
+import aekeys  # noqa: F401  keys the installed app stored (no AWS login needed)
 
 BASE = os.environ.get("SYNKROS_URL", "https://synkros-emu.bbapp01.com")
 
@@ -23,7 +24,8 @@ def _key():
     k = os.environ.get("SYNKROS_API_KEY", "") or (_cached[0] if _cached else "")
     if not k:
         if not os.path.exists(ASM_EXEC):
-            raise RuntimeError(f"asm-exec not found at {ASM_EXEC} (set ASM_EXEC)")
+            raise RuntimeError("no Synkros emulator key: enter it in the agent-emu app (Setup > Secrets) or set SYNKROS_API_KEY"
+                               f" (asm-exec fallback not found at {ASM_EXEC})")
         # ponytail: secret rides a child python's argv for ~1 s (asm-exec only resolves arguments); never printed.
         # Child is this file's "_echo", not python -c: PowerShell would bind -c to asm-exec's -Command.
         r = subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", ASM_EXEC,

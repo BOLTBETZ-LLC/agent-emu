@@ -10,7 +10,13 @@ const crypto = require("crypto");
 const { Readable } = require("stream");
 const { pipeline } = require("stream/promises");
 
-const SECRET_NAMES = ["AE_SIDECAR_KEY", "TYPESAFE_API_KEY"];
+// Keys a user without AWS access is given. Name -> what it is (wizard label) and other env names that carry it.
+const SECRETS_INFO = {
+  AE_SIDECAR_KEY: { label: "Synkros emulator key (casino system: players, wallets, machines)", alias: ["SYNKROS_API_KEY"] },
+  EXT_QA_TOKEN: { label: "Sidecar QA token (creates and signs in test accounts, no Gmail)", alias: [] },
+  TYPESAFE_API_KEY: { label: "TypeSafe key (optional: plain-English decide/judge test steps)", alias: [] },
+};
+const SECRET_NAMES = Object.keys(SECRETS_INFO);
 const RES = app.isPackaged ? path.join(process.resourcesPath, "agent-emu") : path.join(__dirname, "..", "dist", "agent-emu");
 const userData = app.getPath("userData");
 const CONFIG = path.join(userData, "config.json");
@@ -72,21 +78,44 @@ async function setSecret(name, value) {
   const s = readSecretFile();
   s[name] = (await safeStorage.encryptStringAsync(value)).toString("base64");
   fs.writeFileSync(SECRETS, JSON.stringify(s));
+  await writeRunnerKey(name, value);
+}
+// The test runner is started by MCP clients, not by this app, so it cannot get the keys from the daemon's env.
+// Each key also goes to <root>\keys\<NAME>.dpapi, DPAPI-encrypted for this Windows user (tests\boltbetz\aekeys.py
+// reads it). The value reaches PowerShell on stdin, never on a command line.
+function writeRunnerKey(name, value) {
+  const dir = path.join(ROOT, "keys");
+  fs.mkdirSync(dir, { recursive: true });
+  const script = "Add-Type -AssemblyName System.Security; $v = [Console]::In.ReadToEnd(); " +
+    "$b = [Security.Cryptography.ProtectedData]::Protect([Text.Encoding]::UTF8.GetBytes($v), $null, 'CurrentUser'); " +
+    "[IO.File]::WriteAllBytes($args[0], $b)";
+  return new Promise((resolve) => {
+    const p = spawn("powershell.exe", ["-NoProfile", "-Command", script, path.join(dir, `${name}.dpapi`)], { windowsHide: true, stdio: ["pipe", "ignore", "ignore"] });
+    p.on("close", resolve); p.on("error", resolve);
+    p.stdin.end(value);
+  });
 }
 async function secretEnv() {
   const s = readSecretFile(), env = {};
-  for (const n of SECRET_NAMES) if (s[n]) env[n] = (await safeStorage.decryptStringAsync(Buffer.from(s[n], "base64"))).result;
+  for (const n of SECRET_NAMES) {
+    if (!s[n]) continue;
+    env[n] = (await safeStorage.decryptStringAsync(Buffer.from(s[n], "base64"))).result;
+    for (const a of SECRETS_INFO[n].alias) env[a] = env[n];
+  }
   return env;
 }
 // First run: take the keys already in the Windows user env (process env, else HKCU\Environment).
 async function importEnvSecrets() {
   const s = readSecretFile();
   for (const n of SECRET_NAMES) {
-    if (s[n]) { log(`ok    ${n} stored`); continue; }
-    let v = process.env[n];
+    if (s[n]) {
+      if (!fs.existsSync(path.join(ROOT, "keys", `${n}.dpapi`))) await writeRunnerKey(n, (await secretEnv())[n]);
+      log(`ok    ${n} stored`); continue;
+    }
+    let v = [n, ...SECRETS_INFO[n].alias].map((k) => process.env[k]).find(Boolean);
     if (!v) v = (await run("powershell.exe", ["-NoProfile", "-Command", `[Environment]::GetEnvironmentVariable('${n}','User')`], { echo: false })).out.trim();
     if (v) { await setSecret(n, v); log(`ok    ${n} imported from your Windows user env, encrypted`); }
-    else log(`skip  ${n} not set; paste it in Secrets`);
+    else log(`WARN  missing: ${SECRETS_INFO[n].label}. Paste it under Secrets below.`);
   }
   return true;
 }
@@ -285,7 +314,7 @@ ipcMain.handle("step", async (_e, name) => {
   } catch (e) { log(`FAIL  ${e.message}`); return { ok: false }; }
   return { ok: false };
 });
-ipcMain.handle("secrets-status", () => { const s = readSecretFile(); return Object.fromEntries(SECRET_NAMES.map((n) => [n, !!s[n]])); });
+ipcMain.handle("secrets-status", () => { const s = readSecretFile(); return SECRET_NAMES.map((n) => ({ name: n, label: SECRETS_INFO[n].label, has: !!s[n] })); });
 ipcMain.handle("secret-save", async (_e, name, value) => {
   if (!SECRET_NAMES.includes(name) || !value) return false;
   await setSecret(name, value); log(`ok    ${name} saved (encrypted). Restart the daemon to use it.`); return true;

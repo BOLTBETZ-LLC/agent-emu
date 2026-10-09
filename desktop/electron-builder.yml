@@ -19,7 +19,7 @@ extraResources:
   # Runner data package.ps1 does not stage yet (lanes.json, PICT matrix, plans); run.py needs lanes.json at import.
   - from: ../tests/boltbetz
     to: agent-emu/tests/boltbetz
-    filter: ["*.json", "*.py", "matrix/**", "plans/**", "!**/__pycache__/**"]
+    filter: ["*.json", "*.py", "matrix/**", "plans/**", "!**/__pycache__/**", "!accounts.json"]
 win:
   target: nsis
   signExecutable: false

@@ -71,10 +71,10 @@ def next_page(dev, wait=6):
     xy(dev, CONTINUE, wait)
 
 
-def run(dev, first, last):
+def run(dev, first, last, street="123 Main St."):
     ssn4 = os.environ["PLAID_SSN4"]
     if os.environ.get("SIGNUP_RESUME") == "plaid":  # app steps done, Plaid's first page is on screen
-        return plaid(dev, first, last, ssn4)
+        return plaid(dev, first, last, ssn4, street)
     call(dev, "permission", pkg="com.boltbetz.staging", perm="android.permission.CAMERA", action="grant")
     if find(nodes(dev), "no-account-create"):
         tap(dev, "no-account-create")
@@ -87,10 +87,10 @@ def run(dev, first, last):
     tap(dev, "affirmations-continue")
     tap(dev, "license-scan-type")
     time.sleep(20)  # Plaid Link WebView load
-    return plaid(dev, first, last, ssn4)
+    return plaid(dev, first, last, ssn4, street)
 
 
-def plaid(dev, first, last, ssn4):
+def plaid(dev, first, last, ssn4, street="123 Main St."):
     next_page(dev)                                   # intro
     next_page(dev)                                   # country: United States
     xy(dev, FIELD1); digits(dev, "2345678909")       # phone
@@ -104,7 +104,7 @@ def plaid(dev, first, last, ssn4):
     xy(dev, DAY); digits(dev, "18")
     xy(dev, YEAR); digits(dev, "1975")
     next_page(dev)
-    xy(dev, FIELD1); text(dev, "123 Main St.", 2); key(dev, "KEYCODE_ESCAPE")  # close suggestions
+    xy(dev, FIELD1); text(dev, street, 2); key(dev, "KEYCODE_ESCAPE")  # close suggestions
     xy(dev, CITY); text(dev, "Pawnee")
     xy(dev, STATE); text(dev, "Indiana"); key(dev, "KEYCODE_ENTER")
     xy(dev, ZIP); digits(dev, "46001")

@@ -32,6 +32,8 @@ def qa_token():
     t = os.environ.get("EXT_QA_TOKEN", "")
     if t:
         return t
+    if not os.path.exists(emu.ASM_EXEC):
+        raise RuntimeError("no sidecar QA token: enter it in the agent-emu app (Setup > Secrets) or set EXT_QA_TOKEN")
     # Same asm-exec child as emu._key(): the value comes back over a pipe, never printed.
     r = subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", emu.ASM_EXEC,
                         sys.executable, os.path.abspath(emu.__file__), "_echo", QA_SECRET],
