@@ -310,7 +310,8 @@ async fn start_device(st: &State, idx: u32, req: &Value) -> R<(Arc<Device>, f64)
         let r = d.con.exec(&device::browser_setup_cmd(img, size, &pkg), Duration::from_secs(600)).await;
         let mut ok = matches!(&r, Ok((o, 0)) if o.contains(&pkg));
         let mut err = r.err();
-        if ok && pkg == "org.mozilla.firefox" {
+        // A keep_data disk already has Firefox past its Terms screen; re-running it relaunches Firefox over the app for minutes.
+        if ok && pkg == "org.mozilla.firefox" && req["keep_data"] != json!(true) {
             if let Err(e) = firefox_first_run(&d).await {
                 eprintln!("{id}: firefox first run: {e}");
                 (ok, err) = (false, Some(e));
@@ -435,7 +436,7 @@ async fn recap_idle(st: Arc<State>) {
         for d in devs {
             if d.ready.load(Ordering::SeqCst) && !d.capped.load(Ordering::SeqCst) && d.caps.lock().unwrap().is_some() && !d.in_use() {
                 match squeeze::apply_caps(&d) {
-                    Ok(_) => emit(&st, json!({"type": "device", "device": d.id, "memory_mode": "squeezed"})),
+                    Ok(_) => emit(&st, json!({"type": "device", "device": d.id, "memory_mode": "capped"})),
                     Err(e) => eprintln!("{}: re-cap: {e}", d.id),
                 }
             }
@@ -567,7 +568,7 @@ async fn metrics(st: Arc<State>) {
             let m = mem.get(id);
             // "idle": the guest posted no frame this second (nothing changed on screen), so 0 fps is not slowness.
             rows.push(json!({"id": id, "phase": s.0, "ready": s.0 == "ready", "uptime_s": s.5, "activity": if sc > 0.0 { "rendering" } else { "idle" },
-                "memory_mode": if d.capped.load(Ordering::SeqCst) { "squeezed" } else { "active" },
+                "memory_mode": if d.capped.load(Ordering::SeqCst) { "capped" } else { "active" },
                 "scanout_fps": (sc * 10.0).round() / 10.0,
                 "sent_fps": (se * 10.0).round() / 10.0, "streams": s.2, "input_p50_ms": s.3, "input_n": s.4,
                 "ws_mb": m.map(|m| m.0), "own_mb": m.map(|m| m.1), "shared_mb": m.map(|m| m.2)}));
