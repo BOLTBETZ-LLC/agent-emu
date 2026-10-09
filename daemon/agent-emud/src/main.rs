@@ -386,6 +386,8 @@ async fn firefox_first_run(d: &Device) -> R<()> {
 const BROWSER_HEADROOM_MB: u64 = 256;
 /// The app must be back in front this long before the headroom goes back into the balloon.
 const REINFLATE_AFTER: Duration = Duration::from_secs(10);
+/// Idle ticks per idle stretch that also run proactive reclaim (16 x 10 s = the 160 s exp B4 measured).
+const RECLAIM_TICKS: u32 = 16;
 
 /// Watches which app is in front (`wm_set_resumed_activity` lines in the host's copy of logcat, so the guest
 /// pays nothing for the watch). Holds the browser headroom in the balloon except while `browser` is in front,
@@ -421,6 +423,10 @@ let path = d.dir.join("logcat.log");
     // in 3 runs; 0 with the headroom out).
     let (mut front_browser, mut camera, mut was, mut since) = (false, false, false, Instant::now());
     let mut last_step = Instant::now() - squeeze::HEADROOM_TICK;
+    // Idle: push 32 MB of cold pages into zram per tick, RECLAIM_TICKS times per idle stretch, before reading
+    // MemAvailable, so the step below can put the freed room in the balloon (exp B4, 2026-10-09: 160 s of this
+    // took the balloon 0 -> 96 MB, host own -40..-55 MB, no kills).
+    let mut reclaims = 0;
     while d.ready.load(Ordering::SeqCst) {
         tokio::time::sleep(Duration::from_secs(1)).await;
         if let Ok(mut f) = std::fs::File::open(&path) {
@@ -438,14 +444,16 @@ let path = d.dir.join("logcat.log");
         }
         let need = front_browser || camera || d.in_use();
         if need != was {
-            (was, since) = (need, Instant::now());
+            (was, since, reclaims) = (need, Instant::now(), 0);
         }
         let cur = d.headroom_in_mb.load(Ordering::SeqCst);
         if need && cur > 0 {
             set(0, "browser").await;
         } else if !need && since.elapsed() >= REINFLATE_AFTER && last_step.elapsed() >= squeeze::HEADROOM_TICK {
             last_step = Instant::now();
-            let p = d.con.exec("grep MemAvailable /proc/meminfo; cat /proc/pressure/memory", Duration::from_secs(10)).await.ok();
+            let reclaim = if reclaims < RECLAIM_TICKS { "echo 32M > /sys/fs/cgroup/memory.reclaim 2>/dev/null; " } else { "" };
+            reclaims += 1;
+            let p = d.con.exec(&format!("{reclaim}grep MemAvailable /proc/meminfo; cat /proc/pressure/memory"), Duration::from_secs(10)).await.ok();
             let (avail, psi) = p.map(|(o, _)| (squeeze::mem_available_mb(&o), squeeze::psi_some_avg10(&o))).unwrap_or((None, None));
             let next = squeeze::headroom_step(cur, max, avail, psi, floor);
             if next != cur {
