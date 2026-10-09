@@ -298,7 +298,10 @@ pub fn image(name: &str) -> R<(&'static str, Option<&'static str>)> {
         // slim5: slim4 plus a home stub and tuned lmkd. 768 MB: at native 1320x2868 with gfxstream, lmkd killed
         // BoltBetz at 640 even with the no-backing virtio-gpu module (issue 13, GPU native-res RAM).
         "slim5" => Ok(("run-slim5", Some("768"))),
-        _ => Err(format!("unknown image `{name}` (phone, phone-n, slim3, slim3n, slim4, slim5)")),
+        // slim5dax: slim5 with the clone track's DAX layout (stage2/slim5dax/build.sh): app code on pmem1
+        // (app-pmem.img), system_ext/product/vendor on pmem2-4, uncompressed APEXes, zstd zram, low watermarks.
+        "slim5dax" => Ok(("run-slim5dax", Some("768"))),
+        _ => Err(format!("unknown image `{name}` (phone, phone-n, slim3, slim3n, slim4, slim5, slim5dax)")),
     }
 }
 
@@ -570,7 +573,11 @@ impl Device {
             return Err("a crosvm.exe is already running; one Device at a time".into());
         }
         let dir = make_device(cfg, idx, run, keep_data)?;
-        let pmem = cfg.work.join(run).join("system-pmem.img");
+        // Read-only pmems in guest order: pmem0 system, then (DAX images only) pmem1 app, pmem2-4 system_ext/product/vendor.
+        let pmem: String = ["system", "app", "system_ext", "product", "vendor"].iter()
+            .map(|p| cfg.work.join(run).join(format!("{p}-pmem.img")))
+            .take_while(|f| f.exists())
+            .map(|f| format!(" --pmem path={},ro=true", f.to_string_lossy().replace('\\', "/"))).collect();
         let initrd = if is_phone(image_name) { "initrd.img" } else { "initrd-dax-pmem.img" };
         let mut cmd = Command::new("powershell");
         let browser = browser(&cfg.work).and_then(|(img, size, pkg)| {
@@ -611,7 +618,7 @@ impl Device {
             .env("AE_DIR", win(&dir)).env("AE_ID", idx.to_string()).env("AE_MEM", &mem).env("AE_CPUS", cpus.unwrap_or(&cfg.cpus))
             .env("AE_DISPLAY", format!("{sw},{sh}")).env("AE_DPI", dpi.to_string()).env("AE_REFRESH", refresh_hz.to_string())
             .env("AE_EXTRA", format!("--socket PIPE:ae-vm-{idx}{} --input multi-touch[path={}] --input keyboard[path={}]{}",
-                if is_phone(image_name) { String::new() } else { format!(" --pmem path={},ro=true", pmem.to_string_lossy().replace('\\', "/")) },
+                if is_phone(image_name) { String::new() } else { pmem },
                 fast::touch_pipe(idx), fast::kbd_pipe(idx),
                 std::env::var("AE_XCROSVM").map(|x| format!(" {x}")).unwrap_or_default()))
             // No desktop window: crosvm's 2D GPU uses the stub display; frames still come from fb.bin.
@@ -1009,6 +1016,7 @@ mod tests {
         assert_eq!(image("").unwrap(), ("run-slim3n", None));
         assert_eq!(image("slim3").unwrap(), ("run", None));
         assert_eq!(image("slim5").unwrap(), ("run-slim5", Some("768")));
+        assert_eq!(image("slim5dax").unwrap(), ("run-slim5dax", Some("768")));
         assert!(image("slim9").is_err());
         assert_eq!(image("phone").unwrap(), ("run-full", Some("2048")));
         assert_eq!(image("phone-n").unwrap(), ("run-phone-n", Some("2048")));

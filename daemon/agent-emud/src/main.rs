@@ -243,7 +243,7 @@ async fn start_device(st: &State, idx: u32, req: &Value) -> R<(Arc<Device>, f64)
     let image_mem = device::image(req["image"].as_str().unwrap_or("")).ok().and_then(|i| i.1).and_then(|m| m.parse::<u64>().ok());
     // slim5 at half screen: 640 + 256 = 896 MB (exp H 2026-10-09: app and the Google sign-in Custom Tab stayed up
     // over 9 rounds, host -120 MB vs 1024; at 832 lmkd killed the app behind the tab). Native screens keep 768.
-    let half_slim5 = req["image"] == json!("slim5") && req["screen"] == json!("iphone17promax-half");
+    let half_slim5 = (req["image"] == json!("slim5") || req["image"] == json!("slim5dax")) && req["screen"] == json!("iphone17promax-half");
     let image_mem = image_mem.map(|m| if half_slim5 { m - 128 } else { m });
     let mem = req["mem"].as_u64().or(image_mem.filter(|_| headroom > 0).map(|m| m + headroom)).map(|m| m.to_string());
     let net = req["net"].as_bool().unwrap_or(true);
@@ -888,6 +888,8 @@ async fn handle(st: &Arc<State>, conn: u64, req: &Value) -> R<Value> {
             if !o.contains("Success") {
                 return Err(format!("install: {o}"));
             }
+            // DAX images: bind the app's code from pmem1 over the fresh install (vendor appdax.rc; no-op elsewhere).
+            d.con.exec("setprop sys.agentemu.appdax 0; setprop sys.agentemu.appdax 1", Duration::from_secs(10)).await?;
             return Ok(json!({"ok": true, "out": o.trim()}));
         }
         "crash_events" => {
