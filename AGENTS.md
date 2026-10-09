@@ -156,7 +156,10 @@ started later without `keep_data` installs at boot (and what `install_bundled`/`
   project folder: pass `eas_project` or set `AE_EAS_PROJECT_DIR` (on this PC `C:\dev\v2-React-Native`). Not logged in = a
   clear error; the artifact URL works without eas.
 - The reply names `package`, `version_name`, `version_code`, Expo `runtime` and `channel`, read from the APK itself.
-- `.aab` (store builds) is refused: phones need an APK (EAS profile with `android.buildType: "apk"`).
+- `.aab` (store builds) works too: bundletool turns it into a universal APK signed with this PC's debug key
+  (`%LOCALAPPDATA%gent-emu\keystore\debug.keystore`, made on first use, never in a repo). Needs Java + bundletool:
+  the installed app downloads both; elsewhere set `AE_JAVA` and `AE_BUNDLETOOL`. A store `.aab` is often a production
+  build (`channel: production`): install it, never launch it against production.
 - Installer builds of agent-emu ship base images with no app at all; until `set_default_app` runs, `install_bundled`
   errors and wiped phones boot without an app.
 

@@ -112,13 +112,13 @@ const imagesPresent = () => fs.existsSync(path.join(ROOT, "images", "browser", "
 // Windows bsdtar (reads zip); a tar.exe earlier on PATH (Git's GNU tar) cannot.
 const TAR = path.join(process.env.SystemRoot || "C:\\Windows", "System32", "tar.exe");
 const FEED = (PKG.agentEmu && PKG.agentEmu.feed) || "";
-async function extractZip(zip, dest = path.join(ROOT, "images")) {
+async function extractZip(zip, dest = path.join(ROOT, "images"), strip = 0) {
   const first = (await run(TAR, ["-tf", zip], { echo: false })).out.split(/\r?\n/)[0] || "";
   fs.mkdirSync(dest, { recursive: true });
   // The portable zip (agent-emu/images/...) or a pack (paths relative to dest).
   const args = first.startsWith("agent-emu/")
     ? ["-xf", zip, "-C", ROOT, "--strip-components=1", "agent-emu/images"]
-    : ["-xf", zip, "-C", dest];
+    : ["-xf", zip, "-C", dest, ...(strip ? [`--strip-components=${strip}`] : [])];
   log(`Unpacking ${path.basename(zip)}...`);
   return (await run(TAR, args)).code === 0;
 }
@@ -143,7 +143,8 @@ async function fetchFile(url, dest, size, want) {
   if ((await sha256(dest)) !== want) { fs.rmSync(dest); throw new Error(`${path.basename(dest)}: sha256 mismatch, deleted; run again`); }
   log(`ok    ${path.basename(dest)} sha256 matches`);
 }
-// Everything the installer leaves out comes from the feed manifest: Python, PyYAML, pict.exe, phone base images.
+// Everything the installer leaves out comes from the feed manifest: Python, PyYAML, pict.exe, a JRE + bundletool
+// (install_app turns .aab into APKs), phone base images.
 // A component is done when <root>\.feed\<name> holds its sha256; Repair clears those marks.
 async function stepDownloads() {
   if (!FEED) { log("WARN  no download feed in this build; use 'Use a local zip' for images"); return { ok: imagesPresent(), warn: true }; }
@@ -156,7 +157,7 @@ async function stepDownloads() {
     const file = path.join(dl, c.file);
     await fetchFile(new URL(c.file, FEED).href, file, c.size, c.sha256);
     const dest = path.join(ROOT, c.dest);
-    if (c.unpack === "zip") { if (!(await extractZip(file, dest))) throw new Error(`unpack ${c.file} failed`); }
+    if (c.unpack === "zip") { if (!(await extractZip(file, dest, c.strip || 0))) throw new Error(`unpack ${c.file} failed`); }
     else { fs.mkdirSync(path.dirname(dest), { recursive: true }); fs.copyFileSync(file, dest); }
     if (c.name === "python") {
       // Embeddable Python: its ._pth fixes sys.path; add vendored packages and the runner folder.

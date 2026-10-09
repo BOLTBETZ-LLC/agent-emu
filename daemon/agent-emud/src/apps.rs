@@ -13,9 +13,9 @@ use tokio::process::Command;
 
 pub const CALLS: &[&str] = &["install_app", "set_default_app", "default_app"];
 
-pub const SOURCES: &str = "source = a local .apk path, an https URL of an .apk (e.g. https://expo.dev/artifacts/eas/<x>.apk), \
+pub const SOURCES: &str = "source = a local .apk or .aab path, an https URL of an .apk or .aab (e.g. https://expo.dev/artifacts/eas/<x>.apk), \
 an expo.dev build page URL (https://expo.dev/accounts/<a>/projects/<p>/builds/<uuid>) or an EAS build id (UUID; resolved with the \
-logged-in eas CLI, run in eas_project or AE_EAS_PROJECT_DIR = any Expo project folder of that account)";
+logged-in eas CLI, run in eas_project or AE_EAS_PROJECT_DIR = any Expo project folder of that account). An .aab becomes a universal APK (bundletool, signed with this PC's debug key)";
 
 pub async fn handle(st: &Arc<State>, call: &str, req: &Value) -> R<Value> {
     if call == "default_app" {
@@ -89,14 +89,14 @@ async fn resolve(work: &Path, source: &str, eas_project: Option<&str>) -> R<Path
     let src = source.trim_matches('"');
     let p = Path::new(src);
     if !src.starts_with("http") && p.is_file() {
-        return check_kind(p.to_path_buf()).await;
+        return check_kind(work, p.to_path_buf()).await;
     }
     if let Some(id) = uuid_in(src).filter(|_| !src.starts_with("http") || src.contains("/builds/")) {
         let url = eas_build_url(&id, eas_project).await?;
-        return check_kind(download(work, &url).await?).await;
+        return check_kind(work, download(work, &url).await?).await;
     }
     if src.starts_with("https://") || src.starts_with("http://") {
-        return check_kind(download(work, src).await?).await;
+        return check_kind(work, download(work, src).await?).await;
     }
     Err(format!("source `{src}` is not a file on this PC, a URL or an EAS build id. {SOURCES}"))
 }
@@ -152,18 +152,76 @@ async fn download(work: &Path, url: &str) -> R<PathBuf> {
     Ok(file)
 }
 
-/// The zip's entry list says what it is: APK (AndroidManifest.xml at the top) or an App Bundle.
-async fn check_kind(p: PathBuf) -> R<PathBuf> {
+/// The zip's entry list says what it is: an APK (AndroidManifest.xml at the top), or an App Bundle, which becomes a
+/// universal APK through bundletool.
+async fn check_kind(work: &Path, p: PathBuf) -> R<PathBuf> {
     let names = tar(&["-t"], &p).await?;
     let names = String::from_utf8_lossy(&names);
     if names.lines().any(|l| l == "AndroidManifest.xml") {
         return Ok(p);
     }
     if names.lines().any(|l| l == "BundleConfig.pb" || l == "base/manifest/AndroidManifest.xml") {
-        return Err(format!("{} is an Android App Bundle (.aab): phones install APKs only. Use an APK build \
-            (EAS profile with android.buildType \"apk\") or convert it with bundletool build-apks --mode universal", p.display()));
+        return aab_to_apk(work, &p).await;
     }
-    Err(format!("{} is not an Android APK", p.display()))
+    Err(format!("{} is not an Android APK or App Bundle", p.display()))
+}
+
+/// java: AE_JAVA, else <home>/jre/bin/java.exe (the app's first-run download), else java on PATH.
+/// bundletool: AE_BUNDLETOOL, else <home>/bin/bundletool.jar.
+fn tools() -> R<(PathBuf, PathBuf, PathBuf)> {
+    let home = crate::device::home();
+    let java = std::env::var_os("AE_JAVA").map(PathBuf::from)
+        .or_else(|| home.as_ref().map(|h| h.join("jre").join("bin").join("java.exe")).filter(|p| p.is_file()))
+        .unwrap_or_else(|| PathBuf::from("java"));
+    let keytool = java.with_file_name(if java.extension().is_some() { "keytool.exe" } else { "keytool" });
+    let bt = std::env::var_os("AE_BUNDLETOOL").map(PathBuf::from)
+        .or_else(|| home.as_ref().map(|h| h.join("bin").join("bundletool.jar")).filter(|p| p.is_file()))
+        .ok_or("an .aab needs bundletool + Java: the agent-emu app downloads both on first run (tray: Repair / re-download),             or set AE_BUNDLETOOL=<bundletool.jar> and AE_JAVA=<java.exe>")?;
+    Ok((java, keytool, bt))
+}
+
+/// Signing key for converted bundles: one debug keystore per machine, made on first use under
+/// %LOCALAPPDATA%\agent-emu\keystore (outside every repo). Standard Android debug passwords.
+async fn debug_keystore(keytool: &Path) -> R<PathBuf> {
+    let dir = PathBuf::from(std::env::var_os("LOCALAPPDATA").ok_or("LOCALAPPDATA unset")?).join("agent-emu").join("keystore");
+    let ks = dir.join("debug.keystore");
+    if ks.is_file() {
+        return Ok(ks);
+    }
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let o = Command::new(keytool).args(["-genkeypair", "-keystore"]).arg(&ks).args(["-storepass", "android", "-alias",
+        "androiddebugkey", "-keypass", "android", "-keyalg", "RSA", "-keysize", "2048", "-validity", "10000", "-dname",
+        "CN=Android Debug,O=Android,C=US", "-noprompt"]).kill_on_drop(true).output().await.map_err(|e| format!("keytool: {e}"))?;
+    if !o.status.success() {
+        return Err(format!("keytool: {}", String::from_utf8_lossy(&o.stderr).trim()));
+    }
+    Ok(ks)
+}
+
+/// bundletool build-apks --mode universal, then the universal.apk out of the .apks. Cached beside the bundle.
+async fn aab_to_apk(work: &Path, aab: &Path) -> R<PathBuf> {
+    let cache = work.join("app-cache");
+    std::fs::create_dir_all(&cache).map_err(|e| e.to_string())?;
+    let m = std::fs::metadata(aab).map_err(|e| e.to_string())?;
+    let key = format!("{}-{}", aab.file_stem().and_then(|s| s.to_str()).unwrap_or("bundle"), m.len());
+    let apk = cache.join(format!("{key}.universal.apk"));
+    if apk.is_file() {
+        return Ok(apk);
+    }
+    let (java, keytool, bt) = tools()?;
+    let ks = debug_keystore(&keytool).await?;
+    let apks = cache.join(format!("{key}.apks"));
+    let o = Command::new(&java).arg("-jar").arg(&bt).args(["build-apks", "--mode", "universal", "--overwrite"])
+        .arg(format!("--bundle={}", aab.display())).arg(format!("--output={}", apks.display())).arg(format!("--ks={}", ks.display()))
+        .args(["--ks-pass=pass:android", "--ks-key-alias=androiddebugkey", "--key-pass=pass:android"]).kill_on_drop(true).output();
+    let o = tokio::time::timeout(Duration::from_secs(900), o).await.map_err(|_| "bundletool timed out".to_string())?
+        .map_err(|e| format!("java ({}): {e}", java.display()))?;
+    if !o.status.success() {
+        return Err(format!("bundletool build-apks: {}", String::from_utf8_lossy(&o.stderr).trim()));
+    }
+    std::fs::write(&apk, member(&apks, "universal.apk").await?).map_err(|e| e.to_string())?;
+    let _ = std::fs::remove_file(&apks);
+    Ok(apk)
 }
 
 async fn tar(args: &[&str], zip: &Path) -> R<Vec<u8>> {

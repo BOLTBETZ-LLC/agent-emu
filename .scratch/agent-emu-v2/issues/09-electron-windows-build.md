@@ -113,3 +113,13 @@ Proof on a clean app-data install from the rebuilt installer (main eb6fe87 + thi
 - Before packaging, on a preview daemon: `set_default_app` + a wiped boot installed 1.4.0 at boot; the expo.dev build
   page URL resolved through `eas build:view`.
 - Uninstall: phone and daemon stopped, root, app data and MCP entries gone, `~/.codex/config.toml` identical, live 7401 ok.
+
+## Round 3 (2026-10-09): .aab
+
+- Feed adds Temurin 21 JRE (`OpenJDK21U-jre_x64_windows_hotspot_21.0.12.1_1.zip`, Adoptium API sha256) and
+  bundletool 1.18.3 (GitHub release digest). The app unpacks them to `<root>\jre` and `<root>\bin\bundletool.jar`.
+- `install_app` turns an `.aab` into a universal APK (`bundletool build-apks --mode universal`), signed with a
+  per-machine debug keystore made by keytool on first use at `%LOCALAPPDATA%\agent-emu\keystore\debug.keystore`.
+- Proof, clean install, ports 7411/7410, phone d7: first run installed jre + bundletool from CloudFront;
+  `install_app` `C:\Users\aaron\Downloads\boltbetz-1.2.0-vc20.aab` -> `com.boltbetz` 1.2.0 (20), Success, 63 s.
+  That bundle is a production build (`channel: production`): uninstalled at once, never launched.

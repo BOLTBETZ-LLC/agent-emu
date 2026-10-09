@@ -48,7 +48,7 @@ fn tools() -> Value {
                 "auto_squeeze": {"type": "boolean"}, "boot_cap_mb": num, "idle_cap_mb": num}), &[], false),
         tool("stop", "Stop the Device (syncs the guest first so keep_data can reuse its disks).", json!({}), &[], false),
         tool("install_bundled", "Install the image's default app (set_default_app; on this PC the BoltBetz staging build) over the console; no adb needed.", json!({}), &[], false),
-        json!({"name": "install_app", "description": format!("Install ANY Android app build on one or more running Devices and report             package, version_name/version_code and Expo runtime/channel. Accepts anything that names a build: {}. Downloads are cached.             An .aab is refused with how to get an APK.", crate::apps::SOURCES),
+        json!({"name": "install_app", "description": format!("Install ANY Android app build on one or more running Devices and report             package, version_name/version_code and Expo runtime/channel. Accepts anything that names a build: {}. Downloads are cached.             An .aab becomes a universal APK signed with this PC's debug key.", crate::apps::SOURCES),
             "inputSchema": {"type": "object", "required": ["source"], "properties": {"source": {"type": "string",
                 "description": "path, https URL, expo.dev link or EAS build id"}, "device": dev.clone(), "devices": ids.clone(),
                 "eas_project": {"type": "string", "description": "folder of any Expo project of the EAS account (only for EAS build ids)"}}}}),
