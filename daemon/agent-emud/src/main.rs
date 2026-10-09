@@ -433,6 +433,10 @@ let path = d.dir.join("logcat.log");
     // MemAvailable, so the step below can put the freed room in the balloon (exp B4, 2026-10-09: 160 s of this
     // took the balloon 0 -> 96 MB, host own -40..-55 MB, no kills).
     let mut reclaims = 0;
+    // The browser stays cached after a Custom Tab closes (exp J, 2026-10-09: 5 Firefox processes, ~210 MB RSS +
+    // ~77 MB swapped). Force-stopping it once the Device is idle gave the guest +53 MB MemAvailable and -48 MB of
+    // zram, which the idle step below can then put in the balloon. Next Custom Tab cold-starts Firefox (~2 s).
+    let mut browser_used = false;
     while d.ready.load(Ordering::SeqCst) {
         tokio::time::sleep(Duration::from_secs(1)).await;
         if let Ok(mut f) = std::fs::File::open(&path) {
@@ -442,6 +446,7 @@ let path = d.dir.join("logcat.log");
                 cursor += buf.len() as u64;
                 if let Some(p) = buf.lines().filter_map(logs::resumed_package).last() {
                     front_browser = p == browser;
+                    browser_used |= front_browser;
                 }
                 if let Some(c) = buf.lines().filter_map(logs::camera_open).last() {
                     camera = c;
@@ -457,7 +462,10 @@ let path = d.dir.join("logcat.log");
             set(0, "browser").await;
         } else if !need && since.elapsed() >= REINFLATE_AFTER && last_step.elapsed() >= squeeze::HEADROOM_TICK {
             last_step = Instant::now();
-            let reclaim = if reclaims < RECLAIM_TICKS { "echo 32M > /sys/fs/cgroup/memory.reclaim 2>/dev/null; " } else { "" };
+            if std::mem::take(&mut browser_used) {
+                let _ = d.con.exec(&format!("am force-stop {browser}"), Duration::from_secs(30)).await;
+            }
+            let reclaim =if reclaims < RECLAIM_TICKS { "echo 32M > /sys/fs/cgroup/memory.reclaim 2>/dev/null; " } else { "" };
             reclaims += 1;
             let p = d.con.exec(&format!("{reclaim}grep MemAvailable /proc/meminfo; cat /proc/pressure/memory"), Duration::from_secs(10)).await.ok();
             let (avail, psi) = p.map(|(o, _)| (squeeze::mem_available_mb(&o), squeeze::psi_some_avg10(&o))).unwrap_or((None, None));
@@ -491,8 +499,12 @@ async fn recap_idle(st: Arc<State>) {
 /// Default boot cap (MB) for the main crosvm process; helpers get BOOT_CAP_HELPER_MB.
 const BOOT_CAP_MB: u64 = 600;
 const BOOT_CAP_HELPER_MB: u64 = 32;
-/// Default idle cap (MB) for the main crosvm process (exp G, 2026-10-09: idle host ~430 MB vs ~794 at 600, first tap 156-191 ms vs 133, 0 kills).
-const IDLE_CAP_MB: u64 = 250;
+/// Default idle cap (MB) for the main crosvm process (exp G, 2026-10-09: idle host ~430 MB vs ~794 at 600, first tap 156-191 ms vs 133, 0 kills;
+/// exp I: 200 gives ~395 MB idle with first taps no slower than 250's; below 200 the first tap slows).
+const IDLE_CAP_MB: u64 = 200;
+/// Idle cap (MB) for the helper processes (exp J, 2026-10-09: 12 vs 32 freed ~20 MB per phone of block-device guest
+/// pages and helper heap; first tap unchanged, input lifts the helper caps with the main one).
+const IDLE_CAP_HELPER_MB: u64 = 12;
 
 /// Caps every crosvm process of `d` as it appears (main at `mb`, helpers at BOOT_CAP_HELPER_MB), checking
 /// every 2 s until the Device is ready or stopped. Unsqueezed, a gfxstream boot took ~2.1 GB of host RAM.
@@ -521,7 +533,7 @@ async fn boot_caps(d: Arc<Device>, mb: u64, idle: u64) {
             if idle > 0 {
                 let mut c = d.caps.lock().unwrap();
                 if *c == Some((mb, BOOT_CAP_HELPER_MB)) {
-                    *c = Some((idle, BOOT_CAP_HELPER_MB));
+                    *c = Some((idle, IDLE_CAP_HELPER_MB));
                     d.last_active_ms.store(device::now_ms(), Ordering::SeqCst);
                 }
             }
