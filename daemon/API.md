@@ -36,7 +36,7 @@ The body is `{"call": "<name>", "device": "d0", ...}`. The reply is `{"ok": true
 
 | Call | Arguments | Notes |
 | --- | --- | --- |
-| `start` | `image` (`phone`, `phone-n`, `slim5`, `slim4`, `slim3n`, ...), `screen`, `render` (`gfxstream` default, `software`), `refresh_hz` (default 120, 1-240), `boot_cap_mb` (default 600, 0 = none), `mem`, `cpus`, `net`, `auto_squeeze` | boots and waits for Android plus setup. Use `async` |
+| `start` | `image` (`phone`, `phone-n`, `slim5`, `slim4`, `slim3n`, ...), `screen`, `render` (`gfxstream` default, `software`), `refresh_hz` (default 120, 1-240), `boot_cap_mb` (default 600, 0 = none), `mem`, `cpus`, `net`, `auto_squeeze`, `keep_data` | boots and waits for Android plus setup. Use `async`. `keep_data: true` reuses the Device's disks from its last run (installed apps, sign-ins, files); refused if there is none or it was made for another Device, image or super.img. Without it the disks are wiped. `stop` runs `sync` in the guest first |
 | `start_many` | `devices: ["d0","d1",...]`, `parallel` (default 4, max 8), plus the `start` arguments | boots them, up to `parallel` at once. Reply `devices: [{device, ok, ready_s / error}]` |
 | `stop` | `device` | |
 | `stop_many` | `devices` (default: all) | stops them all at once |

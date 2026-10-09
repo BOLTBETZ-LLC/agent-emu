@@ -272,8 +272,8 @@ pub fn screen(name: &str, phone: bool) -> R<(u32, u32, u32)> {
     }
 }
 
-fn make_device(cfg: &Cfg, idx: u32, run: &str) -> R<PathBuf> {
-    let run = cfg.work.join(run);
+fn make_device(cfg: &Cfg, idx: u32, run_name: &str, keep_data: bool) -> R<PathBuf> {
+    let run = cfg.work.join(run_name);
     let d = cfg.work.join(format!("fleet/d{idx}"));
     std::fs::create_dir_all(&d).map_err(|e| e.to_string())?;
     // Relink every start: the Device dir may hold links into another image's run dir.
@@ -291,10 +291,22 @@ fn make_device(cfg: &Cfg, idx: u32, run: &str) -> R<PathBuf> {
             std::fs::hard_link(run.join(f), d.join(f)).map_err(|e| format!("link {f}: {e}"))?;
         }
     }
-    for (n, sz) in [("frp", 1u64 << 20), ("metadata", 64 << 20), ("userdata", 8 << 30), ("misc", 1 << 20), ("out", 64 << 20)] {
+    // The writable disks (userdata, metadata, misc, frp) are wiped every start unless `keep_data`. data.id
+    // stamps which Device, image and super.img they belong to; keep_data refuses any other disk.
+    let stamp = format!("d{idx} {run_name} {:?}", std::fs::metadata(run.join("super.img")).ok().map(|m| (m.len(), m.modified().ok())));
+    if keep_data {
+        match std::fs::read_to_string(d.join("data.id")) {
+            Ok(s) if s == stamp && d.join("userdata.img").exists() => {}
+            Ok(s) => return Err(format!("keep_data: d{idx}'s disk is `{}`, this start needs `{stamp}`; start without keep_data to wipe it", s.trim())),
+            Err(_) => return Err(format!("keep_data: d{idx} has no saved disk; start once without keep_data")),
+        }
+    }
+    let disks: &[(&str, u64)] = &[("frp", 1 << 20), ("metadata", 64 << 20), ("userdata", 8 << 30), ("misc", 1 << 20), ("out", 64 << 20)];
+    for &(n, sz) in if keep_data { &disks[4..] } else { disks } {
         let f = std::fs::File::create(d.join(format!("{n}.img"))).map_err(|e| format!("{n}.img: {e}"))?;
         f.set_len(sz).map_err(|e| e.to_string())?;
     }
+    std::fs::write(d.join("data.id"), &stamp).map_err(|e| format!("data.id: {e}"))?;
     for f in ["kernel.log", "logcat.log", "crosvm.log", "console.log", "os_composite.img", "os_composite.img.filler",
         "os_composite.img.footer", "os_composite.img.header", "fb.bin"] {
         let _ = std::fs::remove_file(d.join(f));
@@ -495,7 +507,7 @@ impl Device {
     /// `others_ok`: skip the "no other crosvm running" check (the caller already runs Devices).
     /// `gfx`: render with gfxstream on the host GPU; false = crosvm's 2D software renderer.
     /// `refresh_hz`: the guest display's refresh rate.
-    pub async fn spawn(cfg: &Cfg, idx: u32, image_name: &str, screen_name: &str, mem: Option<&str>, cpus: Option<&str>, net: bool, others_ok: bool, gfx: bool, refresh_hz: u32) -> R<Arc<Device>> {
+    pub async fn spawn(cfg: &Cfg, idx: u32, image_name: &str, screen_name: &str, mem: Option<&str>, cpus: Option<&str>, net: bool, others_ok: bool, gfx: bool, refresh_hz: u32, keep_data: bool) -> R<Arc<Device>> {
         let (run, image_mem) = image(image_name)?;
         let (sw, sh, dpi) = screen(screen_name, is_phone(image_name))?;
         let mem = mem.or(image_mem).unwrap_or(&cfg.mem).to_string();
@@ -507,7 +519,7 @@ impl Device {
         if !others_ok && std::env::var_os("AE_ALLOW_OTHER_CROSVM").is_none() && crosvm_running().await {
             return Err("a crosvm.exe is already running; one Device at a time".into());
         }
-        let dir = make_device(cfg, idx, run)?;
+        let dir = make_device(cfg, idx, run, keep_data)?;
         let pmem = cfg.work.join(run).join("system-pmem.img");
         let initrd = if is_phone(image_name) { "initrd.img" } else { "initrd-dax-pmem.img" };
         let mut cmd = Command::new("powershell");
@@ -672,7 +684,10 @@ impl Device {
     }
 
     pub async fn stop(&self) {
-        self.ready.store(false, Ordering::SeqCst);
+        // Flush the guest's page cache so userdata survives for a keep_data start (the kill is a power cut).
+        if self.ready.swap(false, Ordering::SeqCst) {
+            let _ = self.con.exec("sync", Duration::from_secs(15)).await;
+        }
         if let Some(c) = self.boot.lock().await.take() {
             kill_tree(c.id()).await;
         }

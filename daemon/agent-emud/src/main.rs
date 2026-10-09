@@ -262,7 +262,7 @@ async fn start_device(st: &State, idx: u32, req: &Value) -> R<(Arc<Device>, f64)
     let boot_cap = req["boot_cap_mb"].as_u64().unwrap_or(BOOT_CAP_MB);
     let info = json!({"image": if image_name.is_empty() { "slim3n (default)" } else { image_name }, "mem": shown_mem,
         "render": if gfx { "gfxstream" } else { "software" }, "refresh_hz": hz, "boot_cap_mb": boot_cap, "browser_headroom_mb": headroom,
-        "cpus": cpus.clone().unwrap_or(st.cfg.cpus.clone()), "net": net, "image_name": image_name,
+        "cpus": cpus.clone().unwrap_or(st.cfg.cpus.clone()), "net": net, "keep_data": req["keep_data"] == json!(true), "image_name": image_name,
         "screen": {"name": if screen.is_empty() { "iphone17promax" } else { screen }, "width": sw, "height": sh, "dpi": dpi}});
     let d = {
         let _g = st.lifecycle.lock().await;
@@ -280,7 +280,8 @@ async fn start_device(st: &State, idx: u32, req: &Value) -> R<(Arc<Device>, f64)
         // Other crosvm processes are fine once this daemon runs a Device itself (a fleet).
         let others_ok = !st.devs.lock().unwrap().is_empty();
         emit(st, json!({"type": "device", "device": id, "phase": "spawning", "t_s": 0.0, "info": info}));
-        let d = Device::spawn(&st.cfg, idx, image_name, screen, mem.as_deref(), cpus.as_deref(), net, others_ok, gfx, hz as u32).await.map_err(fail)?;
+        let d = Device::spawn(&st.cfg, idx, image_name, screen, mem.as_deref(), cpus.as_deref(), net, others_ok, gfx, hz as u32,
+            req["keep_data"] == json!(true)).await.map_err(fail)?;
         d.headroom_mb.store(headroom, Ordering::SeqCst);
         if boot_cap > 0 {
             tokio::spawn(boot_caps(d.clone(), boot_cap));
