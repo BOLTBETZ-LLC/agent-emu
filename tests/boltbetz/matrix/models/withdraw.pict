@@ -1,0 +1,19 @@
+# Withdraw to the saved Visa (saved-card lane L2). Money, pinned to one phone: pairwise (3-way once more lanes hold a saved card).
+Step: form_only, submit
+Amount: zero, typical_10, all_balance, over_balance
+FaultEndpoint: none, tokenizedCreditCardWithdrawal, getPaymentSources
+AppFault: none, decline, p500, timeout, soft200
+SynkrosErr: none, 12-001, 11-004, 01-001, after-01-001
+Network: normal, offline, slow
+Lifecycle: warm, bg_resume, kill_mid
+
+
+IF [FaultEndpoint] = "none" THEN [AppFault] = "none" ELSE [AppFault] <> "none";
+IF [AppFault] <> "none" THEN [SynkrosErr] = "none" AND [Network] = "normal";
+IF [Network] <> "normal" THEN [SynkrosErr] = "none";
+IF [Amount] IN {"zero", "over_balance"} THEN [Step] = "submit" AND [FaultEndpoint] = "none" AND [SynkrosErr] = "none" AND [Network] = "normal" AND [Lifecycle] = "warm";
+IF [Amount] = "all_balance" THEN [SynkrosErr] IN {"none", "12-001", "after-01-001"};
+IF [Step] = "form_only" THEN [FaultEndpoint] IN {"none", "getPaymentSources"} AND [SynkrosErr] = "none" AND [Network] = "normal" AND [Lifecycle] <> "kill_mid";
+IF [FaultEndpoint] = "getPaymentSources" THEN [AppFault] IN {"p500", "timeout", "soft200"} AND [Step] = "form_only";
+IF [FaultEndpoint] = "tokenizedCreditCardWithdrawal" THEN [Lifecycle] = "warm";
+IF [Network] = "offline" THEN [Lifecycle] = "warm";

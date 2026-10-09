@@ -1,0 +1,13 @@
+# Settings, limits (read only: Aaron 2026-10-09, no case sets a spending limit), notifications (lane L1). Pairwise.
+Screen: settings, responsible_gaming, operator_limits, notifications, email_toggle, card_ids
+FaultEndpoint: none, getBoltBetzUserByEmail, getResponsibleGamingSettings, getTransactionLimits, getNotificationsByUserId, updateNotificationPreferences
+AppFault: none, p500, problem, validation, forbidden, timeout, offline, soft200
+Lifecycle: warm, bg_resume, kill_mid
+
+IF [FaultEndpoint] = "none" THEN [AppFault] = "none" ELSE [AppFault] <> "none";
+IF [FaultEndpoint] = "getResponsibleGamingSettings" THEN [Screen] = "responsible_gaming";
+IF [FaultEndpoint] = "getTransactionLimits" THEN [Screen] = "operator_limits";
+IF [FaultEndpoint] = "getNotificationsByUserId" THEN [Screen] = "notifications";
+IF [FaultEndpoint] = "updateNotificationPreferences" THEN [Screen] = "email_toggle";
+IF [FaultEndpoint] = "getBoltBetzUserByEmail" THEN [Screen] IN {"settings", "card_ids"};
+IF [AppFault] = "validation" THEN [FaultEndpoint] = "updateNotificationPreferences";

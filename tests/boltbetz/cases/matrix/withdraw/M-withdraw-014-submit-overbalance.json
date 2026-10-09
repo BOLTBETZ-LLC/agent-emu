@@ -1,0 +1,197 @@
+{
+ "id": "M-withdraw-014-submit-overbalance",
+ "lane": "L2",
+ "timeout_s": 120,
+ "preconditions": {
+  "signed_in": true,
+  "kyc": true,
+  "venue_card": true,
+  "saved_card": true
+ },
+ "matrix": {
+  "area": "withdraw",
+  "row": {
+   "Step": "submit",
+   "Amount": "over_balance",
+   "FaultEndpoint": "none",
+   "AppFault": "none",
+   "SynkrosErr": "none",
+   "Network": "normal",
+   "Lifecycle": "warm"
+  },
+  "expect": "success",
+  "est_s": 21
+ },
+ "steps": [
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/hooks?on=1"
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  },
+  {
+   "tap_id": "tab-home",
+   "optional": true,
+   "wait_s": 2
+  },
+  {
+   "wait_id": "home-screen",
+   "wait_s": 20
+  },
+  {
+   "emu": "set_cwa",
+   "player": "{lane.player}",
+   "dollars": 35
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Wallet/WalletMain"
+  },
+  {
+   "wait_id": "wallet-main-screen",
+   "wait_s": 20
+  },
+  {
+   "call": "swipe",
+   "x1": 660,
+   "y1": 600,
+   "x2": 660,
+   "y2": 1900,
+   "device_px": true,
+   "screenshot": false
+  },
+  {
+   "sleep_ms": 2500
+  },
+  {
+   "check": {
+    "value": {
+     "emu": "/admin/api/players/{lane.player}",
+     "field": "cwaAvailable",
+     "scale": 100000
+    },
+    "save": "cwa0"
+   }
+  },
+  {
+   "tap_id": "wallet-action-withdraw"
+  },
+  {
+   "wait_id": [
+    "withdraw-amount-input",
+    "withdraw-no-card"
+   ],
+   "wait_s": 15
+  },
+  {
+   "fill": "withdraw-amount-input",
+   "text": "100"
+  },
+  {
+   "tap_id": "wallet-withdraw-balance-hero"
+  },
+  {
+   "tap_id": "withdraw-submit-button",
+   "optional": true
+  },
+  {
+   "check": {
+    "ui": "enter-pin-title",
+    "present": false,
+    "wait_s": 3
+   }
+  },
+  {
+   "check": {
+    "judge": "The withdraw screen shows a problem with the amount or balance and did not start a withdrawal",
+    "settle_s": 2
+   }
+  },
+  {
+   "check": {
+    "value": {
+     "emu": "/admin/api/players/{lane.player}",
+     "field": "cwaAvailable",
+     "scale": 100000
+    },
+    "expect": "cwa0",
+    "wait_s": 20
+   }
+  }
+ ],
+ "checks": [
+  {
+   "no_crash": "com.boltbetz.staging"
+  },
+  {
+   "logs_lack": "FATAL EXCEPTION|ReactNativeJS.*(Unhandled|TypeError|Invariant Violation)",
+   "filter": "com.boltbetz.staging"
+  },
+  {
+   "ui": "fatal-error-screen",
+   "present": false,
+   "wait_s": 1
+  }
+ ],
+ "cleanup": [
+  {
+   "tap_id": "enter-pin-close-button",
+   "optional": true
+  },
+  {
+   "tap_id": "wallet-modal-close",
+   "optional": true
+  },
+  {
+   "tap_id": "voucher-modal-close-button",
+   "optional": true
+  },
+  {
+   "tap_id": "tip-close-button",
+   "optional": true
+  },
+  {
+   "tap_id": "machine-tips-sheet-close-button",
+   "optional": true
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/fault?clear=1"
+  },
+  {
+   "emu": "req",
+   "method": "POST",
+   "path": "/admin/api/cards/{lane.card}/lock",
+   "body": {
+    "locked": false
+   },
+   "optional": true
+  },
+  {
+   "emu": "req",
+   "method": "PUT",
+   "path": "/admin/api/players/{lane.player}",
+   "body": {
+    "cwaEnabled": true
+   },
+   "optional": true
+  },
+  {
+   "emu": "end_session",
+   "asset": "{lane.machine}",
+   "optional": true
+  },
+  {
+   "emu": "set_cwa",
+   "player": "{lane.player}",
+   "dollars": 25
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  }
+ ],
+ "note": "PICT row 14 of matrix/models/withdraw.pict: Step=submit, Amount=over_balance, FaultEndpoint=none, AppFault=none, SynkrosErr=none, Network=normal, Lifecycle=warm"
+}

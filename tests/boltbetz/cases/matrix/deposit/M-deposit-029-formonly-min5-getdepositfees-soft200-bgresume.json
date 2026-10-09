@@ -1,0 +1,191 @@
+{
+ "id": "M-deposit-029-formonly-min5-getdepositfees-soft200-bgresume",
+ "lane": "L2",
+ "timeout_s": 120,
+ "preconditions": {
+  "signed_in": true,
+  "kyc": true,
+  "venue_card": true,
+  "saved_card": true
+ },
+ "matrix": {
+  "area": "deposit",
+  "row": {
+   "Step": "form_only",
+   "Amount": "min_5",
+   "FaultEndpoint": "getDepositFees",
+   "AppFault": "soft200",
+   "SynkrosErr": "none",
+   "Network": "normal",
+   "Lifecycle": "bg_resume"
+  },
+  "expect": "error",
+  "est_s": 21
+ },
+ "steps": [
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/hooks?on=1"
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  },
+  {
+   "tap_id": "tab-home",
+   "optional": true,
+   "wait_s": 2
+  },
+  {
+   "wait_id": "home-screen",
+   "wait_s": 20
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/fault?endpoint=getDepositFees&status=200&body=%7B%22transactionStatus%22%3A%20%22Failed%22%2C%20%22status%22%3A%20%22Failed%22%2C%20%22message%22%3A%20%22QA%20soft-200%20failure%22%7D"
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Wallet/WalletMain"
+  },
+  {
+   "wait_id": "wallet-main-screen",
+   "wait_s": 20
+  },
+  {
+   "check": {
+    "value": {
+     "emu": "/admin/api/players/{lane.player}",
+     "field": "cwaAvailable",
+     "scale": 100000
+    },
+    "save": "cwa0"
+   }
+  },
+  {
+   "tap_id": "wallet-action-deposit"
+  },
+  {
+   "wait_id": "wallet-deposit-screen"
+  },
+  {
+   "fill": "deposit-screen-amount-input",
+   "text": "5"
+  },
+  {
+   "tap_id": "deposit-amount-title"
+  },
+  {
+   "call": "key",
+   "name": "home",
+   "screenshot": false
+  },
+  {
+   "sleep_ms": 1500
+  },
+  {
+   "call": "app",
+   "launch": "com.boltbetz.staging"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "check": {
+    "judge": "The screen tells the user something went wrong or is unavailable (an error message, a retry button or an unavailable state) and does not show the action as completed",
+    "settle_s": 2
+   }
+  },
+  {
+   "check": {
+    "ui": "enter-pin-title",
+    "present": false,
+    "wait_s": 2
+   }
+  },
+  {
+   "check": {
+    "value": {
+     "emu": "/admin/api/players/{lane.player}",
+     "field": "cwaAvailable",
+     "scale": 100000
+    },
+    "expect": "cwa0",
+    "wait_s": 20
+   }
+  }
+ ],
+ "checks": [
+  {
+   "no_crash": "com.boltbetz.staging"
+  },
+  {
+   "logs_lack": "FATAL EXCEPTION|ReactNativeJS.*(Unhandled|TypeError|Invariant Violation)",
+   "filter": "com.boltbetz.staging"
+  },
+  {
+   "ui": "fatal-error-screen",
+   "present": false,
+   "wait_s": 1
+  }
+ ],
+ "cleanup": [
+  {
+   "tap_id": "enter-pin-close-button",
+   "optional": true
+  },
+  {
+   "tap_id": "wallet-modal-close",
+   "optional": true
+  },
+  {
+   "tap_id": "voucher-modal-close-button",
+   "optional": true
+  },
+  {
+   "tap_id": "tip-close-button",
+   "optional": true
+  },
+  {
+   "tap_id": "machine-tips-sheet-close-button",
+   "optional": true
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/fault?clear=1"
+  },
+  {
+   "emu": "req",
+   "method": "POST",
+   "path": "/admin/api/cards/{lane.card}/lock",
+   "body": {
+    "locked": false
+   },
+   "optional": true
+  },
+  {
+   "emu": "req",
+   "method": "PUT",
+   "path": "/admin/api/players/{lane.player}",
+   "body": {
+    "cwaEnabled": true
+   },
+   "optional": true
+  },
+  {
+   "emu": "end_session",
+   "asset": "{lane.machine}",
+   "optional": true
+  },
+  {
+   "emu": "set_cwa",
+   "player": "{lane.player}",
+   "dollars": 25
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  }
+ ],
+ "note": "PICT row 29 of matrix/models/deposit.pict: Step=form_only, Amount=min_5, FaultEndpoint=getDepositFees, AppFault=soft200, SynkrosErr=none, Network=normal, Lifecycle=bg_resume"
+}

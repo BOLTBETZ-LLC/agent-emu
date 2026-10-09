@@ -1,0 +1,17 @@
+# Wallet tip (cash-out voucher) and voucher barcode (scanner lane). Money: 3-way on entry x amount x Synkros error.
+Entry: wallet_tip, voucher_view
+Amount: na, zero, small, over_balance
+State: funded, zero_balance
+FaultEndpoint: none, tipWithdrawal, getAvailableTipAmount, getVoucherBarcodeImages
+AppFault: none, p500, problem, validation, timeout, offline, soft200
+SynkrosErr: none, 22-012, 12-001, 12-002, 01-001, after-01-001
+Lifecycle: warm, bg_resume, kill_mid
+
+{ Entry, Amount, SynkrosErr } @ 3
+
+IF [Entry] = "voucher_view" THEN [Amount] = "na" AND [SynkrosErr] = "none" AND [FaultEndpoint] IN {"none", "getVoucherBarcodeImages"} ELSE [Amount] <> "na" AND [FaultEndpoint] <> "getVoucherBarcodeImages";
+IF [FaultEndpoint] = "none" THEN [AppFault] = "none" ELSE [AppFault] <> "none";
+IF [AppFault] <> "none" THEN [SynkrosErr] = "none";
+IF [Amount] IN {"zero", "over_balance"} THEN [SynkrosErr] = "none" AND [FaultEndpoint] <> "tipWithdrawal";
+IF [State] = "zero_balance" THEN [Amount] IN {"na", "small"} AND [SynkrosErr] = "none";
+IF [FaultEndpoint] = "tipWithdrawal" THEN [Lifecycle] <> "kill_mid";

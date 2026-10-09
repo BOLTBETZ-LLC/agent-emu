@@ -1,0 +1,195 @@
+{
+ "id": "M-rewards-010-list-onefreeplay-getplayerrewards-soft200-killmid",
+ "lane": "any",
+ "timeout_s": 120,
+ "preconditions": {
+  "signed_in": true,
+  "kyc": true,
+  "venue_card": true
+ },
+ "matrix": {
+  "area": "rewards",
+  "row": {
+   "Step": "list",
+   "Offers": "one_freeplay",
+   "FaultEndpoint": "getPlayerRewards",
+   "AppFault": "soft200",
+   "SynkrosErr": "none",
+   "Network": "normal",
+   "Lifecycle": "kill_mid"
+  },
+  "expect": "error",
+  "est_s": 33
+ },
+ "steps": [
+  {
+   "emu": "clear_offers",
+   "player": "{lane.player}"
+  },
+  {
+   "emu": "offer",
+   "player": "{lane.player}",
+   "name": "QA {lane.id} Offer A",
+   "freeplay": 5
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/hooks?on=1"
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  },
+  {
+   "tap_id": "tab-home",
+   "optional": true,
+   "wait_s": 2
+  },
+  {
+   "wait_id": "home-screen",
+   "wait_s": 20
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/fault?endpoint=getPlayerRewards&status=200&body=%7B%22transactionStatus%22%3A%20%22Failed%22%2C%20%22status%22%3A%20%22Failed%22%2C%20%22message%22%3A%20%22QA%20soft-200%20failure%22%7D"
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Rewards"
+  },
+  {
+   "wait_id": "rewards-screen"
+  },
+  {
+   "call": "swipe",
+   "x1": 660,
+   "y1": 600,
+   "x2": 660,
+   "y2": 1900,
+   "device_px": true,
+   "screenshot": false
+  },
+  {
+   "sleep_ms": 2500
+  },
+  {
+   "call": "shell",
+   "cmd": "am force-stop com.boltbetz.staging"
+  },
+  {
+   "call": "app",
+   "launch": "com.boltbetz.staging"
+  },
+  {
+   "wait_id": [
+    "home-screen",
+    "tab-home"
+   ],
+   "wait_s": 40
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/hooks?on=1"
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Rewards"
+  },
+  {
+   "wait_id": "rewards-screen"
+  },
+  {
+   "call": "swipe",
+   "x1": 660,
+   "y1": 600,
+   "x2": 660,
+   "y2": 1900,
+   "device_px": true,
+   "screenshot": false
+  },
+  {
+   "sleep_ms": 2500
+  },
+  {
+   "wait_id": "QA {lane.id} Offer A",
+   "wait_s": 20
+  }
+ ],
+ "checks": [
+  {
+   "no_crash": "com.boltbetz.staging"
+  },
+  {
+   "logs_lack": "FATAL EXCEPTION|ReactNativeJS.*(Unhandled|TypeError|Invariant Violation)",
+   "filter": "com.boltbetz.staging"
+  },
+  {
+   "ui": "fatal-error-screen",
+   "present": false,
+   "wait_s": 1
+  }
+ ],
+ "cleanup": [
+  {
+   "tap_id": "enter-pin-close-button",
+   "optional": true
+  },
+  {
+   "tap_id": "wallet-modal-close",
+   "optional": true
+  },
+  {
+   "tap_id": "voucher-modal-close-button",
+   "optional": true
+  },
+  {
+   "tap_id": "tip-close-button",
+   "optional": true
+  },
+  {
+   "tap_id": "machine-tips-sheet-close-button",
+   "optional": true
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/fault?clear=1"
+  },
+  {
+   "emu": "req",
+   "method": "POST",
+   "path": "/admin/api/cards/{lane.card}/lock",
+   "body": {
+    "locked": false
+   },
+   "optional": true
+  },
+  {
+   "emu": "req",
+   "method": "PUT",
+   "path": "/admin/api/players/{lane.player}",
+   "body": {
+    "cwaEnabled": true
+   },
+   "optional": true
+  },
+  {
+   "emu": "end_session",
+   "asset": "{lane.machine}",
+   "optional": true
+  },
+  {
+   "emu": "set_cwa",
+   "player": "{lane.player}",
+   "dollars": 25
+  },
+  {
+   "emu": "clear_offers",
+   "player": "{lane.player}"
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  }
+ ],
+ "note": "PICT row 10 of matrix/models/rewards.pict: Step=list, Offers=one_freeplay, FaultEndpoint=getPlayerRewards, AppFault=soft200, SynkrosErr=none, Network=normal, Lifecycle=kill_mid"
+}

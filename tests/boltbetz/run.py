@@ -167,6 +167,15 @@ def do_step(device, step, ctx=None):
                 if oid is not None:
                     emu.req("DELETE", f"/admin/api/players/{step['player']}/offers/{oid}")
             return
+        if step["emu"] == "req":  # any admin call: {"emu": "req", "method": "POST", "path": "/admin/api/errors", "body": {...}}
+            body = {k: int(v) if isinstance(v, str) and v.isdigit() and k.endswith("Id") else v
+                    for k, v in step.get("body", {}).items()} if "body" in step else None
+            try:
+                emu.req(step.get("method", "GET"), step["path"], body)
+            except RuntimeError:
+                if not step.get("optional"):
+                    raise
+            return
         if step["emu"] == "type_qr":
             call(device, "type_text", text=emu.feed(step["asset"])["qrToken"], screenshot=False)
         else:

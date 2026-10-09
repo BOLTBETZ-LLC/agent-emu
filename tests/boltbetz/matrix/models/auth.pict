@@ -1,0 +1,5 @@
+# Signed-out Login / Create account email entry (needs a signed-out phone). Never taps Send code. Pairwise.
+Screen: login_email, signup_email
+Input: valid, plus_tag, long_254, no_at, empty, spaces
+FlagsFault: none, p500, timeout, offline, soft200
+Lifecycle: warm, cold_start, bg_resume

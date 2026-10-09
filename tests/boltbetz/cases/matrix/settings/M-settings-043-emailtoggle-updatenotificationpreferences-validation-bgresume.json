@@ -1,0 +1,184 @@
+{
+ "id": "M-settings-043-emailtoggle-updatenotificationpreferences-validation-bgresume",
+ "lane": "any",
+ "timeout_s": 120,
+ "preconditions": {
+  "signed_in": true,
+  "kyc": true,
+  "venue_card": true
+ },
+ "matrix": {
+  "area": "settings",
+  "row": {
+   "Screen": "email_toggle",
+   "FaultEndpoint": "updateNotificationPreferences",
+   "AppFault": "validation",
+   "Lifecycle": "bg_resume"
+  },
+  "expect": "error",
+  "est_s": 23
+ },
+ "steps": [
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/hooks?on=1"
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  },
+  {
+   "tap_id": "tab-home",
+   "optional": true,
+   "wait_s": 2
+  },
+  {
+   "wait_id": "home-screen",
+   "wait_s": 20
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/fault?endpoint=updateNotificationPreferences&preset=validation"
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Settings"
+  },
+  {
+   "wait_id": "settings-screen",
+   "wait_s": 15
+  },
+  {
+   "call": "key",
+   "name": "home",
+   "screenshot": false
+  },
+  {
+   "sleep_ms": 1500
+  },
+  {
+   "call": "app",
+   "launch": "com.boltbetz.staging"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Settings"
+  },
+  {
+   "wait_id": "settings-screen",
+   "wait_s": 15
+  },
+  {
+   "call": "swipe",
+   "x1": 660,
+   "y1": 2300,
+   "x2": 660,
+   "y2": 700,
+   "device_px": true,
+   "screenshot": false
+  },
+  {
+   "tap_id": "settings-email-notifications"
+  },
+  {
+   "sleep_ms": 2500
+  },
+  {
+   "check": {
+    "screenshot": "toggled"
+   }
+  },
+  {
+   "check": {
+    "judge": "The app says the setting could not be saved, or the switch went back to where it was",
+    "settle_s": 2
+   }
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/fault?clear=1"
+  },
+  {
+   "tap_id": "settings-email-notifications"
+  },
+  {
+   "sleep_ms": 2500
+  }
+ ],
+ "checks": [
+  {
+   "no_crash": "com.boltbetz.staging"
+  },
+  {
+   "logs_lack": "FATAL EXCEPTION|ReactNativeJS.*(Unhandled|TypeError|Invariant Violation)",
+   "filter": "com.boltbetz.staging"
+  },
+  {
+   "ui": "fatal-error-screen",
+   "present": false,
+   "wait_s": 1
+  }
+ ],
+ "cleanup": [
+  {
+   "tap_id": "enter-pin-close-button",
+   "optional": true
+  },
+  {
+   "tap_id": "wallet-modal-close",
+   "optional": true
+  },
+  {
+   "tap_id": "voucher-modal-close-button",
+   "optional": true
+  },
+  {
+   "tap_id": "tip-close-button",
+   "optional": true
+  },
+  {
+   "tap_id": "machine-tips-sheet-close-button",
+   "optional": true
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/fault?clear=1"
+  },
+  {
+   "emu": "req",
+   "method": "POST",
+   "path": "/admin/api/cards/{lane.card}/lock",
+   "body": {
+    "locked": false
+   },
+   "optional": true
+  },
+  {
+   "emu": "req",
+   "method": "PUT",
+   "path": "/admin/api/players/{lane.player}",
+   "body": {
+    "cwaEnabled": true
+   },
+   "optional": true
+  },
+  {
+   "emu": "end_session",
+   "asset": "{lane.machine}",
+   "optional": true
+  },
+  {
+   "emu": "set_cwa",
+   "player": "{lane.player}",
+   "dollars": 25
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  }
+ ],
+ "note": "PICT row 43 of matrix/models/settings.pict: Screen=email_toggle, FaultEndpoint=updateNotificationPreferences, AppFault=validation, Lifecycle=bg_resume"
+}

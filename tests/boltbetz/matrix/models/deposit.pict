@@ -1,0 +1,20 @@
+# Card deposit from the saved Visa (saved-card lane L2). Money, pinned to one phone: pairwise (3-way once more lanes hold a saved card).
+# Every matrix case starts from a cold app (the runner's reset), so "warm" means no extra lifecycle event.
+Step: form_only, submit
+Amount: zero, below_min, min_5, typical_10, over_daily
+FaultEndpoint: none, tokenizedCreditCardDeposit, getDepositFees
+AppFault: none, decline, p500, timeout, soft200
+SynkrosErr: none, 12-002, 11-004, 01-001, after-01-001
+Network: normal, offline, slow
+Lifecycle: warm, bg_resume, kill_mid
+
+
+IF [FaultEndpoint] = "none" THEN [AppFault] = "none" ELSE [AppFault] <> "none";
+IF [AppFault] <> "none" THEN [SynkrosErr] = "none" AND [Network] = "normal";
+IF [Network] <> "normal" THEN [SynkrosErr] = "none";
+# invalid amounts never leave the phone: checked once each, warm, no server-side cause
+IF [Amount] IN {"zero", "below_min", "over_daily"} THEN [Step] = "submit" AND [FaultEndpoint] = "none" AND [SynkrosErr] = "none" AND [Network] = "normal" AND [Lifecycle] = "warm";
+IF [Step] = "form_only" THEN [FaultEndpoint] IN {"none", "getDepositFees"} AND [SynkrosErr] = "none" AND [Network] = "normal" AND [Lifecycle] <> "kill_mid";
+IF [FaultEndpoint] = "getDepositFees" THEN [AppFault] IN {"p500", "timeout", "soft200"} AND [Step] = "form_only";
+IF [FaultEndpoint] = "tokenizedCreditCardDeposit" THEN [Lifecycle] = "warm";
+IF [Network] = "offline" THEN [Lifecycle] = "warm";

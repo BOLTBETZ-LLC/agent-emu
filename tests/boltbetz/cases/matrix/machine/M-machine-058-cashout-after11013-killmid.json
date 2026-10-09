@@ -1,0 +1,249 @@
+{
+ "id": "M-machine-058-cashout-after11013-killmid",
+ "lane": "any",
+ "timeout_s": 240,
+ "preconditions": {
+  "signed_in": true,
+  "kyc": true,
+  "venue_card": true
+ },
+ "matrix": {
+  "area": "machine",
+  "row": {
+   "Step": "cashout",
+   "Amount": "na",
+   "State": "funded",
+   "AppFault": "none",
+   "SynkrosErr": "after-11-013",
+   "Network": "normal",
+   "Lifecycle": "kill_mid"
+  },
+  "expect": "success",
+  "est_s": 65
+ },
+ "steps": [
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/hooks?on=1"
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  },
+  {
+   "tap_id": "tab-home",
+   "optional": true,
+   "wait_s": 2
+  },
+  {
+   "wait_id": "home-screen",
+   "wait_s": 20
+  },
+  {
+   "check": {
+    "value": {
+     "emu": "/admin/api/players/{lane.player}",
+     "field": "cwaAvailable",
+     "scale": 100000
+    },
+    "save": "cwa0"
+   }
+  },
+  {
+   "emu": "end_session",
+   "asset": "{lane.machine}",
+   "optional": true
+  },
+  {
+   "tap_id": "tab-boltbetz"
+  },
+  {
+   "wait_id": "qa-machine-scan-input",
+   "wait_s": 12
+  },
+  {
+   "tap_id": "qa-machine-scan-input"
+  },
+  {
+   "emu": "type_qr",
+   "asset": "{lane.machine}"
+  },
+  {
+   "tap_id": "qa-machine-scan-submit"
+  },
+  {
+   "wait_id": "machine-connected-screen",
+   "wait_s": 25
+  },
+  {
+   "tap_id": "machine-play-option-info-button-cwa"
+  },
+  {
+   "wait_id": "machine-transfer-sheet"
+  },
+  {
+   "fill": "machine-transfer-amount",
+   "text": "5"
+  },
+  {
+   "tap_id": "machine-transfer-title"
+  },
+  {
+   "tap_id": "machine-transfer-submit"
+  },
+  {
+   "emu": "pin",
+   "player": "{lane.player}"
+  },
+  {
+   "check": {
+    "value": {
+     "emu": "/machine/{lane.machine}/feed",
+     "field": "meterMillicents",
+     "scale": 100000
+    },
+    "expect": "5",
+    "wait_s": 20
+   }
+  },
+  {
+   "emu": "req",
+   "method": "POST",
+   "path": "/admin/api/errors",
+   "body": {
+    "operation": "egm-logouts",
+    "errorCode": "11-013",
+    "times": 1,
+    "playerId": "{lane.player}",
+    "timing": "after"
+   }
+  },
+  {
+   "tap_id": "machine-session-disconnect-button",
+   "wait_s": 8
+  },
+  {
+   "tap_id": "machine-session-disconnect-confirm-button",
+   "wait_s": 8
+  },
+  {
+   "call": "shell",
+   "cmd": "am force-stop com.boltbetz.staging"
+  },
+  {
+   "call": "app",
+   "launch": "com.boltbetz.staging"
+  },
+  {
+   "wait_id": [
+    "home-screen",
+    "tab-home"
+   ],
+   "wait_s": 40
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/hooks?on=1"
+  },
+  {
+   "sleep_ms": 3000
+  },
+  {
+   "sleep_ms": 5000
+  },
+  {
+   "check": {
+    "value": {
+     "emu": "/machine/{lane.machine}/feed",
+     "field": "meterMillicents",
+     "scale": 100000
+    },
+    "save": "m1"
+   }
+  },
+  {
+   "check": {
+    "value": {
+     "emu": "/admin/api/players/{lane.player}",
+     "field": "cwaAvailable",
+     "scale": 100000
+    },
+    "expect": "cwa0 - m1",
+    "wait_s": 20
+   }
+  }
+ ],
+ "checks": [
+  {
+   "no_crash": "com.boltbetz.staging"
+  },
+  {
+   "logs_lack": "FATAL EXCEPTION|ReactNativeJS.*(Unhandled|TypeError|Invariant Violation)",
+   "filter": "com.boltbetz.staging"
+  },
+  {
+   "ui": "fatal-error-screen",
+   "present": false,
+   "wait_s": 1
+  }
+ ],
+ "cleanup": [
+  {
+   "tap_id": "enter-pin-close-button",
+   "optional": true
+  },
+  {
+   "tap_id": "wallet-modal-close",
+   "optional": true
+  },
+  {
+   "tap_id": "voucher-modal-close-button",
+   "optional": true
+  },
+  {
+   "tap_id": "tip-close-button",
+   "optional": true
+  },
+  {
+   "tap_id": "machine-tips-sheet-close-button",
+   "optional": true
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/fault?clear=1"
+  },
+  {
+   "emu": "req",
+   "method": "POST",
+   "path": "/admin/api/cards/{lane.card}/lock",
+   "body": {
+    "locked": false
+   },
+   "optional": true
+  },
+  {
+   "emu": "req",
+   "method": "PUT",
+   "path": "/admin/api/players/{lane.player}",
+   "body": {
+    "cwaEnabled": true
+   },
+   "optional": true
+  },
+  {
+   "emu": "end_session",
+   "asset": "{lane.machine}",
+   "optional": true
+  },
+  {
+   "emu": "set_cwa",
+   "player": "{lane.player}",
+   "dollars": 25
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  }
+ ],
+ "note": "PICT row 58 of matrix/models/machine.pict: Step=cashout, Amount=na, State=funded, AppFault=none, SynkrosErr=after-11-013, Network=normal, Lifecycle=kill_mid"
+}

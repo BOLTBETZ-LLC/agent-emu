@@ -1,0 +1,217 @@
+{
+ "id": "M-machine-053-transfer-typical5-zerobalance-synkros",
+ "lane": "any",
+ "timeout_s": 180,
+ "preconditions": {
+  "signed_in": true,
+  "kyc": true,
+  "venue_card": true
+ },
+ "matrix": {
+  "area": "machine",
+  "row": {
+   "Step": "transfer",
+   "Amount": "typical_5",
+   "State": "zero_balance",
+   "AppFault": "synkros",
+   "SynkrosErr": "none",
+   "Network": "normal",
+   "Lifecycle": "warm"
+  },
+  "expect": "error",
+  "est_s": 37
+ },
+ "steps": [
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/hooks?on=1"
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  },
+  {
+   "tap_id": "tab-home",
+   "optional": true,
+   "wait_s": 2
+  },
+  {
+   "wait_id": "home-screen",
+   "wait_s": 20
+  },
+  {
+   "emu": "set_cwa",
+   "player": "{lane.player}",
+   "dollars": 0
+  },
+  {
+   "emu": "set_cwa",
+   "player": "{lane.player}",
+   "dollars": 0
+  },
+  {
+   "check": {
+    "value": {
+     "emu": "/admin/api/players/{lane.player}",
+     "field": "cwaAvailable",
+     "scale": 100000
+    },
+    "save": "cwa0"
+   }
+  },
+  {
+   "emu": "end_session",
+   "asset": "{lane.machine}",
+   "optional": true
+  },
+  {
+   "tap_id": "tab-boltbetz"
+  },
+  {
+   "wait_id": "qa-machine-scan-input",
+   "wait_s": 12
+  },
+  {
+   "tap_id": "qa-machine-scan-input"
+  },
+  {
+   "emu": "type_qr",
+   "asset": "{lane.machine}"
+  },
+  {
+   "tap_id": "qa-machine-scan-submit"
+  },
+  {
+   "wait_id": "machine-connected-screen",
+   "wait_s": 25
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/fault?endpoint=transferCwa&preset=synkros"
+  },
+  {
+   "tap_id": "machine-play-option-info-button-cwa"
+  },
+  {
+   "wait_id": "machine-transfer-sheet"
+  },
+  {
+   "fill": "machine-transfer-amount",
+   "text": "5"
+  },
+  {
+   "tap_id": "machine-transfer-title"
+  },
+  {
+   "tap_id": "machine-transfer-submit"
+  },
+  {
+   "check": {
+    "ui": "pin-cell-0",
+    "present": false,
+    "wait_s": 3
+   }
+  },
+  {
+   "check": {
+    "judge": "The screen tells the user something went wrong or is unavailable (an error message, a retry button or an unavailable state) and does not show the action as completed",
+    "settle_s": 2
+   }
+  },
+  {
+   "check": {
+    "value": {
+     "emu": "/machine/{lane.machine}/feed",
+     "field": "meterMillicents",
+     "scale": 100000
+    },
+    "expect": "0",
+    "wait_s": 20
+   }
+  },
+  {
+   "check": {
+    "value": {
+     "emu": "/admin/api/players/{lane.player}",
+     "field": "cwaAvailable",
+     "scale": 100000
+    },
+    "expect": "cwa0",
+    "wait_s": 20
+   }
+  }
+ ],
+ "checks": [
+  {
+   "no_crash": "com.boltbetz.staging"
+  },
+  {
+   "logs_lack": "FATAL EXCEPTION|ReactNativeJS.*(Unhandled|TypeError|Invariant Violation)",
+   "filter": "com.boltbetz.staging"
+  },
+  {
+   "ui": "fatal-error-screen",
+   "present": false,
+   "wait_s": 1
+  }
+ ],
+ "cleanup": [
+  {
+   "tap_id": "enter-pin-close-button",
+   "optional": true
+  },
+  {
+   "tap_id": "wallet-modal-close",
+   "optional": true
+  },
+  {
+   "tap_id": "voucher-modal-close-button",
+   "optional": true
+  },
+  {
+   "tap_id": "tip-close-button",
+   "optional": true
+  },
+  {
+   "tap_id": "machine-tips-sheet-close-button",
+   "optional": true
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/fault?clear=1"
+  },
+  {
+   "emu": "req",
+   "method": "POST",
+   "path": "/admin/api/cards/{lane.card}/lock",
+   "body": {
+    "locked": false
+   },
+   "optional": true
+  },
+  {
+   "emu": "req",
+   "method": "PUT",
+   "path": "/admin/api/players/{lane.player}",
+   "body": {
+    "cwaEnabled": true
+   },
+   "optional": true
+  },
+  {
+   "emu": "end_session",
+   "asset": "{lane.machine}",
+   "optional": true
+  },
+  {
+   "emu": "set_cwa",
+   "player": "{lane.player}",
+   "dollars": 25
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  }
+ ],
+ "note": "PICT row 53 of matrix/models/machine.pict: Step=transfer, Amount=typical_5, State=zero_balance, AppFault=synkros, SynkrosErr=none, Network=normal, Lifecycle=warm"
+}

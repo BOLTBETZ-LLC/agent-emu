@@ -1,0 +1,109 @@
+{
+ "id": "M-auth-015-loginemail-spaces-soft200-bgresume",
+ "lane": "L1",
+ "timeout_s": 90,
+ "preconditions": {
+  "signed_in": false,
+  "kyc": true,
+  "venue_card": true,
+  "app_launched": "com.boltbetz.staging"
+ },
+ "matrix": {
+  "area": "auth",
+  "row": {
+   "Screen": "login_email",
+   "Input": "spaces",
+   "FlagsFault": "soft200",
+   "Lifecycle": "bg_resume"
+  },
+  "expect": "error",
+  "est_s": 21
+ },
+ "steps": [
+  {
+   "call": "shell",
+   "cmd": "am force-stop com.boltbetz.staging"
+  },
+  {
+   "call": "app",
+   "launch": "com.boltbetz.staging"
+  },
+  {
+   "wait_id": [
+    "start-screen",
+    "login-screen"
+   ],
+   "wait_s": 30
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/fault?endpoint=getFlags&status=200&body=%7B%22transactionStatus%22%3A%20%22Failed%22%2C%20%22status%22%3A%20%22Failed%22%2C%20%22message%22%3A%20%22QA%20soft-200%20failure%22%7D"
+  },
+  {
+   "call": "key",
+   "name": "home",
+   "screenshot": false
+  },
+  {
+   "sleep_ms": 1500
+  },
+  {
+   "call": "app",
+   "launch": "com.boltbetz.staging"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "tap_id": "start-login",
+   "optional": true,
+   "wait_s": 5
+  },
+  {
+   "wait_id": "login-screen"
+  },
+  {
+   "tap_id": "login-email-toggle",
+   "optional": true,
+   "wait_s": 2
+  },
+  {
+   "tap_id": "login-identifier-input"
+  },
+  {
+   "call": "type_text",
+   "text": "lane agent@example.com",
+   "screenshot": false
+  },
+  {
+   "sleep_ms": 1000
+  },
+  {
+   "check": {
+    "screenshot": "typed"
+   }
+  },
+  {
+   "check": {
+    "judge": "The send code button is disabled, or the screen says the email is not valid",
+    "settle_s": 1
+   }
+  }
+ ],
+ "checks": [
+  {
+   "no_crash": "com.boltbetz.staging"
+  },
+  {
+   "logs_lack": "FATAL EXCEPTION|ReactNativeJS.*(Unhandled|TypeError|Invariant Violation)",
+   "filter": "com.boltbetz.staging"
+  }
+ ],
+ "cleanup": [
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/fault?clear=1"
+  }
+ ],
+ "note": "PICT row 15 of matrix/models/auth.pict: Screen=login_email, Input=spaces, FlagsFault=soft200, Lifecycle=bg_resume"
+}

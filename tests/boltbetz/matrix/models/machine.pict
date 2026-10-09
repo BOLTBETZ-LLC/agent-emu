@@ -1,0 +1,22 @@
+# Machine connect / transfer / cash out on the lane machine (scanner lane, camera off). Money: 3-way on step x amount x Synkros error.
+Step: connect, connect_link_text, connect_garbage, transfer, cashout
+Amount: na, zero, typical_5, over_balance
+State: funded, zero_balance, locked_card
+AppFault: none, p500, synkros, validation, timeout, offline, soft200
+SynkrosErr: none, 31-001, 30-006, 11-004, 12-001, 11-013, 02-002, after-11-013
+Network: normal, offline, slow
+Lifecycle: warm, bg_resume, kill_mid
+
+{ Step, Amount, SynkrosErr } @ 3
+
+IF [Step] = "transfer" THEN [Amount] <> "na" ELSE [Amount] = "na";
+IF [Step] IN {"connect_link_text", "connect_garbage"} THEN [AppFault] = "none" AND [SynkrosErr] = "none" AND [Network] = "normal";
+IF [AppFault] <> "none" THEN [SynkrosErr] = "none" AND [Network] = "normal";
+IF [Network] <> "normal" THEN [SynkrosErr] = "none";
+# Synkros operation per step: egm-logins (connect), funds-transfers (transfer), egm-logouts (cashout)
+IF [Step] = "connect" THEN [SynkrosErr] IN {"none", "31-001", "30-006", "11-004"};
+IF [Step] = "transfer" THEN [SynkrosErr] IN {"none", "12-001", "11-013", "after-11-013"};
+IF [Step] = "cashout" THEN [SynkrosErr] IN {"none", "02-002", "11-013", "after-11-013"};
+IF [Amount] IN {"zero", "over_balance"} THEN [SynkrosErr] = "none" AND [AppFault] = "none" AND [Network] = "normal";
+IF [State] = "zero_balance" THEN [Step] IN {"connect", "transfer"} AND [Amount] IN {"na", "typical_5"};
+IF [State] = "locked_card" THEN [Step] = "connect" AND [SynkrosErr] = "none";

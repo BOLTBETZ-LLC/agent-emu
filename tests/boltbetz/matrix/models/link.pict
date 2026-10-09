@@ -1,0 +1,7 @@
+# Venue card link: venue list and operator page; never submits a link (lane L4). Pairwise.
+Step: venue_list, open_operator
+Operator: op1, op2
+AppFault: none, p500, problem, forbidden, timeout, offline, soft200
+Lifecycle: warm, bg_resume
+
+IF [AppFault] <> "none" THEN [Step] = "venue_list";

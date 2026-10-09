@@ -1,0 +1,204 @@
+{
+ "id": "M-rewards-009-redeem-onefreeplay-35004-bgresume",
+ "lane": "any",
+ "timeout_s": 150,
+ "preconditions": {
+  "signed_in": true,
+  "kyc": true,
+  "venue_card": true
+ },
+ "matrix": {
+  "area": "rewards",
+  "row": {
+   "Step": "redeem",
+   "Offers": "one_freeplay",
+   "FaultEndpoint": "none",
+   "AppFault": "none",
+   "SynkrosErr": "35-004",
+   "Network": "normal",
+   "Lifecycle": "bg_resume"
+  },
+  "expect": "error",
+  "est_s": 31
+ },
+ "steps": [
+  {
+   "emu": "clear_offers",
+   "player": "{lane.player}"
+  },
+  {
+   "emu": "offer",
+   "player": "{lane.player}",
+   "name": "QA {lane.id} Offer A",
+   "freeplay": 5
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/hooks?on=1"
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  },
+  {
+   "tap_id": "tab-home",
+   "optional": true,
+   "wait_s": 2
+  },
+  {
+   "wait_id": "home-screen",
+   "wait_s": 20
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Rewards"
+  },
+  {
+   "wait_id": "rewards-screen"
+  },
+  {
+   "call": "swipe",
+   "x1": 660,
+   "y1": 600,
+   "x2": 660,
+   "y2": 1900,
+   "device_px": true,
+   "screenshot": false
+  },
+  {
+   "sleep_ms": 2500
+  },
+  {
+   "call": "key",
+   "name": "home",
+   "screenshot": false
+  },
+  {
+   "sleep_ms": 1500
+  },
+  {
+   "call": "app",
+   "launch": "com.boltbetz.staging"
+  },
+  {
+   "sleep_ms": 800
+  },
+  {
+   "wait_id": "QA {lane.id} Offer A",
+   "wait_s": 20
+  },
+  {
+   "emu": "req",
+   "method": "POST",
+   "path": "/admin/api/errors",
+   "body": {
+    "operation": "award-selections",
+    "errorCode": "35-004",
+    "times": 1,
+    "playerId": "{lane.player}"
+   }
+  },
+  {
+   "tap_id": "Redeem Now"
+  },
+  {
+   "wait_id": "reward-redeem-button"
+  },
+  {
+   "tap_id": "reward-redeem-button"
+  },
+  {
+   "sleep_ms": 3000
+  },
+  {
+   "check": {
+    "ui": "rewards-redeemed-title",
+    "present": false,
+    "wait_s": 3
+   }
+  },
+  {
+   "check": {
+    "judge": "The screen tells the user something went wrong or is unavailable (an error message, a retry button or an unavailable state) and does not show the action as completed",
+    "settle_s": 2
+   }
+  }
+ ],
+ "checks": [
+  {
+   "no_crash": "com.boltbetz.staging"
+  },
+  {
+   "logs_lack": "FATAL EXCEPTION|ReactNativeJS.*(Unhandled|TypeError|Invariant Violation)",
+   "filter": "com.boltbetz.staging"
+  },
+  {
+   "ui": "fatal-error-screen",
+   "present": false,
+   "wait_s": 1
+  }
+ ],
+ "cleanup": [
+  {
+   "tap_id": "enter-pin-close-button",
+   "optional": true
+  },
+  {
+   "tap_id": "wallet-modal-close",
+   "optional": true
+  },
+  {
+   "tap_id": "voucher-modal-close-button",
+   "optional": true
+  },
+  {
+   "tap_id": "tip-close-button",
+   "optional": true
+  },
+  {
+   "tap_id": "machine-tips-sheet-close-button",
+   "optional": true
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/fault?clear=1"
+  },
+  {
+   "emu": "req",
+   "method": "POST",
+   "path": "/admin/api/cards/{lane.card}/lock",
+   "body": {
+    "locked": false
+   },
+   "optional": true
+  },
+  {
+   "emu": "req",
+   "method": "PUT",
+   "path": "/admin/api/players/{lane.player}",
+   "body": {
+    "cwaEnabled": true
+   },
+   "optional": true
+  },
+  {
+   "emu": "end_session",
+   "asset": "{lane.machine}",
+   "optional": true
+  },
+  {
+   "emu": "set_cwa",
+   "player": "{lane.player}",
+   "dollars": 25
+  },
+  {
+   "emu": "clear_offers",
+   "player": "{lane.player}"
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  }
+ ],
+ "note": "PICT row 9 of matrix/models/rewards.pict: Step=redeem, Offers=one_freeplay, FaultEndpoint=none, AppFault=none, SynkrosErr=35-004, Network=normal, Lifecycle=bg_resume"
+}

@@ -1,0 +1,16 @@
+# Home / balances (lane L4). Pairwise.
+Step: home_load, pull_refresh, card_list, transactions
+State: funded, zero_balance, locked_card, cwa_disabled
+FaultEndpoint: none, getLinkedPlayerAccounts, getPlayerCardView, getBalance, getHomeOffers, getTransactions
+AppFault: none, p500, problem, forbidden, timeout, soft200
+SynkrosErr: none, 01-001, 01-002, 10-002, 11-004
+Network: normal, offline, slow
+Lifecycle: warm, bg_resume, kill_mid
+
+IF [FaultEndpoint] = "none" THEN [AppFault] = "none" ELSE [AppFault] <> "none";
+IF [AppFault] <> "none" THEN [SynkrosErr] = "none" AND [Network] = "normal";
+IF [Network] <> "normal" THEN [SynkrosErr] = "none";
+IF [FaultEndpoint] = "getTransactions" THEN [Step] = "transactions";
+IF [Step] = "transactions" THEN [FaultEndpoint] IN {"none", "getTransactions"};
+# a locked or disabled card already makes Synkros refuse: one cause at a time
+IF [State] IN {"locked_card", "cwa_disabled"} THEN [SynkrosErr] = "none" AND [AppFault] = "none";

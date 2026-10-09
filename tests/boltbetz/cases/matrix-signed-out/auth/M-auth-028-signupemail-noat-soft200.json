@@ -1,0 +1,94 @@
+{
+ "id": "M-auth-028-signupemail-noat-soft200",
+ "lane": "L1",
+ "timeout_s": 90,
+ "preconditions": {
+  "signed_in": false,
+  "kyc": true,
+  "venue_card": true,
+  "app_launched": "com.boltbetz.staging"
+ },
+ "matrix": {
+  "area": "auth",
+  "row": {
+   "Screen": "signup_email",
+   "Input": "no_at",
+   "FlagsFault": "soft200",
+   "Lifecycle": "warm"
+  },
+  "expect": "error",
+  "est_s": 17
+ },
+ "steps": [
+  {
+   "call": "shell",
+   "cmd": "am force-stop com.boltbetz.staging"
+  },
+  {
+   "call": "app",
+   "launch": "com.boltbetz.staging"
+  },
+  {
+   "wait_id": [
+    "start-screen",
+    "login-screen"
+   ],
+   "wait_s": 30
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/fault?endpoint=getFlags&status=200&body=%7B%22transactionStatus%22%3A%20%22Failed%22%2C%20%22status%22%3A%20%22Failed%22%2C%20%22message%22%3A%20%22QA%20soft-200%20failure%22%7D"
+  },
+  {
+   "tap_id": "start-create",
+   "wait_s": 5
+  },
+  {
+   "tap_id": "login-signup-email",
+   "optional": true,
+   "wait_s": 5
+  },
+  {
+   "wait_id": "create-email-screen",
+   "wait_s": 10
+  },
+  {
+   "tap_id": "create-email-input"
+  },
+  {
+   "call": "type_text",
+   "text": "lane.agent.example.com",
+   "screenshot": false
+  },
+  {
+   "sleep_ms": 1000
+  },
+  {
+   "check": {
+    "screenshot": "typed"
+   }
+  },
+  {
+   "check": {
+    "judge": "The send button is disabled, or the screen says the email is not valid",
+    "settle_s": 1
+   }
+  }
+ ],
+ "checks": [
+  {
+   "no_crash": "com.boltbetz.staging"
+  },
+  {
+   "logs_lack": "FATAL EXCEPTION|ReactNativeJS.*(Unhandled|TypeError|Invariant Violation)",
+   "filter": "com.boltbetz.staging"
+  }
+ ],
+ "cleanup": [
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/fault?clear=1"
+  }
+ ],
+ "note": "PICT row 28 of matrix/models/auth.pict: Screen=signup_email, Input=no_at, FlagsFault=soft200, Lifecycle=warm"
+}

@@ -1,0 +1,16 @@
+# Rewards list and redeem (lane L4). Pairwise.
+Step: list, redeem
+Offers: none, one_freeplay, two_offers
+FaultEndpoint: none, getPlayerRewards, acceptPlayerOffer
+AppFault: none, p500, problem, synkros, timeout, offline, soft200
+SynkrosErr: none, 35-001, 35-002, 35-003, 35-004, 01-001
+Network: normal, slow
+Lifecycle: warm, bg_resume, kill_mid
+
+IF [FaultEndpoint] = "none" THEN [AppFault] = "none" ELSE [AppFault] <> "none";
+IF [AppFault] <> "none" THEN [SynkrosErr] = "none" AND [Network] = "normal";
+IF [Network] <> "normal" THEN [SynkrosErr] = "none";
+IF [Step] = "redeem" THEN [Offers] <> "none";
+IF [FaultEndpoint] = "acceptPlayerOffer" THEN [Step] = "redeem";
+# offer-notifications (35-002) is the list read; award-selections (35-001/3/4) the redeem
+IF [SynkrosErr] IN {"35-001", "35-003", "35-004"} THEN [Step] = "redeem";

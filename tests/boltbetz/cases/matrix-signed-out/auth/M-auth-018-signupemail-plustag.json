@@ -1,0 +1,89 @@
+{
+ "id": "M-auth-018-signupemail-plustag",
+ "lane": "L1",
+ "timeout_s": 90,
+ "preconditions": {
+  "signed_in": false,
+  "kyc": true,
+  "venue_card": true,
+  "app_launched": "com.boltbetz.staging"
+ },
+ "matrix": {
+  "area": "auth",
+  "row": {
+   "Screen": "signup_email",
+   "Input": "plus_tag",
+   "FlagsFault": "none",
+   "Lifecycle": "warm"
+  },
+  "expect": "success",
+  "est_s": 17
+ },
+ "steps": [
+  {
+   "call": "shell",
+   "cmd": "am force-stop com.boltbetz.staging"
+  },
+  {
+   "call": "app",
+   "launch": "com.boltbetz.staging"
+  },
+  {
+   "wait_id": [
+    "start-screen",
+    "login-screen"
+   ],
+   "wait_s": 30
+  },
+  {
+   "tap_id": "start-create",
+   "wait_s": 5
+  },
+  {
+   "tap_id": "login-signup-email",
+   "optional": true,
+   "wait_s": 5
+  },
+  {
+   "wait_id": "create-email-screen",
+   "wait_s": 10
+  },
+  {
+   "tap_id": "create-email-input"
+  },
+  {
+   "call": "type_text",
+   "text": "lane.agent+qa1@example.com",
+   "screenshot": false
+  },
+  {
+   "sleep_ms": 1000
+  },
+  {
+   "check": {
+    "screenshot": "typed"
+   }
+  },
+  {
+   "check": {
+    "ui": "create-email-send"
+   }
+  }
+ ],
+ "checks": [
+  {
+   "no_crash": "com.boltbetz.staging"
+  },
+  {
+   "logs_lack": "FATAL EXCEPTION|ReactNativeJS.*(Unhandled|TypeError|Invariant Violation)",
+   "filter": "com.boltbetz.staging"
+  }
+ ],
+ "cleanup": [
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/fault?clear=1"
+  }
+ ],
+ "note": "PICT row 18 of matrix/models/auth.pict: Screen=signup_email, Input=plus_tag, FlagsFault=none, Lifecycle=warm"
+}
