@@ -36,7 +36,7 @@ The body is `{"call": "<name>", "device": "d0", ...}`. The reply is `{"ok": true
 
 | Call | Arguments | Notes |
 | --- | --- | --- |
-| `start` | `image` (`phone`, `phone-n`, `slim5`, `slim4`, `slim3n`, ...), `screen`, `render` (`gfxstream` default, `software`), `refresh_hz` (default 120, 1-240), `boot_cap_mb` (default 600, 0 = none), `mem`, `cpus`, `net`, `auto_squeeze`, `keep_data` | boots and waits for Android plus setup. Use `async`. `keep_data: true` reuses the Device's disks from its last run (installed apps, sign-ins, files); refused if there is none or it was made for another Device, image or super.img. Without it the disks are wiped. `stop` runs `sync` in the guest first |
+| `start` | `image` (`phone`, `phone-n`, `slim5`, `slim4`, `slim3n`, ...), `screen`, `render` (`gfxstream` default, `software`), `refresh_hz` (default 120, 1-240), `boot_cap_mb` (default 600, 0 = none), `idle_cap_mb` (default 250, 0 = keep the boot cap), `mem`, `cpus`, `net`, `auto_squeeze`, `keep_data` | boots and waits for Android plus setup. Use `async`. `keep_data: true` reuses the Device's disks from its last run (installed apps, sign-ins, files); refused if there is none or it was made for another Device, image or super.img. Without it the disks are wiped. `stop` runs `sync` in the guest first |
 | `start_many` | `devices: ["d0","d1",...]`, `parallel` (default 4, max 8), plus the `start` arguments | boots them, up to `parallel` at once. Reply `devices: [{device, ok, ready_s / error}]` |
 | `stop` | `device` | |
 | `stop_many` | `devices` (default: all) | stops them all at once |
@@ -70,6 +70,10 @@ worker measured 117.6 fps at native size.
 until the Device is ready. Without it a gfxstream boot took about 2.1 GB of host RAM; with 600 MB one
 peaked at 746 MB and boot time stayed at 123 s. The caps stay after boot; `squeeze` (or `auto_squeeze`
 after `app launch`) lowers them to the settled size (about 360 MB).
+
+`idle_cap_mb` replaces the main boot cap once the Device is ready: it applies after a minute with no input
+(taps, swipes, keys, text, `app`, `deep_link` and the other control calls, focused streams). Any input lifts every
+cap at once and the idle cap comes back after the next quiet minute. Exp G (2026-10-09, one phone): idle 250 MB took the Device from about 794 to 430 MB on the host; the first tap after idle took 156-191 ms (133 ms at 600), 0 app kills.
 
 To change a running Device's settings (image, screen, RAM), stop it and start it again with the new options.
 

@@ -261,8 +261,10 @@ async fn start_device(st: &State, idx: u32, req: &Value) -> R<(Arc<Device>, f64)
     }
     // boot_cap_mb: hard working-set cap on the main crosvm process from launch until ready (0 = none).
     let boot_cap = req["boot_cap_mb"].as_u64().unwrap_or(BOOT_CAP_MB);
+    // idle_cap_mb: main crosvm cap once ready and a minute without input (0 = keep boot_cap_mb).
+    let idle_cap = req["idle_cap_mb"].as_u64().unwrap_or(IDLE_CAP_MB);
     let info = json!({"image": if image_name.is_empty() { "slim3n (default)" } else { image_name }, "mem": shown_mem,
-        "render": if gfx { "gfxstream" } else { "software" }, "refresh_hz": hz, "boot_cap_mb": boot_cap, "browser_headroom_mb": headroom,
+        "render": if gfx { "gfxstream" } else { "software" }, "refresh_hz": hz, "boot_cap_mb": boot_cap, "idle_cap_mb": idle_cap, "browser_headroom_mb": headroom,
         "cpus": cpus.clone().unwrap_or(st.cfg.cpus.clone()), "net": net, "keep_data": req["keep_data"] == json!(true), "image_name": image_name,
         "screen": {"name": if screen.is_empty() { "iphone17promax" } else { screen }, "width": sw, "height": sh, "dpi": dpi}});
     let d = {
@@ -285,7 +287,7 @@ async fn start_device(st: &State, idx: u32, req: &Value) -> R<(Arc<Device>, f64)
             req["keep_data"] == json!(true)).await.map_err(fail)?;
         d.headroom_mb.store(headroom, Ordering::SeqCst);
         if boot_cap > 0 {
-            tokio::spawn(boot_caps(d.clone(), boot_cap));
+            tokio::spawn(boot_caps(d.clone(), boot_cap, idle_cap));
         }
         st.devs.lock().unwrap().insert(id.clone(), Slot { dev: d.clone(), opts: squeeze::Opts::from(req, squeeze::Opts::DEFAULT),
             auto_squeeze: req["auto_squeeze"] == json!(true), lease: None, info, started: Instant::now(), phase: "booting",
@@ -463,14 +465,16 @@ let path = d.dir.join("logcat.log");
     }
 }
 
-/// Every 5 s: Devices whose caps were lifted for input get them back after a minute with no input and no
-/// focused stream.
+/// Every 5 s: Devices whose caps were lifted for input, or whose main cap is not the remembered one (the boot
+/// cap before the idle cap), get the remembered caps after a minute with no input and no focused stream.
 async fn recap_idle(st: Arc<State>) {
     loop {
         tokio::time::sleep(Duration::from_secs(5)).await;
         let devs: Vec<Arc<Device>> = st.devs.lock().unwrap().values().map(|s| s.dev.clone()).collect();
         for d in devs {
-            if d.ready.load(Ordering::SeqCst) && !d.capped.load(Ordering::SeqCst) && d.caps.lock().unwrap().is_some() && !d.in_use() {
+            let Some((main, _)) = *d.caps.lock().unwrap() else { continue };
+            let stale = || d.pids.lock().unwrap().iter().any(|&(pid, m)| m && main > 0 && squeeze::cap_of(pid) != Some(main));
+            if d.ready.load(Ordering::SeqCst) && !d.in_use() && (!d.capped.load(Ordering::SeqCst) || stale()) {
                 match squeeze::apply_caps(&d) {
                     Ok(_) => emit(&st, json!({"type": "device", "device": d.id, "memory_mode": "capped"})),
                     Err(e) => eprintln!("{}: re-cap: {e}", d.id),
@@ -483,11 +487,14 @@ async fn recap_idle(st: Arc<State>) {
 /// Default boot cap (MB) for the main crosvm process; helpers get BOOT_CAP_HELPER_MB.
 const BOOT_CAP_MB: u64 = 600;
 const BOOT_CAP_HELPER_MB: u64 = 32;
+/// Default idle cap (MB) for the main crosvm process (exp G, 2026-10-09: idle host ~430 MB vs ~794 at 600, first tap 156-191 ms vs 133, 0 kills).
+const IDLE_CAP_MB: u64 = 250;
 
 /// Caps every crosvm process of `d` as it appears (main at `mb`, helpers at BOOT_CAP_HELPER_MB), checking
 /// every 2 s until the Device is ready or stopped. Unsqueezed, a gfxstream boot took ~2.1 GB of host RAM.
-/// The caps stay after boot; `squeeze` (auto_squeeze) lowers them.
-async fn boot_caps(d: Arc<Device>, mb: u64) {
+/// Once ready, the remembered main cap becomes `idle` (when > 0); recap_idle applies it after a minute
+/// without input. `squeeze` (auto_squeeze) sets its own caps.
+async fn boot_caps(d: Arc<Device>, mb: u64, idle: u64) {
     let mut done = std::collections::HashSet::new();
     let t0 = Instant::now();
     while t0.elapsed() < Duration::from_secs(900) {
@@ -507,6 +514,13 @@ async fn boot_caps(d: Arc<Device>, mb: u64) {
             d.capped.store(true, Ordering::SeqCst);
         }
         if d.ready.load(Ordering::SeqCst) {
+            if idle > 0 {
+                let mut c = d.caps.lock().unwrap();
+                if *c == Some((mb, BOOT_CAP_HELPER_MB)) {
+                    *c = Some((idle, BOOT_CAP_HELPER_MB));
+                    d.last_active_ms.store(device::now_ms(), Ordering::SeqCst);
+                }
+            }
             return;
         }
         tokio::time::sleep(Duration::from_secs(2)).await;
@@ -785,6 +799,8 @@ async fn handle(st: &Arc<State>, conn: u64, req: &Value) -> R<Value> {
         if st.busy(devid, conn) {
             return Err("busy: Device is leased by another client".into());
         }
+        // App launches and deep links run the app like input does: no idle cap under them.
+        d.touch();
         let mut rep = controls::handle(&d, call, req).await?;
         let armed = if call == "app" && req["launch"].is_string() {
             st.devs.lock().unwrap().get_mut(devid).filter(|s| s.auto_squeeze).map(|s| { s.auto_squeeze = false; s.opts })
