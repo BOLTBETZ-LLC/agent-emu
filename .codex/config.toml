@@ -1,0 +1,7 @@
+# agent-emu MCP for Codex (project scope; this project is trusted in ~/.codex/config.toml).
+# tool_timeout_sec: `start` blocks ~2 min until the phone is ready; the Codex default is 60.
+[mcp_servers.agent-emu]
+command = 'C:\dev\agent-emu\daemon\target-mcp\release\agent-emud.exe'
+args = ["mcp", "--addr", "127.0.0.1:7400"]
+startup_timeout_sec = 20
+tool_timeout_sec = 900

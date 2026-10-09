@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "agent-emu": {
+      "type": "stdio",
+      "command": "C:\dev\agent-emu\daemon\target-mcp\release\agent-emud.exe",
+      "args": ["mcp", "--addr", "127.0.0.1:7400"]
+    }
+  }
+}

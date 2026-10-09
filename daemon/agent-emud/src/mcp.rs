@@ -7,6 +7,8 @@ use std::net::TcpStream;
 fn tools() -> Value {
     let dev = json!({"type": "string", "description": "Device id, e.g. d0"});
     let num = json!({"type": "number"});
+    let px = json!({"type": "boolean", "description": "true = x/y are device pixels, not pixels of the last screenshot"});
+    let ids = json!({"type": "array", "items": {"type": "string"}, "description": "Device ids, e.g. [\"d0\",\"d1\"]"});
     let opt = json!({
         "screenshot": {"type": "boolean", "description": "false = return only the input ack"},
         "deadline_ms": {"type": "number", "description": "settle deadline, default 3000"},
@@ -22,13 +24,13 @@ fn tools() -> Value {
     };
     let mut v = json!([
         tool("screenshot", "JPEG q75 of the screen, with scale, capture time and generation.", json!({"size": {"type": "string", "description": "fit inside WxH"}}), &[], false),
-        tool("tap", "Tap at x,y (pixels of the last frame received). Returns a settled screenshot.", json!({"x": num, "y": num}), &["x", "y"], true),
-        tool("swipe", "Swipe from x1,y1 to x2,y2 over ms. Returns a settled screenshot.", json!({"x1": num, "y1": num, "x2": num, "y2": num, "ms": num}), &["x1", "y1", "x2", "y2"], true),
+        tool("tap", "Tap at x,y (pixels of the last frame received; device_px true = device pixels, e.g. a ui_tree bounds center). Returns a settled screenshot.", json!({"x": num, "y": num, "device_px": px.clone()}), &["x", "y"], true),
+        tool("swipe", "Swipe from x1,y1 to x2,y2 over ms. Returns a settled screenshot.", json!({"x1": num, "y1": num, "x2": num, "y2": num, "ms": num, "device_px": px.clone()}), &["x1", "y1", "x2", "y2"], true),
         tool("type_text", "Type text into the focused field. Returns a settled screenshot.", json!({"text": {"type": "string"}}), &["text"], true),
         tool("key", "Press a key: back, home, enter, app_switch, del, ... Returns a settled screenshot.", json!({"name": {"type": "string"}}), &["name"], true),
         tool("ui_tree", "uiautomator XML of the current screen.", json!({}), &[], false),
         tool("logs", "Logcat lines (threadtime), newest last. filter = package (its processes, restarts followed) or tag.             Pass the returned cursor back to get only newer lines; with follow (or wait_ms) the call waits until new lines arrive.",
-            json!({"filter": {"type": "string"}, "since": {"type": "number", "description": "unix ms; drop older lines"},
+            json!({"filter": {"type": "string"}, "level": {"type": "string", "description": "V D I W E F: that level and up"}, "since": {"type": "number", "description": "unix ms; drop older lines"},
                 "cursor": {"type": "number", "description": "from a previous reply"}, "max_lines": {"type": "number", "description": "default 500"},
                 "follow": {"type": "boolean", "description": "wait up to wait_ms (default 10000) for new lines"}, "wait_ms": num}), &[], false),
         tool("crash_events", "Crash, ANR and native-crash events since boot, each with a seq. Pass `after` = the last seq seen             and wait_ms to block until the next one arrives. filter = package.",
@@ -38,6 +40,18 @@ fn tools() -> Value {
             json!({}), &[], false),
         tool("lease", "Take exclusive input control of a Device.", json!({}), &[], false),
         tool("release", "Give up the lease.", json!({}), &[], false),
+        tool("start", "Boot the Device and wait until phase ready (about 2 min; blocks). keep_data true reuses its disks (apps, sign-ins); \
+            without it the disks are wiped. Refused while host Available RAM is under the floor.",
+            json!({"image": {"type": "string", "description": "slim5 (BoltBetz phones), phone, phone-n, slim4, slim3n"},
+                "screen": {"type": "string", "description": "iphone17promax-native | -3q | -half | legacy"}, "keep_data": {"type": "boolean"},
+                "mem": num, "cpus": num, "render": {"type": "string", "description": "gfxstream (default) | software"},
+                "auto_squeeze": {"type": "boolean"}, "boot_cap_mb": num, "idle_cap_mb": num}), &[], false),
+        tool("stop", "Stop the Device (syncs the guest first so keep_data can reuse its disks).", json!({}), &[], false),
+        tool("install_bundled", "Install the image's own APK (BoltBetz staging) over the console; no adb needed.", json!({}), &[], false),
+        tool("issues", "E and F logcat lines since boot, grouped and counted (app vs system), most frequent first.",
+            json!({"filter": {"type": "string", "description": "package, e.g. com.boltbetz.staging"}, "top": num}), &[], false),
+        tool("shell", "Root shell command in the guest (console). Reply: out, code.",
+            json!({"cmd": {"type": "string"}, "timeout_s": num}), &["cmd"], false),
     ]);
     v.as_array_mut().unwrap().extend(crate::controls::tools());
     // Fleet calls act on many Devices, so they take no `device`.
@@ -55,6 +69,13 @@ fn tools() -> Value {
                 "app": {"type": "string", "description": "package to launch, default com.boltbetz.staging"},
                 "balloon_mb": num, "cap_main_mb": num, "cap_helper_mb": num}}}),
         json!({"name": "fleet_stop", "description": "Stop every Device this daemon runs.", "inputSchema": {"type": "object", "properties": {}}}),
+        json!({"name": "status", "description": "Every Device: id, ready, phase (spawning, booting, android, setup, browser, ready, stopped), image, screen, mem, uptime; plus host available_mb.",
+            "inputSchema": {"type": "object", "properties": {}}}),
+        json!({"name": "start_many", "description": "Boot several Devices, up to `parallel` at once; takes the `start` options. Blocks until all are done.",
+            "inputSchema": {"type": "object", "required": ["devices"], "properties": {"devices": ids.clone(), "parallel": num,
+                "image": {"type": "string"}, "screen": {"type": "string"}, "keep_data": {"type": "boolean"}, "mem": num, "auto_squeeze": {"type": "boolean"}}}}),
+        json!({"name": "stop_many", "description": "Stop the listed Devices at once (default: all).",
+            "inputSchema": {"type": "object", "properties": {"devices": ids.clone()}}}),
     ]);
     v
 }
@@ -160,12 +181,14 @@ mod tests {
     #[test]
     fn every_tool_takes_device() {
         for t in tools().as_array().unwrap() {
-            if t["name"].as_str().unwrap().starts_with("fleet") {
+            if ["fleet", "fleet_stop", "status", "start_many", "stop_many"].contains(&t["name"].as_str().unwrap()) {
                 continue;
             }
             assert_eq!(t["inputSchema"]["required"][0], "device", "{}", t["name"]);
         }
         let names: Vec<_> = tools().as_array().unwrap().iter().map(|t| t["name"].clone()).collect();
-        assert!(names.contains(&json!("fleet")) && names.contains(&json!("fleet_stop")));
+        for n in ["fleet", "fleet_stop", "status", "start", "stop", "start_many", "stop_many", "install_bundled", "issues", "shell"] {
+            assert!(names.contains(&json!(n)), "{n}");
+        }
     }
 }
