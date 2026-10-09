@@ -277,6 +277,35 @@ pub fn next_target(avail_mb: Option<u64>, target_mb: u64) -> Option<u64> {
     Some(target_mb.saturating_sub(50))
 }
 
+/// Headroom balloon control (main.rs browser_balloon): one step per tick, 32 MB at a time.
+pub const HEADROOM_STEP_MB: u64 = 32;
+pub const HEADROOM_TICK: Duration = Duration::from_secs(10);
+/// PSI `some avg10` (% of time a task stalled on memory) above this means the guest is thrashing: give memory back.
+pub const PSI_MAX: f64 = 10.0;
+
+/// "some avg10=1.23 ..." from /proc/pressure/memory.
+pub fn psi_some_avg10(s: &str) -> Option<f64> {
+    let l = s.lines().find(|l| l.starts_with("some "))?;
+    l.split_whitespace().find_map(|f| f.strip_prefix("avg10="))?.parse().ok()
+}
+
+/// Next headroom in the balloon (MB, 0..=max). Shrinks a step when MemAvailable is under `floor` MB, PSI is over
+/// PSI_MAX or there is no reading (hung shell = starved); grows a step only with a step plus 16 MB to spare over the
+/// floor and PSI under half of PSI_MAX; else holds.
+pub fn headroom_step(cur: u64, max: u64, avail_mb: Option<u64>, psi: Option<f64>, floor: u64) -> u64 {
+    let psi = psi.unwrap_or(0.0);
+    match avail_mb {
+        Some(a) if a >= floor && psi <= PSI_MAX => {
+            if cur < max && a >= floor + HEADROOM_STEP_MB + 16 && psi < PSI_MAX / 2.0 {
+                (cur + HEADROOM_STEP_MB).min(max)
+            } else {
+                cur
+            }
+        }
+        _ => cur.saturating_sub(HEADROOM_STEP_MB),
+    }
+}
+
 async fn guest_available(d: &Device) -> Option<u64> {
     d.con.exec("grep MemAvailable /proc/meminfo", Duration::from_secs(10)).await.ok().and_then(|(o, _)| mem_available_mb(&o))
 }
@@ -310,7 +339,7 @@ pub async fn squeeze(d: &Device, exe: &Path, boot_pid: u32, o: Opts) -> R<Value>
     if o.balloon_mb > 0 {
         let pipe = format!(r"\\.\pipe\ae-vm-{}", d.idx());
         // On top of the browser headroom when it is in the balloon (main.rs browser_balloon).
-        let off = if d.headroom_on.load(std::sync::atomic::Ordering::SeqCst) { d.headroom_mb.load(std::sync::atomic::Ordering::SeqCst) } else { 0 };
+        let off = d.headroom_in_mb.load(std::sync::atomic::Ordering::SeqCst);
         // A balloon too big for the guest starves it: 896 MB guest at 350 MB gave MemAvailable 8.7 MB and
         // hung shells; inflating 150 MB in one go let lmkd kill the app under test. So ramp up 50 MB at
         // a time, read MemAvailable after each step, and step back once it is under 100 MB.
@@ -349,6 +378,21 @@ pub async fn squeeze(d: &Device, exe: &Path, boot_pid: u32, o: Opts) -> R<Value>
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn headroom_steps_with_guest_room() {
+        let psi = "some avg10=12.50 avg60=3.00 avg300=1.00 total=5
+full avg10=1.00 avg60=0.00 avg300=0.00 total=1";
+        assert_eq!(psi_some_avg10(psi), Some(12.5));
+        assert_eq!(headroom_step(0, 256, Some(300), Some(0.5), 100), 32); // room: grow one step
+        assert_eq!(headroom_step(250, 256, Some(300), Some(0.5), 100), 256); // never past max
+        assert_eq!(headroom_step(64, 256, Some(120), Some(0.5), 100), 64); // over the floor, not by a step: hold
+        assert_eq!(headroom_step(64, 256, Some(300), Some(7.0), 100), 64); // mild pressure: hold
+        assert_eq!(headroom_step(64, 256, Some(80), Some(0.0), 100), 32); // under the floor: give back
+        assert_eq!(headroom_step(64, 256, Some(300), Some(12.5), 100), 32); // thrashing: give back
+        assert_eq!(headroom_step(64, 256, None, None, 100), 32); // no reading = starved
+        assert_eq!(headroom_step(0, 256, Some(10), None, 100), 0);
+    }
 
     #[test]
     fn shared_counts_resident_pages_of_this_process() {

@@ -484,8 +484,8 @@ pub struct Device {
     /// Browser headroom (MB): extra guest RAM held in the balloon while the app is in front, given back while a
     /// browser (Auth0, Plaid Custom Tabs) is. 0 = none.
     pub headroom_mb: AtomicU64,
-    /// The headroom is in the balloon now.
-    pub headroom_on: AtomicBool,
+    /// MB of the headroom in the balloon now (0 while in use; grows back in steps while idle).
+    pub headroom_in_mb: AtomicU64,
     /// Balloon MB that `squeeze` set, on top of the headroom.
     pub balloon_base_mb: AtomicU64,
     /// Working-set caps (main, helper MB) that squeeze or the boot cap set, and whether they are on now.
@@ -559,12 +559,14 @@ impl Device {
         }
         let child = cmd
             .args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-File"]).arg(boot_script())
-            .env("AE_PARAMS", DIET_PARAMS).env("AE_SINKS", DIET_SINKS).env("AE_GPU_EXTRA", DIET_GPU)
+            // AE_XPARAMS / AE_XCROSVM: extra kernel cmdline / crosvm args for memory experiments (empty by default).
+            .env("AE_PARAMS", format!("{DIET_PARAMS} {}", std::env::var("AE_XPARAMS").unwrap_or_default()).trim_end()).env("AE_SINKS", DIET_SINKS).env("AE_GPU_EXTRA", DIET_GPU)
             .env("AE_DIR", win(&dir)).env("AE_ID", idx.to_string()).env("AE_MEM", &mem).env("AE_CPUS", cpus.unwrap_or(&cfg.cpus))
             .env("AE_DISPLAY", format!("{sw},{sh}")).env("AE_DPI", dpi.to_string()).env("AE_REFRESH", refresh_hz.to_string())
-            .env("AE_EXTRA", format!("--socket PIPE:ae-vm-{idx}{} --input multi-touch[path={}] --input keyboard[path={}]",
+            .env("AE_EXTRA", format!("--socket PIPE:ae-vm-{idx}{} --input multi-touch[path={}] --input keyboard[path={}]{}",
                 if is_phone(image_name) { String::new() } else { format!(" --pmem path={},ro=true", pmem.to_string_lossy().replace('\\', "/")) },
-                fast::touch_pipe(idx), fast::kbd_pipe(idx)))
+                fast::touch_pipe(idx), fast::kbd_pipe(idx),
+                std::env::var("AE_XCROSVM").map(|x| format!(" {x}")).unwrap_or_default()))
             // No desktop window: crosvm's 2D GPU uses the stub display; frames still come from fb.bin.
             .env("AGENT_EMU_HEADLESS", "1")
             .env("AGENT_EMU_FB", win(&dir.join("fb.bin"))).env("AGENT_EMU_FB_PIPE", fast::fb_pipe(idx))
@@ -583,7 +585,7 @@ impl Device {
             id: format!("d{idx}"), dir: dir.clone(), boot: Mutex::new(Some(child)), con, ready: AtomicBool::new(false),
             last: StdMutex::new(None), gen: AtomicU64::new(0), scale: StdMutex::new(1.0),
             idx, input: OnceLock::new(), fb: OnceLock::new(), events: crate::logs::Events::spawn(dir.join("logcat.log")), net, phone: is_phone(image_name), density: dpi, crosvm, browser,
-            headroom_mb: AtomicU64::new(0), headroom_on: AtomicBool::new(false), balloon_base_mb: AtomicU64::new(0),
+            headroom_mb: AtomicU64::new(0), headroom_in_mb: AtomicU64::new(0), balloon_base_mb: AtomicU64::new(0),
             caps: StdMutex::new(None), capped: AtomicBool::new(false), pids: StdMutex::new(vec![]), last_active_ms: AtomicU64::new(0),
             focus: Default::default(),
         }))

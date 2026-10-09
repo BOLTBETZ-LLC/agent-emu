@@ -389,25 +389,30 @@ const REINFLATE_AFTER: Duration = Duration::from_secs(10);
 
 /// Watches which app is in front (`wm_set_resumed_activity` lines in the host's copy of logcat, so the guest
 /// pays nothing for the watch). Holds the browser headroom in the balloon except while `browser` is in front,
-/// a camera is open, or the Device is in use.
+/// a camera is open, or the Device is in use. While idle the headroom goes back in one 32 MB step per 10 s and
+/// only while the guest has room (squeeze::headroom_step): a 256 MB re-inflate in one go killed the idle app
+/// in front ~2 min after a suite run (2026-10-09, d0 and d3, thrashing in swap).
 /// Runs until the Device stops.
 async fn browser_balloon(d: &Device, browser: &str, ev: &tokio::sync::broadcast::Sender<Value>) {
     let pipe = format!(r"\\.\pipe\ae-vm-{}", d.idx());
     let hr = d.headroom_mb.load(Ordering::SeqCst);
+    if hr == 0 {
+        return;
+    }
+    // AE_BALLOON_MAX_MB: let the idle loop grow past the headroom (experiment; default the headroom).
+    let max = std::env::var("AE_BALLOON_MAX_MB").ok().and_then(|v| v.parse().ok()).unwrap_or(hr).max(hr);
+    // AE_BALLOON_FLOOR_MB: guest MemAvailable the loop keeps (experiment; default squeeze's 100 MB).
+    let floor = std::env::var("AE_BALLOON_FLOOR_MB").ok().and_then(|v| v.parse().ok()).unwrap_or(squeeze::MIN_GUEST_AVAILABLE_MB);
     let pipe = pipe.as_str();
-    let set = |on: bool| async move {
-        if hr == 0 {
-            return;
-        }
-        let mb = d.balloon_base_mb.load(Ordering::SeqCst) + if on { hr } else { 0 };
+    let set = |cur: u64, why: &'static str| async move {
+        let mb = d.balloon_base_mb.load(Ordering::SeqCst) + cur;
         let r = squeeze::set_balloon(&d.crosvm, &pipe, mb).await;
-        d.headroom_on.store(on, Ordering::SeqCst);
-        let _ = ev.send(json!({"type": "device", "device": d.id, "balloon": if on { "app" } else { "browser" }, "balloon_mb": mb,
+        d.headroom_in_mb.store(cur, Ordering::SeqCst);
+        let _ = ev.send(json!({"type": "device", "device": d.id, "balloon": why, "headroom_in_mb": cur, "balloon_mb": mb,
             "actual_mb": r.as_ref().map(|a| a >> 20).ok(), "error": r.err(), "ts": device::now_ms()}));
     };
     let _ = d.con.exec("insmod /system_dlkm/lib/modules/virtio_balloon.ko 2>/dev/null; true", Duration::from_secs(30)).await;
-    set(true).await;
-    let path = d.dir.join("logcat.log");
+let path = d.dir.join("logcat.log");
     let mut cursor = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
     // The headroom is out of the balloon while the browser is in front or the camera is open (the scanner's
     // camera buffers took the guest's last ~90 MB, 2026-10-08: MemAvailable 0, lmkd thrashing kills).
@@ -415,6 +420,7 @@ async fn browser_balloon(d: &Device, browser: &str, ev: &tokio::sync::broadcast:
     // test run left the app ~50 MB resident with 330 MB in zram and lmkd killed it in front (2026-10-08: 4 kills
     // in 3 runs; 0 with the headroom out).
     let (mut front_browser, mut camera, mut was, mut since) = (false, false, false, Instant::now());
+    let mut last_step = Instant::now() - squeeze::HEADROOM_TICK;
     while d.ready.load(Ordering::SeqCst) {
         tokio::time::sleep(Duration::from_secs(1)).await;
         if let Ok(mut f) = std::fs::File::open(&path) {
@@ -434,11 +440,17 @@ async fn browser_balloon(d: &Device, browser: &str, ev: &tokio::sync::broadcast:
         if need != was {
             (was, since) = (need, Instant::now());
         }
-        let on = d.headroom_on.load(Ordering::SeqCst);
-        if need && on {
-            set(false).await;
-        } else if !need && !on && since.elapsed() >= REINFLATE_AFTER {
-            set(true).await;
+        let cur = d.headroom_in_mb.load(Ordering::SeqCst);
+        if need && cur > 0 {
+            set(0, "browser").await;
+        } else if !need && since.elapsed() >= REINFLATE_AFTER && last_step.elapsed() >= squeeze::HEADROOM_TICK {
+            last_step = Instant::now();
+            let p = d.con.exec("grep MemAvailable /proc/meminfo; cat /proc/pressure/memory", Duration::from_secs(10)).await.ok();
+            let (avail, psi) = p.map(|(o, _)| (squeeze::mem_available_mb(&o), squeeze::psi_some_avg10(&o))).unwrap_or((None, None));
+            let next = squeeze::headroom_step(cur, max, avail, psi, floor);
+            if next != cur {
+                set(next, if next > cur { "app" } else { "pressure" }).await;
+            }
         }
     }
 }
