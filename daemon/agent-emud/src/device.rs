@@ -54,18 +54,14 @@ const SETUP: &str = "settings put global hide_error_dialogs 1; \
 // for hardware the VM does not have (kunit tests, USB NICs, CAN, PPP, 802.15.4, Wi-Fi dongles, kheaders).
 // 2026-10-09 exp D, slim5 d6 after the 20-tap protocol: guest MemAvailable 243 -> 307 MB, kernel 272 -> 238 MB
 // (modules 13.0 -> 3.6 MB), 434 -> 358 processes, 0 kills; Firefox and the app still work. Runs in the
-// background: the ~30 `pm` calls take ~8 s. Keep com.android.bluetooth (see SETUP), com.android.phone
+// background: the ~17 `pm` calls take ~5 s. Keep com.android.bluetooth (see SETUP), com.android.phone
 // (persistent, telephony), permissioncontroller, packageinstaller, shell, media providers, webview,
 // networkstack, keychain, photopicker. Never unload virtio_balloon: the headroom loop needs it.
-const TRIM: &str = "(for p in com.android.rkpdapp com.android.provision com.android.ondevicepersonalization.services \
-    com.android.federatedcompute.services com.android.cellbroadcastreceiver.module com.android.cellbroadcastservice \
-    com.android.providers.calendar com.android.adservices.api com.android.healthconnect.controller \
-    com.android.health.connect.backuprestore com.android.devicelockcontroller com.android.virtualization.terminal \
-    com.android.companiondevicemanager com.android.settings com.android.externalstorage com.android.providers.contacts \
-    com.android.mms.service com.android.telephony.qns com.android.providers.blockednumber com.android.providers.userdictionary \
+const TRIM: &str = "(for p in com.android.ondevicepersonalization.services com.android.federatedcompute.services \
+    com.android.adservices.api com.android.healthconnect.controller com.android.health.connect.backuprestore \
+    com.android.devicelockcontroller com.android.virtualization.terminal com.android.companiondevicemanager \
     com.android.hotspot2.osulogin com.android.captiveportallogin com.android.cts.ctsshim com.android.cts.priv.ctsshim \
-    com.android.localtransport com.android.pacprocessor com.android.proxyhandler com.android.wifi.dialog com.android.certinstaller \
-    com.android.providers.downloads.ui com.android.role.notes.enabled android.ext.services; do \
+    com.android.pacprocessor com.android.proxyhandler com.android.wifi.dialog com.android.certinstaller com.android.role.notes.enabled; do \
     pm disable-user --user 0 $p; am force-stop $p; done; \
     for m in kheaders regmap_kunit regmap_raw_ram regmap_ram kunit_test kunit_example_test dev_addr_lists_test soc_utils_test \
     soc_topology_test iio_test_format of_kunit_helpers hid_uclogic_test lib_test input_test platform_test fat_test ext4_inode_test \
@@ -78,6 +74,18 @@ const TRIM: &str = "(for p in com.android.rkpdapp com.android.provision com.andr
     pulse8_cec dummy_cpufreq pretimeout_dump nfc; do rmmod $m; done; \
     settings put global wifi_scan_always_enabled 0; settings put global ble_scan_always_enabled 0; \
     settings put secure location_mode 0; echo 200 > /proc/sys/vm/vfs_cache_pressure) </dev/null >/dev/null 2>&1 &";
+
+// Packages an older TRIM disabled that boot, home, telephony or storage need. com.android.settings hosts
+// FallbackHome, the only HOME on slim images: disabled, a keep_data reboot logs "No home screen found" and
+// sys.boot_completed never comes (2026-10-09: d0-d3 stuck in "android" 10+ min, RIL flooding logcat.log to
+// 400 MB). wait_boot re-enables them before boot completes, so kept userdata heals; it mutes the RIL too.
+const HEAL: &str = "setprop log.tag.RIL S; d=$(pm list packages -d) || exit 1; h=0; \
+    for p in com.android.settings com.android.provision com.android.externalstorage com.android.rkpdapp \
+    com.android.providers.contacts com.android.providers.calendar com.android.providers.blockednumber \
+    com.android.providers.userdictionary com.android.providers.downloads.ui com.android.mms.service com.android.telephony.qns \
+    com.android.cellbroadcastreceiver.module com.android.cellbroadcastservice com.android.localtransport android.ext.services; do \
+    echo \"$d\" | grep -qx \"package:$p\" && pm enable --user 0 $p && h=1; done; \
+    [ $h = 1 ] && am start -a android.intent.action.MAIN -c android.intent.category.HOME; exit 0";
 
 pub fn now_ms() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64
@@ -624,7 +632,7 @@ impl Device {
     /// Aborts when host Available memory falls under `min_avail_mb` while booting.
     /// `phase` hears "android" (the guest shell answers), "setup" (boot completed) and nothing else.
     pub async fn wait_boot(&self, limit: Duration, min_avail_mb: u64, phase: &(dyn Fn(&'static str) + Sync)) -> R<()> {
-        let mut shell = false;
+        let (mut shell, mut healed) = (false, false);
         let end = Instant::now() + limit;
         loop {
             let avail = available_mb();
@@ -638,6 +646,10 @@ impl Device {
                 }
                 if o.split_whitespace().collect::<Vec<_>>() == ["1", "1"] {
                     break;
+                }
+                // Fails until the package manager is up; retried each poll.
+                if !healed {
+                    healed = matches!(self.con.exec(HEAL, Duration::from_secs(60)).await, Ok((_, 0)));
                 }
             }
             if self.boot.lock().await.as_mut().map_or(true, |c| c.try_wait().ok().flatten().is_some()) {
