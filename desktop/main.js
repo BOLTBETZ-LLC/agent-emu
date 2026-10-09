@@ -109,16 +109,18 @@ async function fixWhp() {
 }
 
 const imagesPresent = () => fs.existsSync(path.join(ROOT, "images", "browser", "browser.img"));
+// Windows bsdtar (reads zip); a tar.exe earlier on PATH (Git's GNU tar) cannot.
+const TAR = path.join(process.env.SystemRoot || "C:\\Windows", "System32", "tar.exe");
 const FEED = (PKG.agentEmu && PKG.agentEmu.feed) || "";
 async function extractZip(zip, dest = path.join(ROOT, "images")) {
-  const first = (await run("tar.exe", ["-tf", zip], { echo: false })).out.split(/\r?\n/)[0] || "";
+  const first = (await run(TAR, ["-tf", zip], { echo: false })).out.split(/\r?\n/)[0] || "";
   fs.mkdirSync(dest, { recursive: true });
   // The portable zip (agent-emu/images/...) or a pack (paths relative to dest).
   const args = first.startsWith("agent-emu/")
     ? ["-xf", zip, "-C", ROOT, "--strip-components=1", "agent-emu/images"]
     : ["-xf", zip, "-C", dest];
   log(`Unpacking ${path.basename(zip)}...`);
-  return (await run("tar.exe", args)).code === 0;
+  return (await run(TAR, args)).code === 0;
 }
 async function sha256(file) {
   const h = crypto.createHash("sha256");

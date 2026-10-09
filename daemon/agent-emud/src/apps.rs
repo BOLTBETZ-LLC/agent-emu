@@ -59,8 +59,8 @@ pub async fn handle(st: &Arc<State>, call: &str, req: &Value) -> R<Value> {
 async fn install_on(d: &Device, apk: &Path, pkg: &str) -> R<Value> {
     d.touch();
     let out = controls::handle(d, "app", &json!({"install": apk.to_string_lossy()})).await?;
-    let (v, _) = d.con.exec(&format!("dumpsys package {pkg} | grep -m 2 -oE 'version(Code|Name)=[^ ]+'"), Duration::from_secs(30)).await?;
-    Ok(json!({"out": out["out"], "on_phone": v.split_whitespace().collect::<Vec<_>>()}))
+    let (v, _) = d.con.exec(&format!("dumpsys package {pkg} | grep -m 2 -oE 'version(Code|Name)=[^ ]+' 2>/dev/null"), Duration::from_secs(30)).await?;
+    Ok(json!({"out": out["out"], "on_phone": v.split_whitespace().filter(|w| w.starts_with("version")).collect::<Vec<_>>()}))
 }
 
 /// Install the image's app (apk.img on vdb, `size` bytes) over the console: no adb needed.
@@ -154,7 +154,7 @@ async fn download(work: &Path, url: &str) -> R<PathBuf> {
 
 /// The zip's entry list says what it is: APK (AndroidManifest.xml at the top) or an App Bundle.
 async fn check_kind(p: PathBuf) -> R<PathBuf> {
-    let names = tar(&["-tf"], &p).await?;
+    let names = tar(&["-t"], &p).await?;
     let names = String::from_utf8_lossy(&names);
     if names.lines().any(|l| l == "AndroidManifest.xml") {
         return Ok(p);
