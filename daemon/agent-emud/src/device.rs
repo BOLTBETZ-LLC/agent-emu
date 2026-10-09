@@ -101,6 +101,15 @@ pub fn now_ms() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64
 }
 
+/// Install root: AE_HOME, else the exe's folder when it holds `images` (an installed copy, see daemon/package.ps1).
+/// None = this dev checkout, whose defaults stay C:/dev/agent-emu-work.
+pub fn home() -> Option<PathBuf> {
+    std::env::var_os("AE_HOME").map(PathBuf::from).or_else(|| {
+        let d = std::env::current_exe().ok()?.parent()?.to_path_buf();
+        d.join("images").is_dir().then_some(d)
+    })
+}
+
 pub struct Cfg {
     pub work: PathBuf,
     pub mem: String,
@@ -115,23 +124,26 @@ impl Cfg {
     pub fn from_env() -> Cfg {
         let e = |k: &str, d: &str| std::env::var(k).unwrap_or_else(|_| d.to_string());
         Cfg {
-            work: PathBuf::from(e("AE_WORK", "C:/dev/agent-emu-work")),
+            work: std::env::var_os("AE_WORK").map(PathBuf::from)
+                .or_else(|| home().map(|h| h.join("images"))).unwrap_or_else(|| PathBuf::from("C:/dev/agent-emu-work")),
             mem: e("AE_MEM", "896"),
             cpus: e("AE_CPUS", "4"),
             min_avail_mb: e("AE_MIN_AVAIL_MB", "1500").parse().unwrap_or(1500),
             crosvm_dir: e("AE_CROSVM_DIR", "crosvm-pmem"),
         }
     }
-    /// AE_CROSVM (full path, set by the installed launcher) or the release build under `work/crosvm_dir`.
+    /// AE_CROSVM, else `<home>/crosvm/crosvm.exe`, else the release build under `work/crosvm_dir`.
     pub fn crosvm(&self) -> PathBuf {
         if let Some(p) = std::env::var_os("AE_CROSVM") {
             return PathBuf::from(p);
         }
-        self.work.join(&self.crosvm_dir).join("target/release/crosvm.exe")
+        home().map(|h| h.join("crosvm/crosvm.exe")).unwrap_or_else(|| self.work.join(&self.crosvm_dir).join("target/release/crosvm.exe"))
     }
-    /// crosvm built with gfxstream (the GPU worker's branch agent-emu-gpu): AE_CROSVM_GPU or work/crosvm-gpu.
+    /// crosvm built with gfxstream (the GPU worker's branch agent-emu-gpu): AE_CROSVM_GPU, `<home>/crosvm-gpu`
+    /// or work/crosvm-gpu. Its folder holds the patched libgfxstream_backend.dll, which wins over the SDK's.
     pub fn crosvm_gpu(&self) -> PathBuf {
         std::env::var_os("AE_CROSVM_GPU").map(PathBuf::from)
+            .or_else(|| home().map(|h| h.join("crosvm-gpu/crosvm.exe")))
             .unwrap_or_else(|| self.work.join("crosvm-gpu/target/release/crosvm.exe"))
     }
 }
@@ -156,9 +168,10 @@ pub fn browser_setup_cmd(img_bytes: u64, size: u64, pkg: &str) -> String {
         cmd role add-role-holder android.app.role.BROWSER {pkg} 0 && cmd role get-role-holders android.app.role.BROWSER")
 }
 
-/// The Android SDK emulator dir whose lib64 holds libgfxstream_backend.dll (AE_SDK_EMULATOR).
+/// The Android SDK emulator dir whose lib64 holds libgfxstream_backend.dll (AE_SDK_EMULATOR, else
+/// `<home>/emulator`, the packaged subset of it, else the SDK under LOCALAPPDATA).
 pub fn sdk_emulator() -> PathBuf {
-    std::env::var_os("AE_SDK_EMULATOR").map(PathBuf::from).unwrap_or_else(|| {
+    std::env::var_os("AE_SDK_EMULATOR").map(PathBuf::from).or_else(|| home().map(|h| h.join("emulator"))).unwrap_or_else(|| {
         PathBuf::from(std::env::var_os("LOCALAPPDATA").unwrap_or_default()).join("Android/Sdk/emulator")
     })
 }
@@ -256,7 +269,7 @@ async fn crosvm_running() -> bool {
 // (hvc10 must stay: the oemlock HAL waits on it forever).
 /// daemon/boot-device.ps1 next to this checkout (exe is daemon/target/<profile>/agent-emud.exe), or AE_BOOT_SCRIPT.
 fn boot_script() -> PathBuf {
-    std::env::var_os("AE_BOOT_SCRIPT").map(PathBuf::from).unwrap_or_else(|| {
+    std::env::var_os("AE_BOOT_SCRIPT").map(PathBuf::from).or_else(|| home().map(|h| h.join("boot-device.ps1"))).unwrap_or_else(|| {
         let exe = std::env::current_exe().unwrap_or_default();
         exe.ancestors().nth(3).map(|d| d.join("boot-device.ps1")).unwrap_or_else(|| PathBuf::from("boot-device.ps1"))
     })
@@ -625,7 +638,7 @@ impl Device {
             .env("AGENT_EMU_HEADLESS", "1")
             .env("AGENT_EMU_FB", win(&dir.join("fb.bin"))).env("AGENT_EMU_FB_PIPE", fast::fb_pipe(idx))
             .env("AE_KERNEL", if is_phone(image_name) { "kernel" } else { "kernel-dax" })
-            .env("AE_CROSVM", win(&crosvm))
+            .env("AE_CROSVM", win(&crosvm)).env("AE_WORK", win(&cfg.work)) // boot-device.ps1 reads stage1/unpack from it
             .stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null())
             .creation_flags(CREATE_NO_WINDOW).spawn().map_err(|e| format!("spawn boot: {e}"))?;
         let con = match Console::open(&format!(r"\\.\pipe\agentemu-console-{idx}"), dir.join("console.log"), Duration::from_secs(60)).await {

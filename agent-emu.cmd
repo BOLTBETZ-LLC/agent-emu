@@ -2,7 +2,8 @@
 rem agent-emu: start the agent-emud daemon if it is not running, then open the control panel.
 rem Closing the browser leaves the daemon and its Devices running; the panel's Quit button stops both.
 rem Two layouts: this checkout (daemon\target\release\agent-emud.exe, images in C:\dev\agent-emu-work),
-rem or an install (agent-emud.exe next to this file; config.cmd, written by the installer, sets AE_WORK and ports).
+rem or an install (agent-emud.exe next to this file finds images\, crosvm\, crosvm-gpu\, emulator\ beside itself;
+rem config.cmd, written by setup.ps1, sets ports and LOGDIR). "agent-emu.cmd --no-open" starts the daemon, no panel.
 setlocal
 set "ROOT=%~dp0"
 set "AE_PORT=7401"
@@ -12,8 +13,6 @@ if exist "%ROOT%config.cmd" call "%ROOT%config.cmd"
 if exist "%ROOT%agent-emud.exe" (
   set "EXE=%ROOT%agent-emud.exe"
   set "WD=%ROOT%"
-  set "AE_CROSVM=%ROOT%crosvm\crosvm.exe"
-  set "AE_BOOT_SCRIPT=%ROOT%boot-device.ps1"
   set "PATH=%ROOT%adb;%PATH%"
 ) else (
   set "EXE=%ROOT%daemon\target\release\agent-emud.exe"
@@ -41,4 +40,5 @@ if errorlevel 1 (
   exit /b 1
 )
 :open
+if /i "%~1"=="--no-open" exit /b 0
 start "" %URL%
