@@ -10,6 +10,7 @@ mod logs;
 mod mcp;
 mod squeeze;
 mod ui;
+mod uidump;
 
 use base64::Engine;
 use device::{Cfg, Device, R};
@@ -328,10 +329,15 @@ async fn start_device(st: &State, idx: u32, req: &Value) -> R<(Arc<Device>, f64)
     Ok((d, t0.elapsed().as_secs_f64()))
 }
 
-/// The screen's view tree (uiautomator dump). The console shell starts before apexd: it sits in the bootstrap
+/// The screen's view tree: the persistent dumper (uidump), else `uiautomator dump`. The console shell starts before apexd: it sits in the bootstrap
 /// mount namespace and lacks the *CLASSPATH vars, so app_process (uiautomator) can't run there. Borrow both
 /// from system_server.
 async fn ui_xml(d: &Device) -> R<String> {
+    match uidump::fast(d).await {
+        Ok(x) => return Ok(x),
+        Err(e) => eprintln!("{}: fast ui_tree failed, using uiautomator dump: {e}", d.id),
+    }
+    uidump::stop(d).await;
     const UI: &str = "p=$(pidof system_server); for v in $(tr '\\0' '\\n' < /proc/$p/environ | grep CLASSPATH=); \
         do export \"$v\"; done; nsenter -m -t $p -- sh -c 'uiautomator dump /data/local/tmp/ui.xml >/dev/null && \
         cat /data/local/tmp/ui.xml'";
