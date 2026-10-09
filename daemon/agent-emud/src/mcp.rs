@@ -52,6 +52,13 @@ fn tools() -> Value {
             json!({"filter": {"type": "string", "description": "package, e.g. com.boltbetz.staging"}, "top": num}), &[], false),
         tool("shell", "Root shell command in the guest (console). Reply: out, code.",
             json!({"cmd": {"type": "string"}, "timeout_s": num}), &["cmd"], false),
+        tool("claim", "Mark the Device as yours (shown in status and the dashboard). Calls from others then carry a `warning`.             Refused when someone else holds it, unless force.", json!({"owner": {"type": "string"}, "note": {"type": "string"}, "force": {"type": "boolean"}}), &["owner"], false),
+        tool("unclaim", "Drop your claim (force drops anyone's).", json!({"owner": {"type": "string"}, "force": {"type": "boolean"}}), &[], false),
+        tool("health", "Fresh health check: adb, guest network (10.0.2.15, DNS), app installed + version, runtime/fingerprint and running             OTA update id vs the expected staging runtime, foreground app, signed in, last crash, stuck boot. level ok | warn | bad.", json!({}), &[], false),
+        tool("snapshot", "Save the Device's disks (signed-in state) under a name, in seconds; the phone keeps running.",
+            json!({"name": {"type": "string"}}), &["name"], false),
+        tool("restore", "Put a snapshot of this Device back: stop, copy the disks, start with keep_data (blocks ~2 min until ready).",
+            json!({"name": {"type": "string"}}), &["name"], false),
     ]);
     v.as_array_mut().unwrap().extend(crate::controls::tools());
     // Fleet calls act on many Devices, so they take no `device`.

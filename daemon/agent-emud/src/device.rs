@@ -344,6 +344,11 @@ pub fn screen(name: &str, phone: bool) -> R<(u32, u32, u32)> {
     }
 }
 
+/// What a Device's writable disks belong to (data.id): Device, image run dir and that image's super.img.
+pub fn data_stamp(work: &Path, idx: u32, run_name: &str) -> String {
+    format!("d{idx} {run_name} {:?}", std::fs::metadata(work.join(run_name).join("super.img")).ok().map(|m| (m.len(), m.modified().ok())))
+}
+
 fn make_device(cfg: &Cfg, idx: u32, run_name: &str, keep_data: bool) -> R<PathBuf> {
     let run = cfg.work.join(run_name);
     let d = cfg.work.join(format!("fleet/d{idx}"));
@@ -365,7 +370,7 @@ fn make_device(cfg: &Cfg, idx: u32, run_name: &str, keep_data: bool) -> R<PathBu
     }
     // The writable disks (userdata, metadata, misc, frp) are wiped every start unless `keep_data`. data.id
     // stamps which Device, image and super.img they belong to; keep_data refuses any other disk.
-    let stamp = format!("d{idx} {run_name} {:?}", std::fs::metadata(run.join("super.img")).ok().map(|m| (m.len(), m.modified().ok())));
+    let stamp = data_stamp(&cfg.work, idx, run_name);
     if keep_data {
         match std::fs::read_to_string(d.join("data.id")) {
             Ok(s) if s == stamp && d.join("userdata.img").exists() => {}

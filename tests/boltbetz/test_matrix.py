@@ -19,6 +19,7 @@ def fake_case(device, case, out, lane=None, hard=False, say=True):
 
 
 run.run_case, run.lane_setup, run.reset = fake_case, lambda *a, **k: None, lambda *a: []
+run.claims = lambda *a, **k: None  # no daemon here
 root = Path(tempfile.mkdtemp())
 (root / "a").mkdir()
 for i in range(8):

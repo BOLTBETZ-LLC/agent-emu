@@ -221,6 +221,7 @@
   .cap .crash { margin-left: auto; border: 0; background: none; padding: 0; color: var(--red); font-size: 11.5px; font-weight: 560; }
   .cap .l2 { display: flex; gap: 5px; color: var(--ink-2); font-size: 11.5px; white-space: nowrap; overflow: hidden; min-height: 17px; }
   .cap .l2 .tag { color: var(--ink-3); }
+  .cap .l1 .own { color: var(--ink-3); font-size: 11px; margin-left: 6px; max-width: 9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .cap .l2 span:empty { display: none; } .cap .l2 span:not(:empty) ~ span:not(:empty)::before { content: "\00B7  "; color: var(--ink-3); }
 
   /* ---------- focus: the chosen phone large, inspector beside it ---------- */
@@ -494,7 +495,7 @@
       </div>
     </div>
     <div class="cap">
-      <div class="l1"><button class="name" title="Focus this phone"></button><span class="pill">Off</span><button class="crash" hidden></button></div>
+      <div class="l1"><span class="dot hd" hidden></span><button class="name" title="Focus this phone"></button><span class="pill">Off</span><span class="tag own" hidden></span><button class="crash" hidden></button></div>
       <div class="l2 num"><span class="m1"></span><span class="m2"></span><span class="tag m3"></span></div>
     </div>
   </article>
@@ -721,7 +722,7 @@ function addTile(id) {
   const el = $("tile-t").content.firstElementChild.cloneNode(true);
   el.dataset.id = id; el.setAttribute("aria-label", "Phone " + id);
   const q = (s) => el.querySelector(s);
-  const t = T[id] = { el, id, cv: q("canvas"), phone: q(".phone"), say: q(".say"), pill: q(".pill"), m1: q(".m1"), m2: q(".m2"), m3: q(".m3"), crash: q(".crash"), last: {} };
+  const t = T[id] = { el, id, cv: q("canvas"), phone: q(".phone"), say: q(".say"), pill: q(".pill"), m1: q(".m1"), m2: q(".m2"), m3: q(".m3"), crash: q(".crash"), hd: q(".hd"), own: q(".own"), last: {} };
   q(".name").textContent = id;
   q(".name").onclick = () => select(id);
   t.crash.onclick = () => { select(id); setTab("crashes"); };
@@ -800,9 +801,29 @@ function renderTile(id) {
   t.m1.title = m.own_mb != null ? `${m.own_mb} MB only this phone uses, plus ${m.shared_mb} MB shared with the others` : "";
   t.m2.title = "idle: nothing changed on screen in the last second";
   t.m3.title = "capped: memory is held down until the next input";
+  const d = S.devs[id], h = d && d.health, c = d && d.claim;
+  t.hd.hidden = !h; if (h) { t.hd.className = "dot hd " + ({ ok: "ok", warn: "warm", bad: "bad" }[h.level] || ""); t.hd.title = healthTip(h); }
+  t.own.hidden = !c; if (c) { setText(t.own, c.owner); t.own.title = `Claimed by ${c.owner}${c.note ? ": " + c.note : ""}. Others get a warning when they send input.`; }
   t.crash.hidden = !S.crashes[id]; setText(t.crash, S.crashes[id] === 1 ? "1 crash" : S.crashes[id] + " crashes");
   setSay(t.say, sayFor(id, st), live && S.frame[id], id);
   if (st === "booting") paintBoot(t.say, t.el, id);
+}
+// Health dot tooltip: the first problem, then each check in one line.
+function healthTip(h) {
+  const b = h.build || {}, n = h.network || {}, ago = h.checked_ms ? Math.round((Date.now() - h.checked_ms) / 1000) : null;
+  const yes = (v) => v === true ? "yes" : v === false ? "no" : "unknown";
+  return [h.level === "ok" ? "Healthy" : h.summary,
+    ...(h.problems || []).slice(1), ...(h.warnings || []).filter(w => w !== h.summary),
+    h.phase !== "ready" ? `Phase ${h.phase}${h.stuck ? " (stuck)" : ""}` : null,
+    h.adb ? `adb: ${h.adb.ok ? "ok" : h.adb.error}` : null,
+    h.network ? `Network: ${n.ip_10_0_2_15 ? "10.0.2.15" : "no 10.0.2.15"}, DNS ${n.dns_ok ? "ok" : "failing"}` : null,
+    b.version_name ? `App ${b.version_name} (${b.version_code})${b.eas_build ? ", EAS " + b.eas_build : ""}` : null,
+    b.runtime ? `Runtime ${b.runtime.slice(0, 12)}${b.expected_runtime ? (b.runtime_match ? ", matches staging" : ", staging is " + b.expected_runtime.slice(0, 12)) : ""}` : null,
+    b.update_id ? `Update ${b.update_id.slice(0, 8)}${b.update_embedded ? " (embedded)" : ""}` : null,
+    h.foreground ? `In front: ${h.foreground}` : null,
+    h.phase === "ready" ? `Signed in: ${yes(h.signed_in)}` : null,
+    h.last_crash ? `Last crash: ${h.last_crash.kind || "crash"} ${h.last_crash.time || ""}` : null,
+    ago != null ? `Checked ${ago} s ago` : null].filter(Boolean).join("\n");
 }
 function renderAll() { IDS.forEach(renderTile); renderStage(); renderMem(); renderStartBtns(); }
 
@@ -883,6 +904,9 @@ function onEvent(e) {
     if (e.phase === "spawning") syncStreams();
     if (d.ready) status();
     renderTile(id); if (id === S.sel) renderStage(); return;
+  }
+  if (e.type === "health" || e.type === "claim") {
+    const d = S.devs[e.device]; if (d) { d[e.type] = e[e.type]; renderTile(e.device); if (e.device === S.sel) renderStage(); } return;
   }
   if (e.type === "crash") {
     S.crashes[e.device] = (S.crashes[e.device] || 0) + 1;
@@ -992,6 +1016,8 @@ function renderFacts() {
     ["Memory", m.own_mb != null ? `${m.own_mb} MB own + ${m.shared_mb} shared` : "—"],
     ["Screen", f ? `${f.w} × ${f.h}` : d && d.screen ? `${d.screen.width} × ${d.screen.height}` : "—"],
     ["Up", d ? fmtUp(d.uptime_s || 0) : "—"],
+    ["App", d && d.health && d.health.build ? `${d.health.build.version_name || "?"} · ${(d.health.build.runtime || "?").slice(0, 8)} · update ${(d.health.build.update_id || "?").slice(0, 8)}` : "—"],
+    ["Claimed by", d && d.claim ? esc(d.claim.owner) : "nobody"],
     ["Tap to screen", S.lat.length ? `${pct(S.lat, .5)} ms median` : m.input_n ? `${m.input_p50_ms} ms median` : "no taps yet"],
   ];
   const html = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");

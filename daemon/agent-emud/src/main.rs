@@ -9,6 +9,7 @@ mod device;
 mod fast;
 mod logs;
 mod mcp;
+mod ops;
 mod squeeze;
 mod ui;
 mod uidump;
@@ -91,6 +92,7 @@ async fn serve(addr: String) {
     let st = Arc::new(new_state(Cfg::from_env()));
     tokio::spawn(metrics(st.clone()));
     tokio::spawn(recap_idle(st.clone()));
+    tokio::spawn(ops::health_loop(st.clone()));
     let ui_addr = std::env::var("AE_UI_ADDR").unwrap_or_else(|_| "127.0.0.1:7401".into());
     tokio::spawn(ui::serve(st.clone(), ui_addr));
     let l = TcpListener::bind(&addr).await.expect("bind");
@@ -282,6 +284,7 @@ async fn start_device(st: &State, idx: u32, req: &Value) -> R<(Arc<Device>, f64)
             if devs.contains_key(&id) {
                 return Err(fail(format!("Device `{id}` is already running")));
             }
+            ops::max_check(devs.len(), req).map_err(fail)?;
             devs.values().filter(|s| !s.dev.ready.load(Ordering::SeqCst)).filter_map(|s| s.info["mem"].as_str()?.parse::<u64>().ok()).sum()
         };
         let avail = device::available_mb();
@@ -764,7 +767,19 @@ async fn follow_logs(st: &State, req: &Value, w: &mut (impl AsyncWriteExt + Unpi
     }
 }
 
+/// Every call: claims, health and snapshots (ops.rs), the rest below; a call on a phone claimed by someone
+/// else gets a `warning` (it still runs).
 async fn handle(st: &Arc<State>, conn: u64, req: &Value) -> R<Value> {
+    let call = req["call"].as_str().unwrap_or("");
+    let warn = ops::claim_warning(req);
+    let mut r = if ops::CALLS.contains(&call) { ops::handle(st, call, req).await? } else { handle_call(st, conn, req).await? };
+    if let Some(w) = warn {
+        r["warning"] = json!(w);
+    }
+    Ok(r)
+}
+
+async fn handle_call(st: &Arc<State>, conn: u64, req: &Value) -> R<Value> {
     let call = req["call"].as_str().ok_or("missing `call`")?;
     let devid = req["device"].as_str().unwrap_or("d0");
     match call {
@@ -804,9 +819,10 @@ async fn handle(st: &Arc<State>, conn: u64, req: &Value) -> R<Value> {
                 let mut v = json!({"id": s.dev.id, "ready": s.dev.ready.load(Ordering::SeqCst), "phase": s.phase, "streams": s.streams, "frames_via": s.dev.transport().0,
                     "input_via": s.dev.transport().1, "lease": s.lease == Some(conn), "uptime_s": s.started.elapsed().as_secs()});
                 for (k, x) in s.info.as_object().into_iter().flatten() { v[k] = x.clone(); }
+                (v["claim"], v["health"]) = (ops::claim_of(&s.dev.id), ops::health_of(&s.dev.id));
                 v
             }).collect();
-            return Ok(json!({"ok": true, "devices": devs, "available_mb": device::available_mb()}));
+            return Ok(json!({"ok": true, "devices": devs, "available_mb": device::available_mb(), "claims": ops::claims()}));
         }
         _ => {}
     }

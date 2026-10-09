@@ -38,11 +38,16 @@ The body is `{"call": "<name>", "device": "d0", ...}`. The reply is `{"ok": true
 
 | Call | Arguments | Notes |
 | --- | --- | --- |
-| `start` | `image` (`phone`, `phone-n`, `slim5`, `slim4`, `slim3n`, ...), `screen`, `render` (`gfxstream` default, `software`), `refresh_hz` (default 120, 1-240), `boot_cap_mb` (default 600, 0 = none), `idle_cap_mb` (default 250, 0 = keep the boot cap), `mem`, `cpus`, `net`, `auto_squeeze`, `keep_data` | boots and waits for Android plus setup. Use `async`. `keep_data: true` reuses the Device's disks from its last run (installed apps, sign-ins, files); refused if there is none or it was made for another Device, image or super.img. Without it the disks are wiped. `stop` runs `sync` in the guest first |
+| `start` | `force` (boot past the phone limit: at most `AE_MAX_PHONES`, default 4, phones run; also `start_many`, `fleet`), `image` (`phone`, `phone-n`, `slim5`, `slim4`, `slim3n`, ...), `screen`, `render` (`gfxstream` default, `software`), `refresh_hz` (default 120, 1-240), `boot_cap_mb` (default 600, 0 = none), `idle_cap_mb` (default 250, 0 = keep the boot cap), `mem`, `cpus`, `net`, `auto_squeeze`, `keep_data` | boots and waits for Android plus setup. Use `async`. `keep_data: true` reuses the Device's disks from its last run (installed apps, sign-ins, files); refused if there is none or it was made for another Device, image or super.img. Without it the disks are wiped. `stop` runs `sync` in the guest first |
 | `start_many` | `devices: ["d0","d1",...]`, `parallel` (default 4, max 8), plus the `start` arguments | boots them, up to `parallel` at once. Reply `devices: [{device, ok, ready_s / error}]` |
 | `stop` | `device` | |
 | `stop_many` | `devices` (default: all) | stops them all at once |
-| `status` | | every Device: `id, ready, phase, streams, image, mem, cpus, net, screen{name,width,height,dpi}, uptime_s, frames_via, input_via` and `available_mb` |
+| `status` | | every Device: `id, ready, phase, streams, image, mem, cpus, net, screen{name,width,height,dpi}, uptime_s, frames_via, input_via, claim, health` (last check, see `health`), plus `available_mb` and `claims` (every claim, running or not) |
+| `claim` | `device`, `owner`, `note`, `force` | marks the phone as `owner`'s (in memory; a daemon restart clears it). Refused while someone else holds it, unless `force`. Any later non-read call on it from another `owner` (or none) still runs and gets a `warning` field |
+| `unclaim` | `device`, `owner`, `force` | drops the claim; another owner's only with `force` |
+| `health` | `device` | fresh check, reply `health`: `level` (`ok` / `warn` / `bad`), `summary`, `problems`, `warnings`, `adb {ok,port,error}` (host `adb -s 127.0.0.1:<6520+N> shell echo ok`), `network {ip_10_0_2_15, dns_ok, dns, host}` (`AE_HEALTH_HOST`, default `staging.bbapp01.com`), `foreground`, `signed_in` (home vs start/login screen; looked at only while the app is in front), `last_crash`, `stuck` (not ready after `AE_BOOT_STUCK_S`, default 600), and `build` (below). The daemon also checks each idle or booting phone every 60 s (`health` event); phones in use keep their last result (`checked_ms`) |
+| `snapshot` | `device`, `name` (letters, digits, `-_.`) | saves the phone's writable disks (userdata, metadata, misc, frp) to `<work>/snapshots/<name>/`: stop, copy only the data in use (sparse), start it again with `keep_data` (crosvm locks the disks while it runs, so the phone reboots, ~2 min). Stamped with the disks' `data.id` (Device, image, system image) |
+| `restore` | `device`, `name` | puts it back: stop (if up), copy the disks in (seconds), start with `keep_data` and the snapshot's image and screen. Refused for another Device's snapshot or when the image or system image changed since. Reply `disks_s`, `ready_s` |
 | `app` | exactly one of `install` (host APK path), `uninstall`, `clear`, `launch` (package) | `launch` runs auto-squeeze when the Device was started with `auto_squeeze` |
 | `install_bundled` | | installs the image's own APK (BoltBetz staging) over the console, no adb needed |
 | `tap` | `x, y`, `device_px` | `device_px: true` = device pixels (what a dashboard maps clicks to) |
@@ -88,6 +93,16 @@ cap at once and the idle cap comes back after the next quiet minute. Exp G (2026
 
 To change a running Device's settings (image, screen, RAM), stop it and start it again with the new options.
 
+`health.build` (app build and OTA): `version_name`, `version_code`, `apk_bytes`, `apk_sha256` (guest sha256sum of the
+installed APK), `bundled` (same size as the image's bundled APK) with `bundled_apk` and `eas_build` (from the
+`apk/<name>.img` it links), `runtime` (manifest meta-data `expo.modules.updates.EXPO_RUNTIME_VERSION`; this build's is a
+resource reference to `file:fingerprint`, so the APK's `assets/fingerprint`), `channel` (the `expo-channel-name`
+request header), `update_url`, `embedded_update` (the APK's `assets/app.manifest` id), and the running update from the
+app's `databases/updates.db` (latest `last_accessed`): `update_id`, `update_runtime`, `update_commit_ms`,
+`update_embedded`. `expected_runtime` = `AE_EXPECTED_RUNTIME`, else the first word of `<work>/expected-runtime.txt`
+(the staging channel's current runtime; set it when staging moves). When set and different, `runtime_match: false`
+and a warning: the phone never takes the staging OTA.
+
 ### Screens (`start.screen`)
 
 The iPhone 17 Pro Max is 6.9", "2868-by-1320-pixel resolution at 460 ppi" (support.apple.com/en-us/125091),
@@ -132,6 +147,8 @@ es.onmessage = (m) => { const e = JSON.parse(m.data); /* switch (e.type) */ };
 | `metrics` | once a second: `available_mb`, `devices: [{id, phase, ready, uptime_s, activity, scanout_fps, sent_fps, streams, input_p50_ms, input_n, ws_mb, own_mb, shared_mb}]` |
 | `crash` | `device, event` (as in `crash_events`: `kind` crash, anr or native, `process`, `seq`, ...) |
 | `error` | `device, call, error` (a failed start, for example) |
+| `health` | `device, health` (as the `health` call) |
+| `claim` | `device, claim` (null after `unclaim`) |
 | `lagged` | `missed`: the client fell behind and that many events were dropped |
 
 Metrics fields:

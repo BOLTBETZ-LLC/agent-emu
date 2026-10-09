@@ -249,7 +249,7 @@ pub fn balloon_actual(stats_json: &str) -> Option<u64> {
     find(&serde_json::from_str(stats_json).ok()?)
 }
 
-async fn crosvm(exe: &Path, args: &[&str]) -> R<String> {
+pub async fn crosvm(exe: &Path, args: &[&str]) -> R<String> {
     // The gfxstream crosvm cannot even load without the SDK's DLLs (it exits with no output), so control calls
     // get the same PATH as its boot; the 2D crosvm needs only the Windows dirs in it.
     let o = tokio::process::Command::new(exe).args(args).env("PATH", crate::device::gfx_path(&crate::device::sdk_emulator()))

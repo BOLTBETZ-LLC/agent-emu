@@ -179,7 +179,7 @@ async fn adb_host(d: &Device, args: &[&str], timeout: Duration) -> R<String> {
     Ok(out)
 }
 
-async fn adb_raw(d: Option<&Device>, args: &[&str], timeout: Duration) -> R<(String, i32)> {
+pub async fn adb_raw(d: Option<&Device>, args: &[&str], timeout: Duration) -> R<(String, i32)> {
     let serial = format!("127.0.0.1:{}", adb_port(d).ok_or("no adb port for this Device")?);
     let run = |a: Vec<&str>| {
         let mut c = Command::new("adb");

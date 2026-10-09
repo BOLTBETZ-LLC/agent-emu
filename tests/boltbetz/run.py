@@ -4,6 +4,11 @@ python run.py [--phones d0,d1,d2,d3] [--lanes L1,L2] [cases_dir]
 python run.py --phones d1,d2,d3 --lanes L2,L3,L4      # L2->d1, L3->d2, L4->d3, in parallel
 python run.py --phones d3 --case L4-01                # one case (id prefix; comma list ok) on d3
 python run.py --phones d0,d1,d2,d3 --matrix cases/matrix [--areas a,b] [--shard 1/2]   # work queue, see matrix_main
+python run.py --phones d1 --lanes L2 --restore {lane}-golden    # put snapshot "L2-golden" back on d1 first
+python run.py --phones d0,d1 --golden {lane}-golden             # a phone left signed out gets its golden snapshot back
+  (names: {phone} and {lane} are filled in per phone; snapshots are made with the daemon's `snapshot` call)
+
+The run claims its phones (owner run.py-<pid>) and drops the claims at the end.
 
 A step {"check": {...}} runs a check mid-case; "cleanup" steps always run after the case (pass or fail).
 
@@ -25,13 +30,16 @@ HERE = Path(__file__).parent
 _tl = threading.local()  # .deadline: matrix mode's hard per-case timeout, enforced on every daemon call
 
 
-def call(device, call_name, **args):
-    wait = 180
+OWNER = f"run.py-{os.getpid()}"  # this run's claim owner, sent with every call
+
+
+def call(device, call_name, _wait=180, **args):
+    wait = _wait
     if getattr(_tl, "deadline", None):
         wait = min(wait, _tl.deadline - time.time())
         if wait <= 0:
             raise TimeoutError(f"{call_name}: case hit its hard timeout")
-    body = json.dumps({"call": call_name, "device": device, **args}).encode()
+    body = json.dumps({"call": call_name, "device": device, "owner": OWNER, **args}).encode()
     req = urllib.request.Request(API + "/api", data=body, headers={"Content-Type": "application/json"})
     r = json.load(urllib.request.urlopen(req, timeout=max(wait, 1)))
     if not r.get("ok"):
@@ -345,6 +353,41 @@ def lane_setup(device, lane, camera_off=None):
 LANES = json.loads((HERE / "lanes.json").read_text(encoding="utf-8"))  # per-lane account data; "phone" = its Device
 
 
+def snap_name(tpl, phone, lane):
+    return tpl.replace("{phone}", phone).replace("{lane}", lane or "")
+
+
+def restore(device, name):
+    """Snapshot `name` back on `device`: the daemon stops it, copies the disks in, starts it keep_data (~2 min)."""
+    print(f"{device}: restoring snapshot {name}", flush=True)
+    r = call(device, "restore", _wait=900, name=name)
+    print(f"{device}: {name} restored (disks {r['disks_s']:.1f} s, ready in {r['ready_s']:.0f} s)", flush=True)
+
+
+def heal(device, lane, golden, camera_off=None):
+    """A case left the phone signed out: put its golden snapshot back and set the lane up again, so the rest of
+    the lane still runs. True = restored."""
+    if not golden:
+        return False
+    try:
+        if not {n.get("resource-id") for n in nodes(device)} & {"start-screen", "login-screen"}:
+            return False
+        restore(device, snap_name(golden, device, lane))
+        lane_setup(device, lane, camera_off)
+        return True
+    except Exception as e:
+        print(f"{device}: golden restore failed: {e}", flush=True)
+        return False
+
+
+def claims(phones, note, take=True):
+    for p in phones:
+        try:
+            call(p, "claim", note=note) if take else call(p, "unclaim")
+        except Exception as e:
+            print(f"WARNING: {p}: {e}", flush=True)
+
+
 def for_lane(case, lane):
     """Resolve {lane.player}, {lane.machine}, {lane.card}, {lane.email}, {lane.id} from lanes.json for this lane."""
     data = {"id": lane, **LANES.get(lane, {})}
@@ -642,7 +685,7 @@ class Matrix:
                 time.sleep(0.05)
 
 
-def matrix_main(phones, root, areas, shard, pick):
+def matrix_main(phones, root, areas, shard, pick, golden=None):
     phone_lane = {v["phone"]: k for k, v in LANES.items() if "phone" in v}
     if missing := [p for p in phones if p not in phone_lane]:
         print(f"{','.join(missing)}: no lane in lanes.json (add {{\"phone\": ...}} to a lane)", flush=True)
@@ -694,7 +737,12 @@ def matrix_main(phones, root, areas, shard, pick):
         while job := m.next(phone):
             c, t = job[0], time.time()
             try:
-                notes = reset(phone, lane, emu_ok)
+                try:
+                    notes = reset(phone, lane, emu_ok)
+                except Exception:
+                    if not heal(phone, lane, golden, camera_off=True):
+                        raise
+                    notes = reset(phone, lane, emu_ok) + ["signed out: golden snapshot restored"]
                 rs = round(time.time() - t, 1)
                 res = run_case(phone, c, out, lane=lane, hard=True, say=False)
                 res["reset_s"] = rs
@@ -767,7 +815,7 @@ def matrix_report(m, out):
 
 def main(argv):
     phones, only, pick, cases_dir = ["d0"], None, None, HERE / "cases"
-    matrix, areas, shard = None, None, None
+    matrix, areas, shard, first, golden = None, None, None, None, None
     it = iter(argv)
     for a in it:
         if a == "--phones": phones = next(it).split(",")
@@ -776,9 +824,34 @@ def main(argv):
         elif a == "--matrix": matrix = next(it)
         elif a == "--areas": areas = set(next(it).split(","))
         elif a == "--shard": shard = next(it)
+        elif a == "--restore": first = next(it)
+        elif a == "--golden": golden = next(it)
         else: cases_dir = Path(a)
-    if matrix:
-        return matrix_main(phones, matrix, areas, shard, pick)
+    phone_lane = {v["phone"]: k for k, v in LANES.items() if "phone" in v}
+    claims(phones, f"test run {time.strftime('%H:%M:%S')}" + (f" --matrix {matrix}" if matrix else ""))
+    try:
+        if first:
+            bad = {}
+
+            def one(p):
+                try:
+                    restore(p, snap_name(first, p, phone_lane.get(p)))
+                except Exception as e:
+                    bad[p] = str(e)
+            ts = [threading.Thread(target=one, args=(p,)) for p in phones]
+            for t in ts: t.start()
+            for t in ts: t.join()
+            if bad:
+                print(f"restore failed, nothing run: {bad}", flush=True)
+                return 2
+        if matrix:
+            return matrix_main(phones, matrix, areas, shard, pick, golden)
+        return lanes_main(phones, only, pick, cases_dir, golden)
+    finally:
+        claims(phones, "", take=False)
+
+
+def lanes_main(phones, only, pick, cases_dir, golden):
     cases = sorted((json.loads(p.read_text()) for p in cases_dir.glob("*.json")), key=lambda c: c["id"])
     if pick:
         cases = [c for c in cases if any(c["id"].startswith(k) for k in pick)]
@@ -797,6 +870,8 @@ def main(argv):
         for c in (c for c in cases if c["lane"] == lane):
             results.append(run_case(deal[lane], c, out) if lane in deal else
                            {"id": c["id"], "lane": lane, "status": "SKIP", "error": "no phone"})
+            if results[-1]["status"] == "FAIL" and lane in deal and heal(deal[lane], lane, golden):
+                results[-1]["golden_restored"] = True
 
     ts = [threading.Thread(target=lane_worker, args=(l,)) for l in lanes]
     for t in ts: t.start()

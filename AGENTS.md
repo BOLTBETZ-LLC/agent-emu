@@ -104,6 +104,10 @@ HTTP 200 either way: always read `ok`.
 | `squeeze` | `{"call":"squeeze","device":"d3"}` | balloon + RAM caps now (the daemon also does this on idle) |
 | `lease` / `release` | `{"call":"lease","device":"d3"}` | exclusive input for this connection (MCP holds it until the MCP process exits) |
 | `inject_camera_image` | | always errors: the guest camera takes no image. Use the QA paste box |
+| `claim` / `unclaim` | `{"call":"claim","device":"d2","owner":"me","note":"lane 3 work"}` | marks the phone yours (dashboard tag, `status`); others' input calls get a `warning`. Pass your `owner` on your own calls |
+| `health` | `{"call":"health","device":"d2"}` | adb, network, app version, runtime vs staging, update id, foreground, signed in, last crash, stuck boot; `level` ok/warn/bad. Dashboard: dot by the phone name, hover for detail |
+| `snapshot` | `{"call":"snapshot","device":"d1","name":"L2-golden"}` | save a signed-in phone's disks (reboots it, ~2 min) |
+| `restore` | `{"call":"restore","device":"d1","name":"L2-golden"}` | put them back: disks in seconds, then a keep_data boot (~2 min); only that Device's snapshot, same image |
 
 ## Phone lifecycle
 
@@ -128,6 +132,9 @@ than `status`/`stop` on a phone that is not up fail with `Device dN is still boo
   `deep_link`) lifts every cap at once; the first tap after idle can take 150-450 ms instead of ~130 ms. Normal,
   not a hang.
 - **Settings of a running phone** (image, screen, RAM) change only by `stop` then `start`.
+- **Phone limit.** `start` refuses a phone past `AE_MAX_PHONES` (default 4, Aaron's rule) unless `"force": true`.
+- **Golden snapshots.** Each lane phone has `L<n>-golden` (signed in, Home): `snapshot` makes one, `restore` puts a
+  broken phone (signed out, bad data) back. Expected staging runtime for the health warning: `C:\dev\agent-emu-work\expected-runtime.txt`.
 
 **Bundled APK** (what `install_bundled` and `fleet` install): EAS staging build `4cd7f3dc` (1.4.0, versionCode 22),
 kept at `C:\dev\agent-emu-work\apk\boltbetz-staging-4cd7f3dc.apk`. Previous one (2026-10-07) beside it as
@@ -245,6 +252,11 @@ python run.py --phones d0 cases/signed-out         # another cases dir
 Before the first case of a lane the runner waits for phase `ready`, grants POST_NOTIFICATIONS, on L3 sets CAMERA to
 denied (user-fixed: a live camera gets the app low-memory-killed), launches the app and waits for Home.
 Exit code 0 = no FAIL.
+
+**Snapshots and claims in a run.** `--restore {lane}-golden` restores every phone first; `--golden {lane}-golden` restores a
+phone that a case left signed out, then the lane goes on (lane mode: after the FAIL; matrix: when the reset finds it
+signed out, then the reset runs again). `{phone}` works in names too. The runner claims its phones as `run.py-<pid>`
+and drops the claims at the end.
 
 **Lane data.** Cases use `{lane.player}`, `{lane.card}`, `{lane.machine}`, `{lane.email}`, `{lane.id}` instead of a
 lane's literal ids; `tests/boltbetz/lanes.json` fills them (in every mode) and names each lane's phone. A new lane = one
@@ -450,7 +462,7 @@ tool_timeout_sec = 900   # start blocks ~2 min; Codex's default is 60
 Other folders: `codex mcp add agent-emu -- C:\dev\agent-emu\daemon\target-mcp\release\agent-emud.exe mcp --addr 127.0.0.1:7400`
 (then raise `tool_timeout_sec` in `~/.codex/config.toml`). Check: `codex mcp get agent-emu`.
 
-**Tools** (31): `status`, `start`, `stop`, `start_many`, `stop_many`, `install_bundled`, `app`, `ui_tree`,
+**Tools** (36): `claim`, `unclaim`, `health`, `snapshot`, `restore`, `status`, `start`, `stop`, `start_many`, `stop_many`, `install_bundled`, `app`, `ui_tree`,
 `screenshot`, `tap`, `swipe`, `type_text`, `key`, `deep_link`, `permission`, `clock`, `set_location`, `shell`,
 `logs`, `issues`, `crash_events`, `memory`, `squeeze`, `lease`, `release`, `inject_camera_image`, `fleet`,
 `fleet_stop`, `run_case`, `run_lanes`, `run_matrix` (the last three run the test runner: [Test runner](#test-runner)).
