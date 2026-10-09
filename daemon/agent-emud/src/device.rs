@@ -50,6 +50,35 @@ const SETUP: &str = "settings put global hide_error_dialogs 1; \
     ip link set buried_eth0 up; ip addr add 10.0.2.15/24 dev buried_eth0; \
     ip route add 10.0.2.0/24 dev buried_eth0 table legacy_system";
 
+// Lean images only (one app + Firefox): disable the system apps nothing here uses and unload the modules
+// for hardware the VM does not have (kunit tests, USB NICs, CAN, PPP, 802.15.4, Wi-Fi dongles, kheaders).
+// 2026-10-09 exp D, slim5 d6 after the 20-tap protocol: guest MemAvailable 243 -> 307 MB, kernel 272 -> 238 MB
+// (modules 13.0 -> 3.6 MB), 434 -> 358 processes, 0 kills; Firefox and the app still work. Runs in the
+// background: the ~30 `pm` calls take ~8 s. Keep com.android.bluetooth (see SETUP), com.android.phone
+// (persistent, telephony), permissioncontroller, packageinstaller, shell, media providers, webview,
+// networkstack, keychain, photopicker. Never unload virtio_balloon: the headroom loop needs it.
+const TRIM: &str = "(for p in com.android.rkpdapp com.android.provision com.android.ondevicepersonalization.services \
+    com.android.federatedcompute.services com.android.cellbroadcastreceiver.module com.android.cellbroadcastservice \
+    com.android.providers.calendar com.android.adservices.api com.android.healthconnect.controller \
+    com.android.health.connect.backuprestore com.android.devicelockcontroller com.android.virtualization.terminal \
+    com.android.companiondevicemanager com.android.settings com.android.externalstorage com.android.providers.contacts \
+    com.android.mms.service com.android.telephony.qns com.android.providers.blockednumber com.android.providers.userdictionary \
+    com.android.hotspot2.osulogin com.android.captiveportallogin com.android.cts.ctsshim com.android.cts.priv.ctsshim \
+    com.android.localtransport com.android.pacprocessor com.android.proxyhandler com.android.wifi.dialog com.android.certinstaller \
+    com.android.providers.downloads.ui com.android.role.notes.enabled android.ext.services; do \
+    pm disable-user --user 0 $p; am force-stop $p; done; \
+    for m in kheaders regmap_kunit regmap_raw_ram regmap_ram kunit_test kunit_example_test dev_addr_lists_test soc_utils_test \
+    soc_topology_test iio_test_format of_kunit_helpers hid_uclogic_test lib_test input_test platform_test fat_test ext4_inode_test \
+    time_test rtc_test test_meminit kunit mt76x2u mt76x0u mt76x2_common mt76x0_common mt76x02_usb mt76x02_lib mt76_usb mt76 \
+    mac80211_hwsim mac80211 libarc4 r8153_ecm cdc_ncm cdc_eem cdc_ether aqc111 ax88179_178a asix rtl8150 r8152 usbnet mii \
+    cdc_acm ftdi_sio usbserial gs_usb usbip_vudc vhci_hcd usbip_core dummy_hcd usbmon xhci_pci_renesas btusb btsdio hci_uart \
+    btrtl btintel btqca btbcm pwrseq_core can_gw can_bcm can_raw slcan vcan can_dev can l2tp_ppp pptp pppox ppp_mppe ppp_deflate \
+    bsd_comp ppp_generic slhc l2tp_core ieee802154_socket ieee802154_6lowpan nhc_udp nhc_routing nhc_mobility nhc_ipv6 nhc_hop \
+    nhc_fragment nhc_dest 6lowpan mac802154 ieee802154 tipc_diag tipc 9pnet_fd 9pnet netfs v4l2_tpg macsec 8021q wwan \
+    pulse8_cec dummy_cpufreq pretimeout_dump nfc; do rmmod $m; done; \
+    settings put global wifi_scan_always_enabled 0; settings put global ble_scan_always_enabled 0; \
+    settings put secure location_mode 0; echo 200 > /proc/sys/vm/vfs_cache_pressure) </dev/null >/dev/null 2>&1 &";
+
 pub fn now_ms() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64
 }
@@ -628,7 +657,7 @@ impl Device {
         let setup = if self.phone {
             SETUP.replace("cmd connectivity airplane-mode enable; ", "cmd bluetooth_manager disable; ").replace(PHONE_NET_FROM, PHONE_NET_TO)
         } else {
-            SETUP.to_string()
+            format!("{SETUP}; {TRIM}")
         };
         // The image's bootconfig fixes androidboot.lcd_density=320; the screen profile's density wins here.
         let setup = format!("wm density {}; {setup}", self.density);
