@@ -5,7 +5,7 @@ items:
     priority: P0
   - goal: "See my rewards and offers"         # Jev decide taps toward it, then a judge check
     until_id: rewards-screen
-    requires_state: funded-25                 # catalog state: emulator lane_state per chunk (ticket 06)
+    requires_state: card-linked-funded-25     # catalog state: emulator lane_state per chunk (ticket 06)
   - pict: matrix/models/home.pict             # PICT rows -> cases via matrix/gen.py
     limit: 1
   - flow: home                                # gen.py area x states x faults on a real row of its model
