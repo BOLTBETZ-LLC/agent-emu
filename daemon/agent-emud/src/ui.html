@@ -3,248 +3,328 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
 <title>agent-emu</title>
 <style>
-  /* Bench ramp: every neutral comes from these ten graphite steps; only the reagents carry hue. */
+  /* One tonal ramp per theme (light-dark), three state colours, one indigo for the focused phone. */
   :root {
-    --z0:#09090a; --z1:#101112; --z2:#161719; --z3:#1e1f22; --z4:#2a2b2e; --z5:#3a3b3f;
-    --z6:#5f6166; --z7:#95979c; --z8:#c4c6ca; --z9:#eeeff0;
-    /* Reagents: a well's rim says its state. */
-    --amber:#f4b73f; --amber-ink:#2a1d02; --teal:#3fd6b4; --teal-ink:#032a21; --red:#ff6f61; --red-ink:#2e0805;
-    --blue:#7fb2ff;
-    --ui:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
-    --label:Bahnschrift,"DIN Alternate","Segoe UI",system-ui,sans-serif;
-    --mono:"Cascadia Mono",Consolas,ui-monospace,monospace;
-    --top:52px; --pad:14px; --gap:14px; --tape:30px; --acts:36px; --wellpad:8px;
-    /* Phone size in a well: two rows fill the height under the top bar. */
-    --ph:max(250px, calc((100dvh - var(--top) - 2*var(--pad) - var(--gap) - 2*(var(--tape) + var(--acts) + 2*var(--wellpad) + 18px)) / 2));
-    --pw:calc(var(--ph) * 1320 / 2868);
-    --panel:clamp(360px, 18vw, 460px);
-    color-scheme:dark;
+    color-scheme: light dark;
+    --sweep-top: light-dark(#d9d6d0, #1e1e21);
+    --sweep-floor: light-dark(#f8f7f4, #0b0b0d);
+    --sweep-mid: light-dark(#e2dfda, #141416);
+    --pool: light-dark(rgb(255 255 255 / .75), rgb(255 255 255 / .045));
+    --ink: light-dark(#1c1b19, #f2f1ee);
+    --ink-2: light-dark(#5f5c56, #a6a39d);
+    --ink-3: light-dark(#8d8982, #75726d);
+    --line: light-dark(rgb(28 27 25 / .10), rgb(255 255 255 / .09));
+    --line-2: light-dark(rgb(28 27 25 / .16), rgb(255 255 255 / .15));
+    --fill: light-dark(rgb(28 27 25 / .05), rgb(255 255 255 / .06));
+    --fill-2: light-dark(rgb(28 27 25 / .09), rgb(255 255 255 / .11));
+    --card: light-dark(rgb(255 255 255 / .78), rgb(36 36 39 / .72));
+    --card-solid: light-dark(#ffffff, #232326);
+    --bar: light-dark(rgb(246 245 242 / .72), rgb(22 22 24 / .70));
+    --btn-ink: light-dark(#1c1b19, #f2f1ee);
+    --btn-ink-text: light-dark(#ffffff, #141414);
+    --green: light-dark(#18864b, #3fcf83);
+    --amber: light-dark(#a86200, #f0b03f);
+    --red: light-dark(#cc3326, #ff6d60);
+    --indigo: light-dark(#4b44d6, #8f89ff);
+    --glass: #050506;
+    --shadow: light-dark(rgb(40 34 24 / .16), rgb(0 0 0 / .55));
+    --ui: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+    --disp: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, sans-serif;
+    --mono: "Cascadia Mono", Consolas, ui-monospace, monospace;
+    --ease: cubic-bezier(.2, .8, .2, 1);
+    --bar-h: 56px;
+    --cap: 46px; --rg: 18px; --cg: 18px;
+    --rows: 2;
   }
-  @property --p { syntax:"<number>"; inherits:true; initial-value:0; }
-  * { box-sizing:border-box; }
-  html, body { height:100%; }
-  body { margin:0; background:var(--z1); color:var(--z9); font:14px/1.5 var(--ui); }
-  ::selection { background:color-mix(in srgb, var(--teal) 40%, transparent); color:var(--z9); }
-  * { scrollbar-width:thin; scrollbar-color:var(--z5) transparent; }
-  :focus-visible { outline:2px solid var(--z9); outline-offset:2px; }
-  .lbl { font-family:var(--label); font-stretch:semi-condensed; letter-spacing:.02em; }
-  .num { font-variant-numeric:tabular-nums; }
-  svg.i { width:16px; height:16px; flex:none; stroke:currentColor; fill:none; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
-  [hidden] { display:none !important; }
+  :root[data-theme=light] { color-scheme: light; }
+  :root[data-theme=dark] { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; color: var(--ink); font: 13px/1.45 var(--ui); letter-spacing: -.003em; -webkit-font-smoothing: antialiased;
+    background: radial-gradient(80% 45% at 30% 62%, var(--pool), transparent 70%) fixed, linear-gradient(180deg, var(--sweep-top) 0, var(--sweep-mid) 46%, var(--sweep-floor) 100%) fixed; overflow: hidden; }
+  ::selection { background: color-mix(in srgb, var(--indigo) 28%, transparent); }
+  * { scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
+  :focus-visible { outline: 2px solid var(--indigo); outline-offset: 2px; border-radius: 6px; }
+  [hidden] { display: none !important; }
+  .num { font-variant-numeric: tabular-nums; }
+  svg.i { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  h1, h2, h3, p { margin: 0; }
 
-  /* Buttons: one vocabulary everywhere. aria-busy shows inline progress (a moving bar under the label). */
-  button { font:inherit; color:inherit; cursor:pointer; }
-  .btn { position:relative; display:inline-flex; align-items:center; justify-content:center; gap:6px; height:32px; padding:0 12px;
-    border-radius:7px; border:1px solid var(--z5); background:var(--z3); color:var(--z9); font-weight:550; white-space:nowrap; overflow:hidden;
-    transition:background .12s, border-color .12s, transform .06s; }
-  .btn:hover:not(:disabled) { background:var(--z4); border-color:var(--z6); }
-  .btn:active:not(:disabled) { transform:translateY(1px); background:var(--z5); }
-  .btn:disabled { opacity:.42; cursor:not-allowed; }
-  .btn.primary { background:var(--teal); border-color:var(--teal); color:var(--teal-ink); }
-  .btn.primary:hover:not(:disabled) { background:#62e2c5; border-color:#62e2c5; }
-  .btn.danger { color:var(--red); }
-  .btn.danger:hover:not(:disabled) { border-color:var(--red); background:color-mix(in srgb, var(--red) 12%, var(--z3)); }
-  .btn.confirm { background:var(--red); border-color:var(--red); color:var(--red-ink); }
-  .btn.ghost { background:transparent; border-color:transparent; color:var(--z8); }
-  .btn.ghost:hover:not(:disabled) { background:var(--z3); border-color:var(--z4); }
-  .btn.icon { width:32px; padding:0; }
-  .btn.sm { height:28px; padding:0 9px; font-size:13px; }
-  .btn.sm.icon { width:28px; }
-  .btn[aria-busy=true]::after { content:""; position:absolute; left:0; right:0; bottom:0; height:2px; background:currentColor;
-    animation:breathe 1.2s ease-in-out infinite alternate; }
-  @keyframes breathe { from { opacity:.25; } to { opacity:.9; } }
+  /* ---------- controls ---------- */
+  button { font: inherit; color: inherit; cursor: pointer; }
+  .btn { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 30px; padding: 0 13px;
+    border-radius: 999px; border: 0; background: var(--fill-2); color: var(--ink); font-weight: 560; white-space: nowrap;
+    transition: background .15s var(--ease), transform .12s var(--ease), opacity .15s; }
+  .btn:hover:not(:disabled) { background: color-mix(in srgb, var(--fill-2) 100%, var(--ink) 6%); }
+  .btn:active:not(:disabled) { transform: scale(.965); }
+  .btn:disabled { opacity: .38; cursor: default; }
+  .btn.ink { background: var(--btn-ink); color: var(--btn-ink-text); }
+  .btn.ink:hover:not(:disabled) { background: color-mix(in srgb, var(--btn-ink) 86%, var(--indigo)); }
+  .btn.quiet { background: transparent; color: var(--ink-2); }
+  .btn.quiet:hover:not(:disabled) { background: var(--fill); color: var(--ink); }
+  .btn.danger { color: var(--red); }
+  .btn.confirm { background: var(--red); color: #fff; }
+  .btn.icon { width: 30px; padding: 0; }
+  .btn.sm { height: 26px; padding: 0 10px; font-size: 12px; }
+  .btn.sm.icon { width: 26px; padding: 0; }
+  .btn[aria-busy=true] { pointer-events: none; }
+  .btn[aria-busy=true]::after { content: ""; position: absolute; inset: 0; border-radius: inherit;
+    background: linear-gradient(90deg, transparent 0, rgb(255 255 255 / .28) 50%, transparent 100%) 0 0 / 200% 100%; animation: sheen 1.1s linear infinite; }
+  @keyframes sheen { from { background-position: 150% 0; } to { background-position: -50% 0; } }
+  input, select { font: inherit; color: var(--ink); background: var(--fill); border: 1px solid transparent; border-radius: 8px; height: 30px; padding: 0 10px; min-width: 0; }
+  input:hover, select:hover { border-color: var(--line-2); }
+  input:focus-visible, select:focus-visible { outline: 2px solid var(--indigo); outline-offset: 0; }
+  input::placeholder { color: var(--ink-3); }
+  select option { background: var(--card-solid); color: var(--ink); }
+  input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--indigo); margin: 0; }
+  .seg { display: inline-flex; padding: 3px; gap: 2px; border-radius: 10px; background: var(--fill-2); }
+  .seg button { height: 26px; padding: 0 14px; border: 0; border-radius: 7px; background: transparent; color: var(--ink-2); font-weight: 560;
+    transition: background .18s var(--ease), color .18s, box-shadow .18s; }
+  .seg button[aria-selected=true], .seg button[aria-pressed=true] { background: var(--card-solid); color: var(--ink); box-shadow: 0 1px 3px var(--shadow), 0 0 0 .5px var(--line); }
+  .seg button:not([aria-selected=true]):not([aria-pressed=true]):hover { color: var(--ink); }
+  .seg.sm button { height: 24px; padding: 0 10px; font-size: 12px; }
+  kbd { font: 11px var(--mono); padding: 1px 5px; border-radius: 5px; background: var(--fill-2); color: var(--ink-2); }
 
-  input, select { font:inherit; color:var(--z9); background:var(--z1); border:1px solid var(--z5); border-radius:7px; height:32px; padding:0 9px; min-width:0; }
-  input:hover, select:hover { border-color:var(--z6); }
-  input:focus-visible, select:focus-visible { outline:2px solid var(--teal); outline-offset:0; border-color:var(--teal); }
-  input::placeholder { color:var(--z7); }
-  input[type=checkbox] { width:16px; height:16px; accent-color:var(--teal); margin:0; }
+  /* ---------- toolbar: translucent material over the sweep ---------- */
+  #bar { position: relative; z-index: 3; height: var(--bar-h); display: flex; align-items: center; gap: 12px; padding: 0 20px;
+    background: var(--bar); backdrop-filter: saturate(1.6) blur(18px); border-bottom: 1px solid var(--line); }
+  #brand { display: flex; align-items: center; gap: 9px; font: 650 15px/1 var(--disp); letter-spacing: -.01em; min-width: 150px; }
+  #conn { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); transition: background .3s; }
+  #conn.on { background: var(--green); }
+  #conn.off { background: var(--red); }
+  #brand small { font: 400 12px var(--ui); color: var(--ink-2); }
+  #views { margin: 0 auto; }
+  #bar .right { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  #membtn { height: 30px; white-space: nowrap; display: inline-flex; align-items: center; gap: 9px; padding: 0 12px 0 10px; border: 0; border-radius: 999px; background: transparent; color: var(--ink-2); }
+  #membtn:hover { background: var(--fill); color: var(--ink); }
+  .mini { width: 74px; height: 6px; border-radius: 3px; background: var(--fill-2); overflow: hidden; display: flex; }
+  .mini i { display: block; height: 100%; transition: flex-basis .5s var(--ease); }
+  .split { display: inline-flex; }
+  .split .btn:first-child { border-radius: 999px 0 0 999px; padding-right: 11px; }
+  .split .btn:last-child { border-radius: 0 999px 999px 0; width: 28px; padding: 0; margin-left: 1px; }
 
-  /* ---------- top bar ---------- */
-  #top { height:var(--top); display:flex; align-items:center; gap:14px; padding:0 var(--pad); background:var(--z2); border-bottom:1px solid var(--z4); }
-  #brand { font-family:var(--label); font-weight:700; font-size:19px; letter-spacing:.01em; display:flex; align-items:center; gap:9px; }
-  #brand .dot { width:9px; height:9px; border-radius:50%; background:var(--teal); box-shadow:0 0 0 3px color-mix(in srgb, var(--teal) 22%, transparent); }
-  #brand.off .dot { background:var(--red); box-shadow:0 0 0 3px color-mix(in srgb, var(--red) 22%, transparent); }
-  #budget { flex:0 1 760px; min-width:220px; display:grid; gap:4px; }
-  #budget .bar { position:relative; height:10px; border-radius:5px; background:var(--z1); border:1px solid var(--z4); display:flex; overflow:hidden; }
-  #budget .seg { height:100%; transition:flex-basis .25s ease-out; }
-  #budget .seg.dev { background:var(--teal); border-right:1px solid var(--z2); }
-  #budget .seg.dev.booting { background:var(--amber); }
-  #budget .seg.shared { background:color-mix(in srgb, var(--teal) 45%, var(--z4)); }
-  #budget .seg.free { background:transparent; }
-  #budget .floor { position:absolute; top:-1px; bottom:-1px; width:2px; background:var(--red); }
-  #budget .cap { display:flex; gap:14px; font-size:12px; color:var(--z7); white-space:nowrap; }
-  #budget .cap b { color:var(--z9); font-weight:600; }
-  #budget .cap .warn { color:var(--amber); }
-  #say { flex:1; min-width:0; font-size:13px; color:var(--z7); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:right; }
-  #say.err { color:var(--red); }
-  #top .grp { display:flex; gap:8px; align-items:center; }
+  /* ---------- popovers (native) ---------- */
+  [popover] { margin: 0; border: 0; padding: 0; color: var(--ink); background: var(--card-solid); border-radius: 14px;
+    box-shadow: 0 18px 50px -12px var(--shadow), 0 0 0 .5px var(--line-2); }
+  [popover]:popover-open { animation: pop .18s var(--ease); }
+  @keyframes pop { from { opacity: 0; transform: translateY(-4px) scale(.985); } }
+  .pop { position: fixed; top: calc(var(--bar-h) + 6px); right: 16px; left: auto; width: 360px; max-height: calc(100dvh - var(--bar-h) - 24px); overflow: auto; }
+  .pop .in { padding: 16px; display: grid; gap: 12px; }
+  .pop h3 { font: 650 15px var(--disp); }
+  .field { display: grid; grid-template-columns: 92px minmax(0, 1fr); align-items: center; gap: 10px; }
+  #insp .field { grid-template-columns: 62px minmax(0, 1fr); gap: 8px; }
+  .field > span { color: var(--ink-2); }
+  .checks { display: grid; gap: 8px; }
+  .checks label { display: flex; align-items: center; gap: 9px; cursor: pointer; }
+  .checks small { color: var(--ink-2); }
+  .note { color: var(--ink-2); font-size: 12px; line-height: 1.5; }
+  .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .stepper { display: inline-flex; align-items: center; height: 30px; border-radius: 999px; background: var(--fill-2); }
+  .stepper button { width: 30px; height: 30px; border: 0; background: transparent; border-radius: 999px; font-size: 15px; color: var(--ink-2); }
+  .stepper button:hover { color: var(--ink); background: var(--fill); }
+  .stepper output { min-width: 18px; text-align: center; font-weight: 650; }
+  hr { border: 0; border-top: 1px solid var(--line); margin: 2px 0; }
 
-  /* ---------- layout ---------- */
-  #main { height:calc(100dvh - var(--top)); display:grid; grid-template-columns:max-content minmax(0,1fr) var(--panel); gap:var(--gap); padding:var(--pad); }
-  body.panel-closed #main { grid-template-columns:max-content minmax(0,1fr) 48px; }
-  body.stage-closed #main { grid-template-columns:max-content 0 var(--panel); }
-  body.stage-closed.panel-closed #main { grid-template-columns:max-content 0 48px; }
-  body.stage-closed #stage { display:none; }
+  /* memory */
+  .membar { position: relative; height: 14px; border-radius: 7px; background: var(--fill-2); display: flex; overflow: hidden; }
+  .membar i { display: block; height: 100%; border-right: 1px solid var(--card-solid); transition: flex-basis .5s var(--ease); }
+  .membar .floor { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--red); border: 0; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--ink-2); font-size: 12px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+  .bign { font: 600 26px/1.1 var(--disp); letter-spacing: -.02em; }
+  table.t { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  table.t th { text-align: left; font-weight: 560; color: var(--ink-2); padding: 6px 4px; border-bottom: 1px solid var(--line); }
+  table.t td { padding: 7px 4px; border-bottom: 1px solid var(--line); vertical-align: top; overflow-wrap: anywhere; }
+  table.t td.n, table.t th.n { text-align: right; font-variant-numeric: tabular-nums; }
+  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3); vertical-align: 1px; margin-right: 6px; }
+  .dot.ok { background: var(--green); } .dot.warm { background: var(--amber); } .dot.bad { background: var(--red); }
 
-  /* ---------- the plate: 8 wells, 2 rows of 4 ---------- */
-  #plate { display:grid; grid-template-columns:repeat(4, max-content); grid-template-rows:repeat(2, max-content); gap:10px; align-content:start;
-    padding:6px; margin:-6px; border-radius:18px; background:var(--z0); box-shadow:inset 0 1px 3px rgba(0,0,0,.6); }
-  .well { position:relative; width:calc(var(--pw) + 8px + 2*var(--wellpad) + 2px); display:grid; grid-template-rows:var(--tape) auto var(--acts); gap:4px; padding:var(--wellpad); border-radius:14px;
-    background:var(--z2); border:1px solid var(--z4); transition:transform .18s cubic-bezier(.2,.7,.2,1), box-shadow .18s, border-color .18s; }
-  .well.sel { border-color:var(--z6); box-shadow:0 10px 28px -10px rgba(0,0,0,.8), 0 0 0 1px var(--z6); transform:translateY(-5px); }
-  .well.drop { border-color:var(--blue); box-shadow:0 0 0 2px var(--blue); }
-  .tape { display:flex; align-items:center; gap:6px; min-width:0; font-size:12.5px; }
-  .tape .id { font-family:var(--label); font-weight:700; font-size:15px; padding:0 8px; height:22px; display:inline-flex; align-items:center; border-radius:1px;
-    background:var(--z8); color:var(--z1); cursor:pointer; border:0; }
-  .well.sel .tape .id { background:var(--z9); }
-  .badge { font-family:var(--label); font-stretch:semi-condensed; font-weight:600; font-size:12px; letter-spacing:.03em; text-transform:uppercase;
-    padding:0 8px; height:20px; display:inline-flex; align-items:center; gap:5px; border-radius:4px; color:var(--z7); background:var(--z3); }
-  .badge::before { content:""; width:6px; height:6px; border-radius:50%; background:currentColor; }
-  [data-state=running] .badge { color:var(--teal); background:color-mix(in srgb, var(--teal) 12%, var(--z2)); }
-  [data-state=booting] .badge, [data-state=queued] .badge, [data-state=stopping] .badge { color:var(--amber); background:color-mix(in srgb, var(--amber) 12%, var(--z2)); }
-  [data-state=failed] .badge { color:var(--red); background:color-mix(in srgb, var(--red) 13%, var(--z2)); }
-  [data-state=empty] .badge { color:var(--z7); }
-  .tape .meta { margin-left:auto; display:flex; gap:9px; color:var(--z7); white-space:nowrap; overflow:hidden; }
-  .tape .meta b { color:var(--z9); font-weight:600; }
-  .tape .crash { border:0; background:none; padding:0; color:var(--red); font:inherit; cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
+  /* ---------- phones view ---------- */
+  #phones { height: calc(100dvh - var(--bar-h)); display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 32px;
+    padding: 22px 28px 20px; container-type: size; }
+  #grid { --ph: min(calc((100cqh - var(--rows) * var(--cap) - (var(--rows) - 1) * var(--rg)) / var(--rows)), calc((60cqw - 3 * var(--cg)) / 4 * 2868 / 1320));
+    display: grid; grid-template-columns: repeat(4, max-content); gap: var(--rg) var(--cg); align-content: center; }
+  .tile { position: relative; display: grid; grid-template-rows: auto var(--cap); width: calc(var(--ph) * 1320 / 2868); }
 
-  /* The recess: a phone at true iPhone 17 Pro Max aspect, inside a dark bezel, ringed by the reagent rim. */
-  .recess { position:relative; width:var(--pw); height:var(--ph); margin:4px; }
-  .glass { position:absolute; inset:0; border-radius:12.5% / 5.75%; background:var(--z0); border:5px solid #030405; overflow:hidden;
-    box-shadow:inset 0 0 0 1px #000, 0 0 0 1px var(--z4); }
-  .glass canvas { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; touch-action:none; cursor:crosshair; display:block; outline:none; }
-  .glass canvas:focus-visible { outline:none; }
-  .well:has(canvas:focus-visible) .rim, #stagephone:has(canvas:focus-visible) .rim { outline:2px solid var(--z9); outline-offset:3px; }
-  /* Signature move: the reagent rises up the rim with boot progress (--p, 0-100), then reacts teal when ready. */
-  .rim { position:absolute; inset:-4px; border-radius:calc(12.5% + 2px) / calc(5.75% + 1px); padding:3px; pointer-events:none;
-    background:linear-gradient(to top, var(--amber) calc(var(--p) * 1%), var(--z4) calc(var(--p) * 1%));
-    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite:xor;
-    mask:linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); transition:--p .9s linear; }
-  [data-state=running] .rim { background:var(--teal); }
-  [data-state=running].react .rim { animation:react .7s ease-out; }
-  @keyframes react { 0% { box-shadow:0 0 0 0 color-mix(in srgb, var(--teal) 70%, transparent); } 100% { box-shadow:0 0 0 14px transparent; } }
-  [data-state=failed] .rim { background:var(--red); }
-  [data-state=stopping] .rim { background:linear-gradient(to top, var(--amber) 0 100%); opacity:.55; }
-  [data-state=empty] .rim { background:none; border:1.5px dashed var(--z5); padding:0; -webkit-mask:none; mask:none; }
-  [data-state=queued] .rim { background:none; border:1.5px dashed var(--amber); padding:0; -webkit-mask:none; mask:none; }
-  /* Veil: what the well is doing when there is no picture (empty, queued, booting, failed, no app). */
-  .veil { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; padding:14%;
-    text-align:center; font-size:13px; color:var(--z7); border-radius:12.5% / 5.75%; }
-  .veil .big { font-family:var(--label); font-size:17px; font-weight:600; color:var(--z9); }
-  .veil .num { font-family:var(--label); }
-  .veil .raw { font:11px/1.4 var(--mono); color:var(--z7); overflow-wrap:anywhere; max-height:8.4em; overflow:auto; }
-  [data-state=failed] .veil { color:var(--z8); background:color-mix(in srgb, var(--red) 6%, var(--z0)); }
-  [data-state=failed] .veil .big { color:var(--red); }
-  .veil .row { display:flex; gap:6px; flex-wrap:wrap; justify-content:center; }
-  .veil.over { background:color-mix(in srgb, var(--z0) 84%, transparent); }
-  .touch { position:absolute; width:26px; height:26px; margin:-13px 0 0 -13px; border-radius:50%; pointer-events:none;
-    border:2px solid var(--z9); background:color-mix(in srgb, var(--z9) 25%, transparent); animation:touch .6s ease-out forwards; }
-  .touch.swipe { border-color:var(--blue); background:color-mix(in srgb, var(--blue) 25%, transparent); }
-  @keyframes touch { from { transform:scale(.6); opacity:1; } to { transform:scale(1.6); opacity:0; } }
-  .flash { position:absolute; inset:0; background:#fff; pointer-events:none; animation:flash .3s ease-out forwards; }
-  @keyframes flash { from { opacity:.55; } to { opacity:0; } }
-  .acts { display:flex; align-items:center; gap:2px; }
-  .acts .sep { width:1px; height:18px; background:var(--z4); margin:0 3px; }
-  .acts .end { margin-left:auto; display:flex; gap:2px; }
-  .acts .btn { color:var(--z8); width:26px; }
-  [data-state=empty] .acts [data-act=stop], [data-state=failed] .acts [data-act=stop] { visibility:hidden; }
-  .acts { min-width:0; }
-  [data-state=empty] .acts .live, [data-state=queued] .acts .live, [data-state=booting] .acts .live, [data-state=failed] .acts .live, [data-state=stopping] .acts .live { visibility:hidden; }
-  .well .status { position:absolute; left:var(--wellpad); right:var(--wellpad); bottom:calc(var(--acts) + var(--wellpad) + 10px); margin:0 10px;
-    font-size:12px; text-align:center; color:var(--z9); background:color-mix(in srgb, var(--z1) 88%, transparent); border:1px solid var(--z4);
-    border-radius:6px; padding:6px 10px; pointer-events:none; opacity:0; transition:opacity .15s; }
-  .well .status.on { opacity:1; }
-  .well .status.err { color:var(--red); border-color:color-mix(in srgb, var(--red) 50%, var(--z4)); }
+  /* The phone: a physical object on the sweep, glass inside a thin bezel, a soft contact shadow under it. */
+  .phone { position: relative; height: var(--ph); aspect-ratio: 1320 / 2868; border-radius: 13% / 6%; background: var(--glass);
+    box-shadow: 0 0 0 1px light-dark(rgb(0 0 0 / .55), rgb(255 255 255 / .10)), 0 0 0 3.5px light-dark(#2b2a28, #2c2c2f), 0 0 0 4.5px light-dark(rgb(0 0 0 / .25), rgb(255 255 255 / .14)),
+      0 14px 26px -12px var(--shadow), 0 26px 30px -26px var(--shadow);
+    transition: transform .25s var(--ease), box-shadow .25s var(--ease); isolation: isolate; }
+  .phone canvas { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: inherit; display: block; touch-action: none; cursor: crosshair; outline: none;
+    transition: opacity .3s var(--ease), filter .3s var(--ease); }
+  .tile.sel .phone { transform: translateY(-4px); box-shadow: 0 0 0 1px light-dark(rgb(0 0 0 / .55), rgb(255 255 255 / .10)), 0 0 0 3.5px light-dark(#2b2a28, #2c2c2f), 0 0 0 6.5px var(--indigo),
+      0 22px 34px -14px var(--shadow), 0 34px 36px -28px var(--shadow); }
+  .phone:has(canvas:focus-visible) { outline: 2px solid var(--indigo); outline-offset: 8px; }
+  [data-state=stopping] canvas { opacity: .35; filter: grayscale(1); }
+  /* Off: powered-down glass in the same bezel, a faint reflection, Start on the glass. */
+  [data-state=empty] .phone, [data-state=queued] .phone { background: linear-gradient(155deg, #1d1d20 0, #0b0b0d 38%, #050506 100%); }
+  [data-state=empty] .say .btn.ink, [data-state=queued] .say .btn { background: rgb(255 255 255 / .12); color: rgb(255 255 255 / .9); }
+  [data-state=empty] .phone:hover .say .btn.ink, .tile.sel[data-state=empty] .say .btn.ink, #stage[data-state=empty] .say .btn.ink { background: #f2f1ee; color: #141414; }
+  [data-state=empty] canvas, [data-state=queued] canvas, [data-state=booting] canvas, [data-state=failed] canvas { opacity: 0; }
 
-  /* ---------- focus stage ---------- */
-  #stage { min-width:0; display:grid; grid-template-columns:minmax(0,1fr) 236px; gap:var(--gap); background:var(--z2); border:1px solid var(--z4);
-    border-radius:14px; padding:var(--pad); }
-  #stagebox { container-type:size; min-height:0; display:flex; align-items:center; justify-content:center; }
-  #stagephone { position:relative; height:min(100cqh - 8px, (100cqw - 8px) * 2868 / 1320); aspect-ratio:1320 / 2868; }
-  #stageside { display:flex; flex-direction:column; gap:14px; min-height:0; overflow:auto; }
-  #stageside h2 { margin:0; font-family:var(--label); font-size:26px; font-weight:700; display:flex; align-items:center; gap:10px; }
-  #stageside .sub { color:var(--z7); font-size:13px; margin-top:-8px; }
-  .keys { display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; }
-  .keys .btn { height:40px; flex-direction:column; gap:1px; font-size:11px; font-weight:500; color:var(--z8); }
-  .stack { display:grid; gap:6px; }
-  .stack .btn { justify-content:flex-start; }
-  dl.facts { margin:0; display:grid; grid-template-columns:auto 1fr; gap:5px 12px; font-size:13px; }
-  dl.facts dt { color:var(--z7); }
-  dl.facts dd { margin:0; text-align:right; font-variant-numeric:tabular-nums; }
-  .hint { font-size:12px; color:var(--z7); line-height:1.5; }
-  kbd { font:11px var(--mono); padding:1px 5px; border-radius:4px; border:1px solid var(--z5); background:var(--z3); color:var(--z8); }
+  /* Warm-up (signature): the glass brightens as boot moves through its phases, then glints once when ready. */
+  .warm { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0; transition: opacity 1s linear;
+    background: radial-gradient(130% 75% at 50% 22%, rgb(255 226 180 / .42), rgb(255 226 180 / .10) 55%, transparent 85%); }
+  [data-state=booting] .warm { opacity: calc(.18 + var(--p, 0) * .0082); }
+  .glint { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; overflow: hidden; }
+  .tile.ready .glint::after, #stage.ready .glint::after { content: ""; position: absolute; inset: -20% -60%;
+    background: linear-gradient(105deg, transparent 40%, rgb(255 255 255 / .30) 50%, transparent 60%); animation: glint 1s var(--ease) forwards; }
+  @keyframes glint { from { transform: translateX(-60%); } to { transform: translateX(60%); opacity: 0; } }
 
-  /* ---------- side panel ---------- */
-  #panel { min-width:0; min-height:0; display:flex; flex-direction:column; background:var(--z2); border:1px solid var(--z4); border-radius:14px; overflow:hidden; }
-  #panelhead { display:flex; align-items:center; gap:8px; padding:8px 8px 8px 14px; border-bottom:1px solid var(--z4); }
-  #panelhead .t { font-family:var(--label); font-weight:700; font-size:15px; }
-  #panelhead .btn { margin-left:auto; }
-  #panelbody { overflow:auto; flex:1; }
-  #rail { display:none; flex-direction:column; align-items:center; gap:6px; padding:8px 0; }
-  body.panel-closed #panelbody, body.panel-closed #panelhead .t { display:none; }
-  body.panel-closed #panelhead { justify-content:center; padding:8px 0; border:0; }
-  body.panel-closed #panelhead .btn { margin:0; }
-  body.panel-closed #rail { display:flex; }
-  details.sec { border-bottom:1px solid var(--z4); }
-  details.sec > summary { list-style:none; display:flex; align-items:center; gap:8px; padding:11px 14px; cursor:pointer; user-select:none;
-    font-family:var(--label); font-weight:600; font-size:15px; }
-  details.sec > summary::-webkit-details-marker { display:none; }
-  details.sec > summary .chev { transition:transform .15s; color:var(--z7); }
-  details.sec[open] > summary .chev { transform:rotate(90deg); }
-  details.sec > summary:hover { background:var(--z3); }
-  details.sec > summary .aside { margin-left:auto; font-family:var(--ui); font-weight:400; font-size:12.5px; color:var(--z7); }
-  .secbody { padding:4px 14px 16px; display:grid; gap:10px; }
-  .field { display:grid; grid-template-columns:76px minmax(0,1fr); align-items:center; gap:10px; }
-  .field > span { color:var(--z7); font-size:13px; }
-  .field.top { align-items:start; }
-  .field.top > span { padding-top:6px; }
-  .note { font-size:12.5px; color:var(--z7); line-height:1.45; }
-  .checks { display:grid; gap:7px; }
-  .checks label { display:flex; align-items:center; gap:9px; font-size:13.5px; cursor:pointer; }
-  .checks label small { color:var(--z7); font-size:12.5px; }
-  .seg2 { display:inline-flex; gap:2px; padding:4px; border:1px solid var(--z5); border-radius:8px; }
-  .seg2 button { height:24px; padding:0 12px; border:0; border-radius:5px; background:transparent; color:var(--z8); font-weight:550; }
-  .seg2 button[aria-pressed=true] { background:var(--z5); color:var(--z9); }
-  .seg2 button:not([aria-pressed=true]):hover { background:var(--z3); }
-  .startrow { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-  .stepper { display:inline-flex; align-items:center; border:1px solid var(--z5); border-radius:7px; height:32px; }
-  .stepper button { width:28px; height:30px; border:0; background:transparent; color:var(--z8); font-size:16px; }
-  .stepper button:hover { background:var(--z3); }
-  .stepper output { min-width:22px; text-align:center; font-family:var(--label); font-weight:700; }
-  #drop { border:1.5px dashed var(--z5); border-radius:9px; padding:14px; text-align:center; color:var(--z7); font-size:13px; }
-  #drop.over { border-color:var(--blue); color:var(--blue); background:color-mix(in srgb, var(--blue) 7%, transparent); }
-  #drop label { color:var(--z9); text-decoration:underline; text-underline-offset:3px; cursor:pointer; }
-  .out { font:12px/1.45 var(--mono); color:var(--z7); white-space:pre-wrap; word-break:break-word; margin:0; }
-  .out.err { color:var(--red); }
-  #logs { height:340px; overflow:auto; border:1px solid var(--z4); border-radius:8px; background:var(--z0); padding:8px; }
-  #logtext { font:11.5px/1.45 var(--mono); white-space:pre-wrap; word-break:break-all; margin:0; color:var(--z8); }
-  #logtext .E, #logtext .F { color:var(--red); } #logtext .W { color:var(--amber); }
-  table.list { width:100%; border-collapse:collapse; font-size:12.5px; }
-  table.list th { text-align:left; font-weight:600; color:var(--z7); padding:5px 6px; border-bottom:1px solid var(--z4); font-size:12px; }
-  table.list td { padding:6px; border-bottom:1px solid var(--z3); vertical-align:top; word-break:break-word; }
-  table.list td.n { text-align:right; font-variant-numeric:tabular-nums; color:var(--z8); }
-  .side { font-family:var(--label); font-weight:600; font-size:11.5px; text-transform:uppercase; letter-spacing:.04em; }
-  .side.app { color:var(--red); } .side.sys { color:var(--z7); }
-  .empty { color:var(--z7); font-size:13px; padding:8px 0; }
-  .issuesum { display:flex; gap:14px; font-size:13px; color:var(--z7); }
-  .issuesum b { color:var(--z9); }
+  /* What the glass says when there is no picture. */
+  .say { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 12%;
+    text-align: center; color: rgb(255 255 255 / .62); font-size: 12px; border-radius: inherit; }
+  .say b { font: 600 15px/1.25 var(--disp); color: rgb(255 255 255 / .94); letter-spacing: -.01em; }
+  [data-state=failed] .say b { color: var(--red); }
+  .say .raw { font: 10.5px/1.4 var(--mono); max-height: 7em; overflow: auto; overflow-wrap: anywhere; color: rgb(255 255 255 / .5); }
+  .say.over { background: rgb(5 5 6 / .76); }
+  .say .btn:not(.ink) { background: rgb(255 255 255 / .14); color: #fff; }
+  /* Boot phases: four marks that fill in order, elapsed against usual under them. */
+  .phases { display: grid; grid-template-columns: 1fr 2fr 4fr 1fr; gap: 3px; width: 100%; max-width: 180px; }
+  .phases i { height: 3px; border-radius: 2px; background: rgb(255 255 255 / .16); overflow: hidden; }
+  .phases i::before { content: ""; display: block; height: 100%; width: var(--f, 0%); background: var(--amber); border-radius: inherit; transition: width 1s linear; }
+  .phases i.done::before { width: 100%; }
+  .el { color: rgb(255 255 255 / .55); }
 
-  /* Narrow windows: the panel floats over the stage instead of taking a column. */
-  @media (max-width: 2200px) { #stage { grid-template-columns:minmax(0,1fr) 176px; } }
-  @media (max-width: 1500px) {
-    :root { --panel:360px; }
-    #main { grid-template-columns:max-content minmax(0,1fr) 48px; }
-    body.stage-closed #main { grid-template-columns:max-content 0 48px; }
-    body:not(.panel-closed) #panel { position:fixed; right:var(--pad); top:calc(var(--top) + var(--pad)); bottom:var(--pad); width:var(--panel); z-index:5;
-      box-shadow:0 12px 24px -8px rgba(0,0,0,.8); }
-    #stage { grid-template-columns:minmax(0,1fr); } #stageside { display:none; }
+  .touch { position: absolute; width: 28px; height: 28px; margin: -14px 0 0 -14px; border-radius: 50%; pointer-events: none; z-index: 2;
+    background: rgb(255 255 255 / .45); box-shadow: 0 0 0 1.5px rgb(255 255 255 / .9); animation: touch .45s var(--ease) forwards; }
+  .touch.swipe { background: color-mix(in srgb, var(--indigo) 45%, transparent); box-shadow: 0 0 0 1.5px var(--indigo); }
+  @keyframes touch { from { transform: scale(.5); opacity: 1; } to { transform: scale(1.5); opacity: 0; } }
+  .flash { position: absolute; inset: 0; border-radius: inherit; background: #fff; pointer-events: none; animation: flash .35s ease-out forwards; z-index: 2; }
+  @keyframes flash { from { opacity: .6; } to { opacity: 0; } }
+
+  /* Hover toolbar on a tile's glass: system keys and stop. */
+  .hud { position: absolute; left: 50%; bottom: 5%; transform: translate(-50%, 6px); display: flex; gap: 2px; padding: 3px; border-radius: 999px; z-index: 3;
+    background: rgb(28 28 30 / .66); backdrop-filter: blur(14px) saturate(1.5); color: #fff; opacity: 0; pointer-events: none;
+    transition: opacity .16s var(--ease), transform .16s var(--ease); }
+  .hud .btn { background: transparent; color: rgb(255 255 255 / .9); width: 26px; height: 26px; padding: 0; }
+  .hud .btn:hover { background: rgb(255 255 255 / .16); }
+  .hud .gap { width: 6px; }
+  [data-state=running] .phone:hover .hud, [data-state=running] .phone:focus-within .hud { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+
+  /* Caption card under each phone. */
+  .cap { display: flex; flex-direction: column; justify-content: center; gap: 2px; padding-top: 9px; min-width: 0; }
+  .cap .l1 { display: flex; align-items: center; gap: 7px; min-width: 0; }
+  .name { border: 0; background: none; padding: 0; font: 650 13.5px var(--disp); color: var(--ink); letter-spacing: -.01em; border-radius: 4px; }
+  .pill { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 560; color: var(--ink-2); white-space: nowrap; }
+  .pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3); flex: none; }
+  [data-state=running] .pill::before { background: var(--green); }
+  [data-state=booting] .pill::before, [data-state=queued] .pill::before, [data-state=stopping] .pill::before { background: var(--amber); animation: breathe 1.4s ease-in-out infinite alternate; }
+  [data-state=failed] .pill { color: var(--red); } [data-state=failed] .pill::before { background: var(--red); }
+  .busy .pill::before { background: var(--indigo) !important; animation: breathe .9s ease-in-out infinite alternate; }
+  @keyframes breathe { from { opacity: .35; } to { opacity: 1; } }
+  .cap .crash { margin-left: auto; border: 0; background: none; padding: 0; color: var(--red); font-size: 11.5px; font-weight: 560; }
+  .cap .l2 { display: flex; gap: 5px; color: var(--ink-2); font-size: 11.5px; white-space: nowrap; overflow: hidden; min-height: 17px; }
+  .cap .l2 .tag { color: var(--ink-3); }
+  .cap .l2 span:empty { display: none; } .cap .l2 span:not(:empty) ~ span:not(:empty)::before { content: "\00B7  "; color: var(--ink-3); }
+
+  /* ---------- focus: the chosen phone large, inspector beside it ---------- */
+  #focus { min-width: 0; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) clamp(300px, 22vw, 380px); gap: 28px; }
+  #stagebox { container-type: size; min-height: 0; min-width: 0; display: flex; align-items: center; justify-content: center; }
+  #stage { height: min(100cqh - 16px, (100cqw - 16px) * 2868 / 1320); border-radius: 13% / 6%; }
+  #stage.swap { animation: swap .22s var(--ease); }
+  @keyframes swap { from { opacity: .4; transform: scale(.985); } }
+  #insp { min-height: 0; display: flex; flex-direction: column; border-radius: 18px; background: var(--card); backdrop-filter: blur(20px) saturate(1.4);
+    box-shadow: 0 0 0 .5px var(--line-2), 0 12px 34px -18px var(--shadow); overflow: hidden; }
+  #insp .head { padding: 18px 18px 12px; display: grid; gap: 4px; }
+  #insp h2 { display: flex; align-items: baseline; gap: 10px; font: 650 24px/1.1 var(--disp); letter-spacing: -.02em; }
+  #insp h2 .pill { font: 560 12px var(--ui); letter-spacing: 0; }
+  #insp .sub { color: var(--ink-2); font-size: 12px; min-height: 17px; }
+  .keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 0 18px; }
+  .keys .btn { height: 44px; flex-direction: column; gap: 2px; border-radius: 12px; font-size: 11px; font-weight: 500; color: var(--ink-2); }
+  .acts { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 18px 0; }
+  .acts .sp { flex: 1; }
+  #browserrow { padding: 8px 18px 0; display: flex; gap: 6px; }
+  #browserrow input { flex: 1; }
+  dl.facts { margin: 12px 18px 0; display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 12px; padding: 10px 12px; border-radius: 12px; background: var(--fill); }
+  dl.facts dt { color: var(--ink-2); }
+  dl.facts dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+  #tabs { padding: 14px 18px 8px; }
+  #tabbody { flex: 1; min-height: 0; overflow: auto; padding: 0 18px 18px; display: grid; align-content: start; gap: 10px; }
+  #drop { border: 1.5px dashed var(--line-2); border-radius: 12px; padding: 14px; text-align: center; color: var(--ink-2); transition: border-color .15s, background .15s; }
+  #drop.over, .tile.drop .phone, #stage.drop { border-color: var(--indigo); background-color: color-mix(in srgb, var(--indigo) 8%, transparent); }
+  .tile.drop .phone, #stage.drop { outline: 2px dashed var(--indigo); outline-offset: 6px; }
+  #drop label { color: var(--indigo); cursor: pointer; font-weight: 560; }
+  .out { font: 11.5px/1.45 var(--mono); color: var(--ink-2); white-space: pre-wrap; word-break: break-word; margin: 0; }
+  .out.err { color: var(--red); }
+  #logs { height: 100%; min-height: 220px; max-height: 46vh; overflow: auto; border-radius: 10px; background: light-dark(#f3f2ef, #0e0e10); padding: 8px 10px; }
+  #logtext { font: 11px/1.5 var(--mono); white-space: pre-wrap; word-break: break-all; margin: 0; color: var(--ink-2); }
+  #logtext .E, #logtext .F { color: var(--red); } #logtext .W { color: var(--amber); }
+  .side { font-size: 11px; font-weight: 600; } .side.app { color: var(--red); } .side.sys { color: var(--ink-2); }
+  .empty { color: var(--ink-2); padding: 6px 0; }
+
+  /* ---------- test runs view ---------- */
+  #runs { height: calc(100dvh - var(--bar-h)); display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 24px; padding: 22px 28px 20px; }
+  #runlist { overflow: auto; border-radius: 18px; background: var(--card); box-shadow: 0 0 0 .5px var(--line-2); padding: 8px; }
+  #runlist button { width: 100%; display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; text-align: left; border: 0; background: transparent; padding: 10px 12px; border-radius: 11px; }
+  #runlist button:hover { background: var(--fill); }
+  #runlist button[aria-current=true] { background: var(--card-solid); box-shadow: 0 1px 3px var(--shadow), 0 0 0 .5px var(--line-2); }
+  #runlist .s1 { font-weight: 600; } #runlist .s2 { color: var(--ink-2); font-size: 12px; grid-column: 1 / -1; }
+  #runlist .res { font-weight: 600; font-variant-numeric: tabular-nums; }
+  #runlist .res.bad { color: var(--red); }
+  #rundetail { overflow: auto; min-width: 0; display: grid; align-content: start; grid-auto-rows: max-content; gap: 18px; padding-right: 4px; }
+  .runhead { display: flex; align-items: flex-end; gap: 24px; flex-wrap: wrap; }
+  .runhead h2 { font: 650 26px/1.1 var(--disp); letter-spacing: -.02em; }
+  .runline { color: var(--ink-2); margin-top: -10px; } .runline .bad { color: var(--red); }
+  .stat { display: grid; gap: 0; } .stat span { color: var(--ink-2); font-size: 12px; }
+  .stat b { font: 600 22px/1.15 var(--disp); font-variant-numeric: tabular-nums; } .stat b.bad { color: var(--red); } .stat b.ok { color: var(--green); }
+  .cases { border-radius: 16px; background: var(--card); box-shadow: 0 0 0 .5px var(--line-2); overflow: hidden; }
+  .cases details { border-bottom: 1px solid var(--line); }
+  .cases details:last-child { border-bottom: 0; }
+  .cases summary { list-style: none; display: grid; grid-template-columns: 18px minmax(0, 1fr) 70px 80px 60px; gap: 10px; align-items: center; padding: 10px 16px; cursor: pointer; }
+  .cases summary::-webkit-details-marker { display: none; }
+  .cases summary:hover { background: var(--fill); }
+  .cases summary .t { font-weight: 560; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cases summary .t small { color: var(--ink-2); font-weight: 400; margin-left: 6px; }
+  .cases summary .m { color: var(--ink-2); font-variant-numeric: tabular-nums; text-align: right; }
+  .checks-list { margin: 0; padding: 4px 16px 12px 44px; list-style: none; display: grid; gap: 3px; font-size: 12px; color: var(--ink-2); }
+  .checks-list li { display: flex; gap: 6px; align-items: baseline; } .checks-list .ck { width: 12px; height: 12px; flex: none; transform: translateY(2px); }
+  .checks-list li.bad { color: var(--red); }
+  .shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px; }
+  .shots figure { margin: 0; display: grid; gap: 6px; }
+  .shots button { border: 0; padding: 0; background: linear-gradient(90deg, var(--fill) 0, var(--fill-2) 50%, var(--fill) 100%) 0 0 / 200% 100%; animation: sheen 1.3s linear infinite; border-radius: 14px; overflow: hidden; aspect-ratio: 656 / 1424;
+    box-shadow: 0 0 0 1px var(--line-2), 0 10px 20px -14px var(--shadow); transition: transform .2s var(--ease); }
+  .shots button:hover { transform: translateY(-3px); }
+  .shots img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .shots figcaption { font-size: 11.5px; color: var(--ink-2); overflow-wrap: anywhere; }
+  .skel { border-radius: 10px; height: 38px; background: linear-gradient(90deg, var(--fill) 0, var(--fill-2) 50%, var(--fill) 100%) 0 0 / 200% 100%; animation: sheen 1.3s linear infinite; }
+  h3.sec { font: 650 15px var(--disp); }
+  dialog#lightbox { border: 0; padding: 0; background: transparent; max-width: 96vw; max-height: 96vh; }
+  dialog#lightbox::backdrop { background: rgb(10 10 12 / .72); backdrop-filter: blur(6px); }
+  #lightbox figure { margin: 0; display: grid; gap: 10px; justify-items: center; }
+  #lightbox img { max-height: 86vh; max-width: 90vw; border-radius: 22px; box-shadow: 0 30px 60px -20px #000; }
+  #lightbox figcaption { color: #eee; font-size: 13px; display: flex; gap: 12px; align-items: center; }
+
+  /* ---------- toasts ---------- */
+  #toasts { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); display: grid; gap: 8px; justify-items: center; z-index: 10; pointer-events: none; }
+  .toast { pointer-events: auto; display: flex; align-items: center; gap: 10px; max-width: min(640px, 92vw); padding: 9px 14px; border-radius: 14px;
+    background: light-dark(rgb(30 30 32 / .86), rgb(58 58 62 / .86)); color: #fff; backdrop-filter: blur(16px) saturate(1.4);
+    box-shadow: 0 12px 30px -12px rgb(0 0 0 / .5); animation: toast .2s var(--ease); font-size: 12.5px; }
+  .toast.err { background: light-dark(rgb(168 36 26 / .94), rgb(150 34 26 / .92)); }
+  .toast .x { background: transparent; border: 0; color: rgb(255 255 255 / .8); width: 22px; height: 22px; border-radius: 6px; padding: 0; display: grid; place-items: center; }
+  .toast .x:hover { background: rgb(255 255 255 / .16); }
+  .toast.out { opacity: 0; transform: translateY(6px); transition: opacity .2s, transform .2s; }
+  @keyframes toast { from { opacity: 0; transform: translateY(8px) scale(.98); } }
+
+  /* ---------- smaller windows ---------- */
+  @media (max-width: 1280px) { #focus { grid-template-columns: minmax(0, 1fr) 300px; } }
+  @media (max-width: 980px) {
+    body { overflow: auto; }
+    #bar { flex-wrap: wrap; height: auto; padding: 10px 14px; gap: 8px; } #brand { min-width: 0; } #views { margin: 0; order: 3; }
+    #bar .right { flex-wrap: wrap; width: 100%; } #membtn { margin-right: auto; padding-left: 0; }
+    #phones { height: auto; display: block; container-type: normal; padding: 16px; }
+    #grid { --ph: 300px; grid-template-columns: repeat(2, max-content); justify-content: center; }
+    #focus { display: block; margin-top: 24px; } #stagebox { display: none; } #insp { backdrop-filter: none; }
+    #runs { height: auto; grid-template-columns: 1fr; padding: 16px; } #runlist { max-height: 240px; }
+    .pop { right: 8px; left: 8px; width: auto; }
   }
   @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after { transition:none !important; animation:none !important; }
-    .btn[aria-busy=true]::after { opacity:.6; }
+    *, *::before, *::after { transition: none !important; animation: none !important; }
   }
 </style>
 </head>
@@ -259,208 +339,203 @@
   <symbol id="i-shot" viewBox="0 0 16 16"><path d="M2.5 5.5h2.2l1.2-1.8h4.2l1.2 1.8h2.2v7h-11z"/><circle cx="8" cy="8.8" r="2.1"/></symbol>
   <symbol id="i-globe" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/><path d="M2.5 8h11M8 2.5c-2 2.2-2 8.8 0 11M8 2.5c2 2.2 2 8.8 0 11"/></symbol>
   <symbol id="i-bolt" viewBox="0 0 16 16"><path d="M9 1.8 3.8 9h3.6L6.8 14.2 12.2 7H8.6z"/></symbol>
-  <symbol id="i-expand" viewBox="0 0 16 16"><path d="M9.5 2.5h4v4M6.5 13.5h-4v-4M13.5 2.5 9 7M2.5 13.5 7 9"/></symbol>
-  <symbol id="i-panel" viewBox="0 0 16 16"><rect x="2" y="2.5" width="12" height="11" rx="1.5"/><path d="M10 2.5v11"/></symbol>
-  <symbol id="i-stage" viewBox="0 0 16 16"><rect x="5" y="1.8" width="6" height="12.4" rx="1.6"/></symbol>
-  <symbol id="i-chev" viewBox="0 0 16 16"><path d="m6 3.5 4.5 4.5L6 12.5"/></symbol>
-  <symbol id="i-up" viewBox="0 0 16 16"><path d="M8 12V3.5M4.5 7 8 3.5 11.5 7M3 13h10"/></symbol>
-  <symbol id="i-logs" viewBox="0 0 16 16"><path d="M3 4h10M3 8h10M3 12h6"/></symbol>
-  <symbol id="i-warn" viewBox="0 0 16 16"><path d="M8 2.5 14 13H2z"/><path d="M8 6.5v3M8 11.3v.2"/></symbol>
-  <symbol id="i-plus" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></symbol>
+  <symbol id="i-down" viewBox="0 0 16 16"><path d="m4 6 4 4 4-4"/></symbol>
+  <symbol id="i-more" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r=".9"/><circle cx="8" cy="8" r=".9"/><circle cx="12.5" cy="8" r=".9"/></symbol>
   <symbol id="i-power" viewBox="0 0 16 16"><path d="M8 2v6"/><path d="M4.6 4.4a5 5 0 1 0 6.8 0"/></symbol>
   <symbol id="i-x" viewBox="0 0 16 16"><path d="m4 4 8 8M12 4l-8 8"/></symbol>
+  <symbol id="i-check" viewBox="0 0 16 16"><path d="m3.5 8.5 3 3 6-7"/></symbol>
+  <symbol id="i-left" viewBox="0 0 16 16"><path d="M10 3 5 8l5 5"/></symbol>
+  <symbol id="i-right" viewBox="0 0 16 16"><path d="m6 3 5 5-5 5"/></symbol>
 </svg>
 
-<header id="top">
-  <div id="brand"><span class="dot" aria-hidden="true"></span>agent-emu</div>
-  <div id="budget" aria-label="Host memory">
-    <div class="bar" id="budgetbar"></div>
-    <div class="cap num" id="budgetcap">Connecting to the daemon…</div>
+<header id="bar">
+  <div id="brand">agent-emu<span id="conn" aria-hidden="true"></span><small id="connword">Connecting…</small></div>
+  <div class="seg" id="views" role="tablist" aria-label="View">
+    <button role="tab" id="v-phones" aria-selected="true" aria-controls="phones">Phones</button>
+    <button role="tab" id="v-runs" aria-selected="false" aria-controls="runs">Test runs</button>
   </div>
-  <div id="say" role="status" aria-live="polite"></div>
-  <div class="grp">
-    <button class="btn primary" id="topstart" title="Start the next empty well with the Start Devices settings"><svg class="i"><use href="#i-play"/></svg><span id="topstartlbl">Start</span></button>
-    <button class="btn danger" id="stopall" title="Stop every Device"><svg class="i"><use href="#i-stop"/></svg>Stop all</button>
-    <button class="btn ghost" id="stagetoggle" title="Show or hide the large view of the focused phone" aria-pressed="true"><svg class="i"><use href="#i-stage"/></svg>Focus view</button>
+  <div class="right">
+    <button id="membtn" popovertarget="mempop" title="Host memory"><span class="mini" id="memmini"></span><span class="num" id="memword">Memory</span></button>
+    <div class="split">
+      <button class="btn ink" id="startall"><svg class="i"><use href="#i-play"/></svg><span id="startlbl">Start all</span></button>
+      <button class="btn ink" popovertarget="startpop" aria-label="Start options" title="Start options"><svg class="i"><use href="#i-down"/></svg></button>
+    </div>
+    <button class="btn" id="stopall"><svg class="i"><use href="#i-stop"/></svg><span>Stop all</span></button>
+    <button class="btn quiet icon" popovertarget="morepop" aria-label="More" title="More"><svg class="i"><use href="#i-more"/></svg></button>
   </div>
 </header>
 
-<main id="main">
-  <section id="plate" aria-label="Devices"></section>
-
-  <section id="stage" aria-label="Focused Device">
+<main id="phones" role="tabpanel" aria-labelledby="v-phones">
+  <section id="grid" aria-label="Phones"></section>
+  <section id="focus" aria-label="Focused phone">
     <div id="stagebox">
-      <div id="stagephone" class="stagewell" data-state="empty">
-        <div class="rim"></div>
-        <div class="glass"><canvas id="stagecv" tabindex="0" aria-label="Focused Device screen"></canvas></div>
-        <div class="veil" id="stageveil"></div>
+      <div class="phone" id="stage" data-state="empty">
+        <canvas id="stagecv" tabindex="0" aria-label="Focused phone screen. Click to tap, drag to swipe, type to send keys."></canvas>
+        <div class="warm"></div><div class="glint"></div>
+        <div class="say" id="stagesay"></div>
       </div>
     </div>
-    <div id="stageside">
-      <div><h2><span id="st_id">d0</span><span class="badge" id="st_badge">Empty</span></h2></div>
-      <div class="sub" id="st_sub"></div>
-      <div class="keys" id="st_keys">
+    <aside id="insp" aria-label="Focused phone controls">
+      <div class="head">
+        <h2><span id="st_id">d0</span><span class="pill" id="st_pill">Off</span></h2>
+        <div class="sub" id="st_sub"></div>
+      </div>
+      <div class="keys">
         <button class="btn" data-key="back" title="Back (Esc on the screen)"><svg class="i"><use href="#i-back"/></svg>Back</button>
         <button class="btn" data-key="home" title="Home"><svg class="i"><use href="#i-home"/></svg>Home</button>
         <button class="btn" data-key="app_switch" title="Recent apps"><svg class="i"><use href="#i-recents"/></svg>Recents</button>
       </div>
-      <div class="stack" id="st_acts">
-        <button class="btn" data-act="open"><svg class="i"><use href="#i-bolt"/></svg>Open BoltBetz</button>
-        <button class="btn" data-act="browser"><svg class="i"><use href="#i-globe"/></svg>Browser</button>
-        <button class="btn" data-act="shot"><svg class="i"><use href="#i-shot"/></svg>Screenshot</button>
-        <button class="btn" data-act="restart"><svg class="i"><use href="#i-restart"/></svg>Restart</button>
-        <button class="btn danger" data-act="stop"><svg class="i"><use href="#i-stop"/></svg>Stop</button>
+      <div class="acts" id="st_acts">
+        <button class="btn sm" data-act="open"><svg class="i"><use href="#i-bolt"/></svg>Open BoltBetz</button>
+        <button class="btn sm" data-act="browser"><svg class="i"><use href="#i-globe"/></svg>Browser</button>
+        <button class="btn sm icon" data-act="shot" title="Screenshot (PNG to Downloads)" aria-label="Screenshot"><svg class="i"><use href="#i-shot"/></svg></button>
+        <span class="sp"></span>
+        <button class="btn sm icon quiet" data-act="restart" title="Restart" aria-label="Restart"><svg class="i"><use href="#i-restart"/></svg></button>
+        <button class="btn sm danger" data-act="stop"><svg class="i"><use href="#i-stop"/></svg>Stop</button>
       </div>
+      <form id="browserrow" hidden><input id="browserurl" placeholder="https://" aria-label="Web address"><button class="btn sm ink">Open</button></form>
       <dl class="facts" id="st_facts"></dl>
-      <p class="hint">Click the screen to tap, drag to swipe, scroll to scroll. Then type: <kbd>Esc</kbd> back, <kbd>Enter</kbd>, <kbd>⌫</kbd>, arrows.</p>
-    </div>
+      <div id="tabs"><div class="seg sm" role="tablist" aria-label="Details">
+        <button role="tab" data-tab="apps" aria-selected="true">Apps</button><button role="tab" data-tab="logs" aria-selected="false">Logs</button>
+        <button role="tab" data-tab="issues" aria-selected="false">Issues</button><button role="tab" data-tab="crashes" aria-selected="false">Crashes <span id="crashn"></span></button>
+      </div></div>
+      <div id="tabbody">
+        <div data-pane="apps">
+          <div id="drop">Drop an APK on any phone or here, or <label for="apkfile">choose a file</label>.<input type="file" id="apkfile" accept=".apk" hidden></div>
+          <div class="field" style="margin-top:10px"><span>Host path</span><div class="row" style="flex-wrap:nowrap"><input id="apkpath" placeholder="C:\path\app.apk" style="flex:1" aria-label="APK path on this PC"><button class="btn sm" id="installpath">Install</button></div></div>
+          <div class="field" style="margin-top:8px"><span>Package</span><div class="row" style="flex-wrap:nowrap"><input id="pkg" value="com.boltbetz.staging" style="flex:1" aria-label="Package"><button class="btn sm" id="launch">Launch</button></div></div>
+          <pre class="out" id="appout" style="margin-top:8px"></pre>
+        </div>
+        <div data-pane="logs" hidden>
+          <div class="row"><input id="logfilter" value="com.boltbetz.staging" placeholder="package or tag" aria-label="Log filter" style="flex:1">
+            <select id="loglevel" aria-label="Level"><option value="W">Warnings +</option><option value="E">Errors</option><option value="I">Info +</option><option value="">All levels</option></select></div>
+          <div class="row" style="margin:8px 0"><label class="checks"><label><input type="checkbox" id="allogs"> All Android logs</label></label>
+            <label class="checks" style="margin-left:auto"><label><input type="checkbox" id="follow" checked> Follow</label></label><button class="btn sm quiet" id="clearlogs">Clear</button></div>
+          <div id="logs"><pre id="logtext"></pre></div>
+        </div>
+        <div data-pane="issues" hidden>
+          <div class="note" id="issuesum"></div>
+          <table class="t"><thead><tr><th class="n" style="width:40px">Count</th><th style="width:56px">Where</th><th>Tag and message</th></tr></thead><tbody id="issues"></tbody></table>
+        </div>
+        <div data-pane="crashes" hidden>
+          <table class="t"><thead><tr><th class="n" style="width:34px">#</th><th style="width:60px">Type</th><th>Process and reason</th></tr></thead><tbody id="crashes"></tbody></table>
+          <p class="note">Hover a row for its stack.</p>
+        </div>
+      </div>
+    </aside>
   </section>
-
-  <aside id="panel" aria-label="Controls">
-    <div id="panelhead"><span class="t">Controls</span>
-      <button class="btn ghost icon" id="paneltoggle" title="Collapse the side panel" aria-expanded="true"><svg class="i"><use href="#i-panel"/></svg></button></div>
-    <nav id="rail" aria-label="Open a section">
-      <button class="btn ghost icon" data-open="sec_start" title="Start Devices"><svg class="i"><use href="#i-play"/></svg></button>
-      <button class="btn ghost icon" data-open="sec_apps" title="Apps"><svg class="i"><use href="#i-up"/></svg></button>
-      <button class="btn ghost icon" data-open="sec_logs" title="Logs and issues"><svg class="i"><use href="#i-logs"/></svg></button>
-      <button class="btn ghost icon" data-open="sec_crash" title="Crashes"><svg class="i"><use href="#i-warn"/></svg></button>
-    </nav>
-    <div id="panelbody">
-      <details class="sec" id="sec_start" open>
-        <summary><svg class="i chev"><use href="#i-chev"/></svg>Start Devices<span class="aside" id="startaside"></span></summary>
-        <div class="secbody">
-          <div class="field"><span>Image</span><select id="s_image">
-            <option value="slim5" selected>iPhone 17 Pro Max, 768 MB RAM</option>
-            <option value="slim4">Lean iPhone, 704 MB RAM</option>
-            <option value="">Lean iPhone, 900 MB RAM (older default)</option>
-            <option value="slim3">Lean iPhone, 900 MB RAM (oldest)</option>
-            <option value="phone-n">Full phone, 2048 MB RAM</option>
-            <option value="phone">Full phone stock, 2048 MB RAM</option>
-          </select></div>
-          <div class="note" id="imgnote"></div>
-          <div class="field"><span>Screen</span><select id="s_screen">
-            <option value="">iPhone, image default</option>
-            <option value="iphone17promax-native">Full, 1320 × 2868</option>
-            <option value="iphone17promax-3q">3/4, 984 × 2140</option>
-            <option value="iphone17promax-half">Half, 656 × 1424</option>
-            <option value="legacy">Legacy, 720 × 1080</option>
-          </select></div>
-          <div class="field"><span>RAM (MB)</span><input id="s_mem" inputmode="numeric" placeholder="image default"></div>
-          <div class="field"><span>CPU cores</span><input id="s_cpus" inputmode="numeric" value="2"></div>
-          <div class="checks">
-            <label><input type="checkbox" id="s_net" checked> Network</label>
-            <label><input type="checkbox" id="s_openapp" checked> Open BoltBetz after boot</label>
-            <label><input type="checkbox" id="s_squeeze"> Save RAM <small>after the first app launch</small></label>
-          </div>
-          <div class="startrow">
-            <div class="stepper" aria-label="How many Devices"><button id="n_minus" aria-label="Fewer">−</button><output id="n_out">1</output><button id="n_plus" aria-label="More">+</button></div>
-            <button class="btn primary" id="startn"><svg class="i"><use href="#i-play"/></svg><span id="startnlbl">Start 1</span></button>
-          </div>
-          <div class="note" id="startnote">Starts the next empty wells, one boot at a time. Each empty well also has its own Start button.</div>
-        </div>
-      </details>
-
-      <details class="sec" id="sec_apps" open>
-        <summary><svg class="i chev"><use href="#i-chev"/></svg>Apps<span class="aside" id="appsaside"></span></summary>
-        <div class="secbody">
-          <div id="drop">Drop an APK here or on any running phone, or <label for="apkfile">choose a file</label>.
-            <input type="file" id="apkfile" accept=".apk" hidden></div>
-          <div class="field"><span>Host path</span><div class="startrow" style="flex-wrap:nowrap"><input id="apkpath" placeholder="C:\path\app.apk" style="flex:1"><button class="btn" id="installpath">Install</button></div></div>
-          <div class="field"><span>Package</span><div class="startrow" style="flex-wrap:nowrap"><input id="pkg" value="com.boltbetz.staging" style="flex:1"><button class="btn" id="launch">Launch</button></div></div>
-          <pre class="out" id="appout"></pre>
-        </div>
-      </details>
-
-      <details class="sec" id="sec_logs">
-        <summary><svg class="i chev"><use href="#i-chev"/></svg>Logs and issues<span class="aside" id="logsaside"></span></summary>
-        <div class="secbody">
-          <div class="startrow"><div class="seg2" role="group" aria-label="View"><button data-view="stream" aria-pressed="true">Stream</button><button data-view="issues" aria-pressed="false">Issues</button></div>
-            <label class="checks" style="margin-left:auto"><label><input type="checkbox" id="follow" checked> Follow</label></label></div>
-          <div class="field"><span>App</span><input id="logfilter" value="com.boltbetz.staging" placeholder="package or tag"></div>
-          <div class="field"><span>Level</span><select id="loglevel"><option value="W">Warnings and errors</option><option value="E">Errors only</option>
-            <option value="I">Info and up</option><option value="">Everything</option></select></div>
-          <div class="checks"><label><input type="checkbox" id="allogs"> All Android logs <small>every app, every level</small></label></div>
-          <div id="streambox"><div id="logs"><pre id="logtext"></pre></div>
-            <div class="startrow" style="margin-top:8px"><button class="btn sm" id="clearlogs">Clear</button></div></div>
-          <div id="issuesbox" hidden>
-            <div class="issuesum" id="issuesum"></div>
-            <p class="note">Errors since boot, grouped; numbers shown as #. App means lines from the app's own processes.</p>
-            <table class="list"><thead><tr><th style="width:42px">#</th><th style="width:64px">Where</th><th>Tag and message</th></tr></thead><tbody id="issues"></tbody></table>
-          </div>
-        </div>
-      </details>
-
-      <details class="sec" id="sec_crash">
-        <summary><svg class="i chev"><use href="#i-chev"/></svg>Crashes<span class="aside" id="crashaside"></span></summary>
-        <div class="secbody">
-          <p class="note">Crashes, ANRs and native crashes on the focused Device since boot. Hover a row for its stack.</p>
-          <table class="list"><thead><tr><th style="width:36px">#</th><th style="width:70px">Type</th><th>Process and reason</th></tr></thead><tbody id="crashes"></tbody></table>
-        </div>
-      </details>
-
-      <details class="sec" id="sec_daemon">
-        <summary><svg class="i chev"><use href="#i-chev"/></svg>Daemon</summary>
-        <div class="secbody">
-          <p class="note">Quit stops every Device and the agent-emu daemon. Closing this tab leaves them running.</p>
-          <div><button class="btn danger" id="quit"><svg class="i"><use href="#i-power"/></svg>Quit agent-emu</button></div>
-        </div>
-      </details>
-    </div>
-  </aside>
 </main>
 
-<template id="well-t">
-  <article class="well" data-state="empty">
-    <div class="tape">
-      <button class="id" title="Focus this Device"></button>
-      <span class="badge">Empty</span>
-      <span class="meta num"><button class="crash" hidden title="Show crashes"></button><span class="fps"></span><span class="ram"></span></span>
+<main id="runs" role="tabpanel" aria-labelledby="v-runs" hidden>
+  <nav id="runlist" aria-label="Runs"></nav>
+  <section id="rundetail" aria-live="polite"></section>
+</main>
+
+<div popover id="startpop" class="pop"><div class="in">
+  <h3>Start options</h3>
+  <div class="field"><span>Image</span><select id="s_image">
+    <option value="slim5" selected>Lean iPhone, 768 MB</option>
+    <option value="slim4">Lean iPhone, 704 MB</option>
+    <option value="">Lean iPhone, 900 MB (older)</option>
+    <option value="slim3">Lean iPhone, 900 MB (oldest)</option>
+    <option value="phone-n">Full phone, 2048 MB</option>
+    <option value="phone">Full phone stock, 2048 MB</option>
+  </select></div>
+  <div class="note" id="imgnote"></div>
+  <div class="field"><span>Screen</span><select id="s_screen">
+    <option value="">Image default</option>
+    <option value="iphone17promax-native">Full, 1320 × 2868</option>
+    <option value="iphone17promax-3q">3/4, 984 × 2140</option>
+    <option value="iphone17promax-half">Half, 656 × 1424</option>
+    <option value="legacy">Legacy, 720 × 1080</option>
+  </select></div>
+  <div class="field"><span>RAM (MB)</span><input id="s_mem" inputmode="numeric" placeholder="Image default"></div>
+  <div class="field"><span>CPU cores</span><input id="s_cpus" inputmode="numeric" value="2"></div>
+  <div class="checks">
+    <label><input type="checkbox" id="s_net" checked> Network</label>
+    <label><input type="checkbox" id="s_openapp" checked> Open BoltBetz after boot</label>
+    <label><input type="checkbox" id="s_squeeze"> Save RAM <small>after the first app launch</small></label>
+  </div>
+  <hr>
+  <div class="row"><div class="stepper" aria-label="How many phones"><button id="n_minus" aria-label="Fewer">−</button><output id="n_out" class="num">1</output><button id="n_plus" aria-label="More">+</button></div>
+    <button class="btn ink" id="startn"><svg class="i"><use href="#i-play"/></svg><span id="startnlbl">Start 1</span></button></div>
+  <p class="note">Start all starts every off phone that fits in free memory. At most 4 boot at once; the rest wait.</p>
+</div></div>
+
+<div popover id="mempop" class="pop"><div class="in" id="memin"></div></div>
+
+<div popover id="morepop" class="pop" style="width:300px"><div class="in">
+  <h3>Appearance</h3>
+  <div class="seg" role="group" aria-label="Appearance" id="themeseg"><button data-theme="" aria-pressed="true">System</button><button data-theme="light" aria-pressed="false">Light</button><button data-theme="dark" aria-pressed="false">Dark</button></div>
+  <hr>
+  <p class="note">Shortcuts: <kbd>1</kbd>–<kbd>8</kbd> focus a phone. On a screen: <kbd>Esc</kbd> back, <kbd>Enter</kbd>, <kbd>⌫</kbd>, arrows, typing.</p>
+  <hr>
+  <p class="note">Quit stops every phone and the daemon. Closing this tab leaves them running.</p>
+  <div><button class="btn danger" id="quit"><svg class="i"><use href="#i-power"/></svg>Quit agent-emu</button></div>
+</div></div>
+
+<dialog id="lightbox" aria-label="Screenshot"><figure id="lbfig"><figcaption><button class="btn sm" id="lbprev" aria-label="Previous"><svg class="i"><use href="#i-left"/></svg></button><span id="lbcap"></span><button class="btn sm" id="lbnext" aria-label="Next"><svg class="i"><use href="#i-right"/></svg></button><button class="btn sm" id="lbclose">Close</button></figcaption></figure></dialog>
+
+<div id="toasts" role="status" aria-live="polite"></div>
+
+<template id="tile-t">
+  <article class="tile" data-state="empty">
+    <div class="phone">
+      <canvas tabindex="0"></canvas>
+      <div class="warm"></div><div class="glint"></div>
+      <div class="say"></div>
+      <div class="hud">
+        <button class="btn" data-key="back" title="Back" aria-label="Back"><svg class="i"><use href="#i-back"/></svg></button>
+        <button class="btn" data-key="home" title="Home" aria-label="Home"><svg class="i"><use href="#i-home"/></svg></button>
+        <button class="btn" data-key="app_switch" title="Recent apps" aria-label="Recent apps"><svg class="i"><use href="#i-recents"/></svg></button>
+        <span class="gap"></span>
+        <button class="btn" data-act="open" title="Open BoltBetz" aria-label="Open BoltBetz"><svg class="i"><use href="#i-bolt"/></svg></button>
+        <button class="btn" data-act="stop" title="Stop" aria-label="Stop"><svg class="i"><use href="#i-stop"/></svg></button>
+      </div>
     </div>
-    <div class="recess">
-      <div class="rim"></div>
-      <div class="glass"><canvas tabindex="0"></canvas></div>
-      <div class="veil"></div>
+    <div class="cap">
+      <div class="l1"><button class="name" title="Focus this phone"></button><span class="pill">Off</span><button class="crash" hidden></button></div>
+      <div class="l2 num"><span class="m1"></span><span class="m2"></span><span class="tag m3"></span></div>
     </div>
-    <div class="acts">
-      <button class="btn sm icon ghost live" data-key="back" title="Back"><svg class="i"><use href="#i-back"/></svg></button>
-      <button class="btn sm icon ghost live" data-key="home" title="Home"><svg class="i"><use href="#i-home"/></svg></button>
-      <button class="btn sm icon ghost live" data-key="app_switch" title="Recent apps"><svg class="i"><use href="#i-recents"/></svg></button>
-      <span class="sep live"></span>
-      <button class="btn sm icon ghost live" data-act="open" title="Open BoltBetz"><svg class="i"><use href="#i-bolt"/></svg></button>
-      <button class="btn sm icon ghost live" data-act="browser" title="Open a web page in the browser"><svg class="i"><use href="#i-globe"/></svg></button>
-      <button class="btn sm icon ghost live" data-act="shot" title="Screenshot (PNG)"><svg class="i"><use href="#i-shot"/></svg></button>
-      <span class="end">
-        <button class="btn sm icon ghost live" data-act="restart" title="Restart"><svg class="i"><use href="#i-restart"/></svg></button>
-        <button class="btn sm icon ghost" data-act="stop" title="Stop"><svg class="i"><use href="#i-stop"/></svg></button>
-      </span>
-    </div>
-    <div class="status" aria-live="polite"></div>
   </article>
 </template>
 
 <script>
 "use strict";
 const $ = (id) => document.getElementById(id);
-const IDS = [0, 1, 2, 3, 4, 5, 6, 7].map(i => "d" + i);
-const APP = "com.boltbetz.staging";
+const Q = new URLSearchParams(location.search);
 // ?daemon=http://127.0.0.1:7401 drives that daemon from a page served elsewhere (it sends CORS headers to localhost).
-const BASE = new URLSearchParams(location.search).get("daemon") || "";
+const BASE = Q.get("daemon") || "";
+const ORIGIN = BASE || location.origin; // the frame worker runs from a blob: URL, so its fetches need an absolute URL
+// ?slots=11-18 shows those Device ids instead of d0-d7 (a second daemon beside the live one).
+const SLOTS = (() => { const m = /^(\d+)-(\d+)$/.exec(Q.get("slots") || ""); const [a, b] = m ? [+m[1], +m[2]] : [0, 7];
+  return Array.from({ length: Math.max(1, Math.min(16, b - a + 1)) }, (_, i) => "d" + (a + i)); })();
+let IDS = [...SLOTS];
+const APP = "com.boltbetz.staging";
 const reduced = matchMedia("(prefers-reduced-motion: reduce)");
-
-// ---------- persisted settings ----------
 const store = {
   get(k, d) { try { const v = localStorage.getItem("ae." + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
   set(k, v) { try { localStorage.setItem("ae." + k, JSON.stringify(v)); } catch {} },
 };
+const esc = (t) => String(t ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const setText = (el, v) => { v = String(v ?? ""); if (el.textContent !== v) el.textContent = v; };
+
+// ---------- theme ----------
+function setTheme(t) {
+  if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme;
+  store.set("theme", t); document.querySelectorAll("#themeseg button").forEach(b => b.setAttribute("aria-pressed", b.dataset.theme === t));
+}
+setTheme(store.get("theme", ""));
+document.querySelectorAll("#themeseg button").forEach(b => b.onclick = () => setTheme(b.dataset.theme));
 
 // ---------- state ----------
 // devs: what the daemon reports. ui: what this page knows ahead of it (queued, starting, stopping, failed, opening).
-// m: metrics per Device from /events (fps, RAM, input p50). crashes: count since this page opened.
-const S = { online: null, avail: null, devs: {}, ui: {}, m: {}, frame: {}, crashes: {}, sel: store.get("sel", "d0"), lat: [] };
-IDS.forEach(id => { S.ui[id] = {}; S.crashes[id] = 0; });
-
+// m: metrics per Device (fps, RAM, activity, memory_mode). frame: size and blank flag from the frame worker.
+const S = { online: null, avail: null, devs: {}, ui: {}, m: {}, frame: {}, shown: {}, crashes: {}, sel: store.get("sel", SLOTS[0]), lat: [], view: store.get("view", "phones") };
+const ensure = (id) => { if (!S.ui[id]) { S.ui[id] = {}; S.crashes[id] = 0; } };
+IDS.forEach(ensure);
 function stateOf(id) {
-  const u = S.ui[id], d = S.devs[id];
+  const u = S.ui[id] || {}, d = S.devs[id];
   if (u.stopping) return "stopping";
   if (u.failed) return "failed";
   if (d) return d.ready ? "running" : "booting";
@@ -468,17 +543,14 @@ function stateOf(id) {
   if (u.queued) return "queued";
   return "empty";
 }
-const LABEL = { empty: "Empty", queued: "Queued", booting: "Booting", running: "Running", stopping: "Stopping", failed: "Failed" };
-// Boot phases from the daemon, as words and as a share of the rim (from, to) with a typical length in s.
-const PHASE = { spawning: ["Starting the VM", 0, 6, 3], booting: ["Booting the kernel", 6, 35, 12], android: ["Starting Android", 35, 85, 35],
-  setup: ["Applying settings", 85, 97, 8], ready: ["Ready", 100, 100, 1] };
+const LABEL = { empty: "Off", queued: "Waiting", booting: "Starting", running: "Running", stopping: "Stopping", failed: "Failed" };
+// Boot phases: words, which mark they fill (0-3), and a typical length in s.
+const PHASE = { spawning: ["Starting the VM", 0, 4], booting: ["Booting the kernel", 1, 14], android: ["Starting Android", 2, 60], setup: ["Applying settings", 3, 12], ready: ["Ready", 4, 1] };
 
 // ---------- daemon calls ----------
 async function api(call, args = {}) {
-  try {
-    const r = await fetch(BASE + "/api", { method: "POST", body: JSON.stringify({ call, ...args }) });
-    return await r.json();
-  } catch (e) { return { ok: false, error: "daemon not reachable" }; }
+  try { const r = await fetch(BASE + "/api", { method: "POST", body: JSON.stringify({ call, ...args }) }); return await r.json(); }
+  catch { return { ok: false, error: "daemon not reachable" }; }
 }
 // Long calls run as jobs: the POST returns at once and the result arrives on /events.
 const jobs = {}, early = {};
@@ -494,171 +566,297 @@ function jobDone(e) {
 }
 // Daemon messages -> what happened and what to do next.
 function plain(e, id) {
-  e = String(e || "failed");
-  let m;
-  if ((m = e.match(/Available (\d+) MB < (\d+) MB/))) return `Not enough free RAM: ${m[1]} MB free, ${m[2]} MB needed to boot. Stop a Device, then retry.`;
-  if (/daemon not reachable/.test(e)) return "The agent-emu daemon is not answering. Start it with agent-emu.cmd; this page reconnects by itself.";
+  e = String(e || "failed"); let m;
+  if ((m = e.match(/Available (\d+) MB < (\d+) MB/))) return `Not enough free memory: ${m[1]} MB free, ${m[2]} MB needed. Stop a phone, then retry.`;
+  if (/daemon not reachable/.test(e)) return "The daemon is not answering. Start it with agent-emu.cmd; this page reconnects by itself.";
   if (/already running/.test(e)) return `${id} is already running.`;
-  if (/still booting/.test(e)) return `${id} is still booting. Try again when it shows Running.`;
-  if (/crosvm\.exe is already running/.test(e)) return "Another emulator runs outside agent-emu. Start the daemon with agent-emu.cmd (it allows that).";
-  if (/busy: Device is leased/.test(e)) return `An agent holds ${id} right now (leased). Wait for it to release, or stop it.`;
-  if (/console pipe|os error 2/.test(e)) return `${id}'s console did not open, so Android never started. Retry; if it fails again, restart agent-emu.`;
-  if (/unknown image/.test(e)) return "The daemon does not know that image. Pick another image in Start Devices.";
-  return `The daemon reported an error. Retry, or restart agent-emu if it repeats. (${e})`;
+  if (/still booting/.test(e)) return `${id} is still starting. Try again when it shows Running.`;
+  if (/crosvm\.exe is already running/.test(e)) return "Another emulator runs outside agent-emu. Start the daemon with agent-emu.cmd.";
+  if (/busy: Device is leased/.test(e)) return `An agent is using ${id} right now. Wait for it, or stop it.`;
+  if (/console pipe|os error 2/.test(e)) return `${id}'s console did not open, so Android never started. Retry; if it repeats, restart agent-emu.`;
+  if (/unknown image/.test(e)) return "The daemon does not know that image. Pick another in Start options.";
+  return `Something went wrong. Retry, or restart agent-emu if it repeats. (${e})`;
 }
 
-// ---------- top line: the latest action and its result ----------
-let sayTimer = null;
-function say(text, err = false) {
-  const el = $("say"); el.textContent = text; el.classList.toggle("err", err); el.title = text;
-  clearTimeout(sayTimer); if (!err) sayTimer = setTimeout(() => { el.textContent = ""; }, 8000);
+// ---------- toasts: every action is acknowledged at once, then updated in place with how it ended ----------
+function toast(text, { err = false, ms = 3200 } = {}) {
+  const el = document.createElement("div"); el.className = "toast";
+  const span = document.createElement("span"), x = document.createElement("button");
+  x.className = "x"; x.setAttribute("aria-label", "Dismiss"); x.innerHTML = `<svg class="i" style="width:13px;height:13px"><use href="#i-x"/></svg>`;
+  el.append(span, x); $("toasts").append(el);
+  let t = null;
+  const h = {
+    set(text, o = {}) { span.textContent = text; el.classList.toggle("err", !!o.err); clearTimeout(t); const ms = o.ms ?? (o.err ? 9000 : 3200); if (ms) t = setTimeout(h.close, ms); return h; },
+    close() { clearTimeout(t); el.classList.add("out"); setTimeout(() => el.remove(), 220); },
+  };
+  x.onclick = h.close;
+  while ($("toasts").children.length > 4) $("toasts").firstChild.remove();
+  return h.set(text, { err, ms });
 }
-// Per-well status pill: acknowledges an action on that well at once, then says how it ended.
-function wellSay(id, text, err = false, ms = 2600) {
-  const w = W[id]; if (!w) return; const s = w.status;
-  s.textContent = text; s.classList.add("on"); s.classList.toggle("err", err);
-  clearTimeout(w.sayT); if (ms) w.sayT = setTimeout(() => s.classList.remove("on"), ms);
-}
-// Button pressed: busy bar until the promise settles.
 async function busy(btn, p) {
   if (btn) btn.setAttribute("aria-busy", "true");
   try { return await p; } finally { if (btn) btn.removeAttribute("aria-busy"); }
 }
 
-// ---------- the plate ----------
-const W = {};
-function buildPlate() {
-  const t = $("well-t");
-  for (const id of IDS) {
-    const el = t.content.firstElementChild.cloneNode(true);
-    el.dataset.id = id; el.setAttribute("aria-label", "Device " + id);
-    const w = W[id] = { el, id, cv: el.querySelector("canvas"), veil: el.querySelector(".veil"), badge: el.querySelector(".badge"),
-      fps: el.querySelector(".fps"), ram: el.querySelector(".ram"), crash: el.querySelector(".crash"), stop: el.querySelector("[data-act=stop]"), status: el.querySelector(".status"), recess: el.querySelector(".recess") };
-    el.querySelector(".id").textContent = id;
-    el.querySelector(".id").onclick = () => select(id);
-    w.crash.onclick = () => { select(id); setPanel(true); $("sec_crash").open = true; $("sec_crash").scrollIntoView({ block: "start" }); };
-    w.cv.setAttribute("aria-label", id + " screen. Click to tap, drag to swipe; keys go to the phone.");
-    bindScreen(w.cv, () => id, w.recess);
-    el.querySelectorAll("[data-key]").forEach(b => b.onclick = () => key(id, b.dataset.key, b));
-    el.querySelectorAll("[data-act]").forEach(b => b.onclick = (ev) => act(id, b.dataset.act, b, ev));
-    bindDrop(el, () => id);
-    $("plate").appendChild(el);
+// ---------- frame worker: reads /mux and /frames, decodes and draws off the main thread ----------
+// Each canvas is handed to the worker (OffscreenCanvas). The page only tells it what to stream and how big
+// each canvas is; the worker reports frame size, blank screens, new frames that were asked for, and fps shown.
+const WORKER = `
+const cv = {}, last = {}, busy = {}, next = {}, watch = {}, count = {}, blankAt = {}, meta = {};
+let stageId = null; const streams = {};
+const probe = new OffscreenCanvas(24, 36), pg = probe.getContext("2d", { willReadFrequently: true });
+function fit(c, b) { const s = Math.min(c.width / b.width, c.height / b.height), w = b.width * s, h = b.height * s; return [(c.width - w) / 2, (c.height - h) / 2, w, h]; }
+function paint(key, b) { const c = cv[key]; if (!c || !c.width) return; const g = c.ctx; const [x, y, w, h] = fit(c, b);
+  if (w < c.width || h < c.height) g.clearRect(0, 0, c.width, c.height); g.drawImage(b, x, y, w, h); }
+function blank(b) { pg.drawImage(b, 0, 0, 24, 36); const px = pg.getImageData(0, 0, 24, 36).data;
+  for (let i = 0; i < px.length; i += 4) if (px[i] > 24 || px[i + 1] > 24 || px[i + 2] > 24) return false; return true; }
+async function decode(id) {
+  while (next[id]) {
+    const r = next[id]; next[id] = null; busy[id] = true;
+    let b; try { b = await createImageBitmap(new Blob([r.jpeg], { type: "image/jpeg" })); } catch { continue; }
+    if (last[id]) last[id].close(); last[id] = b;
+    paint(id, b); if (id === stageId) paint("stage", b);
+    count[id] = (count[id] || 0) + 1;
+    const m = meta[id] || (meta[id] = {}), now = performance.now();
+    let changed = m.w !== r.w || m.h !== r.h;
+    if (!blankAt[id] || now - blankAt[id] > 1000) { blankAt[id] = now; const bl = blank(b); if (bl !== m.blank) { m.blank = bl; changed = true; } }
+    if (changed) { m.w = r.w; m.h = r.h; postMessage({ t: "meta", id, w: r.w, h: r.h, blank: m.blank }); }
+    if (watch[id] != null && r.seq > watch[id]) { watch[id] = null; postMessage({ t: "changed", id }); }
+    m.seq = r.seq;
   }
+  busy[id] = false;
 }
-
-function veilFor(id, st) {
-  const d = S.devs[id], u = S.ui[id];
-  if (st === "empty") return `<div class="big">${id} is empty</div><div class="row"><button class="btn primary sm" data-v="start"><svg class="i"><use href="#i-play"/></svg>Start ${id}</button></div><div>${startSummary()}</div>`;
-  if (st === "queued") return `<div class="big">Queued</div><div>Boots after the Device ahead of it.</div><div class="row"><button class="btn sm" data-v="cancel">Cancel</button></div>`;
-  if (st === "booting") {
-    const ph = PHASE[(d && d.phase) || "spawning"] || PHASE.spawning, up = d ? Math.round(d.t_s ?? d.uptime_s ?? 0) : u.t0 ? Math.round((Date.now() - u.t0) / 1000) : 0;
-    return `<div class="big">${ph[0]}</div><div class="num">${up} s · usually about ${bootEstimate(d ? d.image_name : startArgs().image || "")} s</div><div>The screen appears when Android draws its first frame.</div>`;
+async function read(name, url, fixed) {
+  const ctl = new AbortController(); streams[name] = { url, ctl };
+  const head = fixed ? 20 : 24;
+  try {
+    const res = await fetch(url, { signal: ctl.signal }); if (!res.ok) throw new Error("HTTP " + res.status);
+    const rd = res.body.getReader(); let buf = new Uint8Array(1 << 18), end = 0;
+    for (;;) {
+      const { value, done } = await rd.read(); if (done) break;
+      if (end + value.length > buf.length) { const nb = new Uint8Array(Math.max(buf.length * 2, end + value.length)); nb.set(buf.subarray(0, end)); buf = nb; }
+      buf.set(value, end); end += value.length;
+      let off = 0;
+      while (end - off >= head) {
+        const dv = new DataView(buf.buffer, off, head), n = dv.getUint32(0, true);
+        if (end - off < head + n) break;
+        const id = fixed || "d" + dv.getUint32(20, true);
+        // Latest wins per phone: a frame that arrives while the previous one decodes replaces the waiting one.
+        next[id] = { seq: Number(dv.getBigUint64(4, true)), w: dv.getUint32(12, true), h: dv.getUint32(16, true), jpeg: buf.slice(off + head, off + head + n) };
+        if (!busy[id]) decode(id);
+        off += head + n;
+      }
+      if (off) { buf.copyWithin(0, off, end); end -= off; }
+    }
+  } catch (e) { if (e.name === "AbortError") return; }
+  if (streams[name] && streams[name].ctl === ctl) setTimeout(() => { if (streams[name] && streams[name].ctl === ctl) read(name, url, fixed); }, 1000);
+}
+function want(name, url, fixed) {
+  const s = streams[name]; if (s && s.url === url) return;
+  if (s) s.ctl.abort(); delete streams[name];
+  if (url) read(name, url, fixed);
+}
+setInterval(() => { postMessage({ t: "fps", c: count }); for (const k in count) count[k] = 0; }, 1000);
+onmessage = ({ data: m }) => {
+  if (m.t === "canvas") { cv[m.key] = m.cv; m.cv.ctx = m.cv.getContext("2d", { alpha: true, desynchronized: true }); }
+  else if (m.t === "size") { const c = cv[m.key]; if (!c) return; if (c.width !== m.w || c.height !== m.h) { c.width = m.w; c.height = m.h; c.ctx.imageSmoothingQuality = "medium";
+    const b = m.key === "stage" ? last[stageId] : last[m.key]; if (b) paint(m.key, b); } }
+  else if (m.t === "stage") { stageId = m.id; const c = cv.stage; if (!c) return; c.ctx.clearRect(0, 0, c.width, c.height); if (last[m.id]) paint("stage", last[m.id]); }
+  else if (m.t === "streams") { want("mux", m.mux, null); want("focus", m.focus, m.focusId); }
+  else if (m.t === "clear") { const id = m.id; if (last[id]) { last[id].close(); delete last[id]; } delete meta[id];
+    for (const k of [id, id === stageId ? "stage" : null]) if (k && cv[k]) cv[k].ctx.clearRect(0, 0, cv[k].width, cv[k].height); }
+  else if (m.t === "watch") watch[m.id] = (meta[m.id] && meta[m.id].seq) || 0;
+};`;
+const FW = new Worker(URL.createObjectURL(new Blob([WORKER], { type: "text/javascript" })));
+const sized = new Map();
+const ro = new ResizeObserver((ents) => {
+  for (const e of ents) {
+    const key = sized.get(e.target); if (!key) continue;
+    const dpr = devicePixelRatio || 1, b = e.devicePixelContentBoxSize?.[0];
+    const w = b ? b.inlineSize : Math.round(e.contentRect.width * dpr), h = b ? b.blockSize : Math.round(e.contentRect.height * dpr);
+    if (w && h) FW.postMessage({ t: "size", key, w, h });
   }
-  if (st === "stopping") return `<div class="big">Stopping</div>`;
-  if (st === "failed") return `<div class="big">Could not start ${id}</div><div>${esc(u.failed.replace(/ \(.*\)$/, ""))}</div>${u.raw ? `<div class="raw">${esc(u.raw)}</div>` : ""}<div class="row"><button class="btn sm" data-v="retry">Retry</button><button class="btn sm ghost" data-v="dismiss">Dismiss</button></div>`;
-  if (st === "running" && !S.frame[id]) return `<div class="big">Android is up</div><div>Waiting for the first frame…</div>`;
+  clearTimeout(ro._t); ro._t = setTimeout(syncStreams, 200);
+});
+function handCanvas(cv, key) {
+  const off = cv.transferControlToOffscreen(); FW.postMessage({ t: "canvas", key, cv: off }, [off]);
+  sized.set(cv, key); try { ro.observe(cv, { box: "device-pixel-content-box" }); } catch { ro.observe(cv); }
+}
+let pending = null;
+FW.onmessage = ({ data: m }) => {
+  if (m.t === "meta") {
+    const first = !S.frame[m.id]; S.frame[m.id] = { w: m.w, h: m.h, blank: m.blank };
+    if (first || true) { renderTile(m.id); if (m.id === S.sel) renderStage(); }
+  } else if (m.t === "changed") {
+    if (pending && pending.id === m.id) {
+      const ms = Math.round(performance.now() - pending.t0); S.lat.push(ms); if (S.lat.length > 100) S.lat.shift();
+      pending = null; if (m.id === S.sel) renderFacts();
+    }
+  } else if (m.t === "fps") { S.shown = m.c; renderFacts(); }
+};
+
+// Which phones stream: the visible, started tiles on one /mux at 30 fps sized to the tile; the focused phone on
+// its own /frames at full rate. Nothing streams while the tab is hidden or Test runs is open.
+const TILE_FPS = 30, visible = new Set();
+const io = new IntersectionObserver((ents) => { for (const e of ents) { const id = e.target.dataset.id; e.isIntersecting ? visible.add(id) : visible.delete(id); } syncStreams(); });
+function syncStreams() {
+  const live = (id) => ["running", "booting"].includes(stateOf(id)) && S.devs[id];
+  const on = !document.hidden && S.view === "phones";
+  const tiles = on ? IDS.filter(id => id !== S.sel && visible.has(id) && live(id)) : [];
+  const dpr = devicePixelRatio || 1, tw = T[IDS[0]] ? T[IDS[0]].cv.clientWidth : 200;
+  const w = Math.min(480, Math.ceil(tw * dpr / 40) * 40);
+  const stageW = Math.ceil(($("stage").clientWidth || 400) * dpr / 40) * 40;
+  const focusOn = on && live(S.sel);
+  const fw = innerWidth <= 980 ? w : stageW;
+  FW.postMessage({ t: "streams",
+    mux: tiles.length ? `${ORIGIN}/mux?devices=${tiles.join(",")}&max_width=${w}&fps=${TILE_FPS}&quality=62` : null,
+    focus: focusOn ? `${ORIGIN}/frames?device=${S.sel}&fps=60&max_width=${fw}&quality=80` : null, focusId: S.sel });
+}
+document.addEventListener("visibilitychange", syncStreams);
+
+// ---------- tiles ----------
+const T = {};
+function addTile(id) {
+  ensure(id);
+  const el = $("tile-t").content.firstElementChild.cloneNode(true);
+  el.dataset.id = id; el.setAttribute("aria-label", "Phone " + id);
+  const q = (s) => el.querySelector(s);
+  const t = T[id] = { el, id, cv: q("canvas"), phone: q(".phone"), say: q(".say"), pill: q(".pill"), m1: q(".m1"), m2: q(".m2"), m3: q(".m3"), crash: q(".crash"), last: {} };
+  q(".name").textContent = id;
+  q(".name").onclick = () => select(id);
+  t.crash.onclick = () => { select(id); setTab("crashes"); };
+  t.cv.setAttribute("aria-label", id + " screen. Click to tap, drag to swipe; keys go to the phone.");
+  bindScreen(t.cv, () => id, t.phone);
+  el.querySelectorAll(".hud [data-key]").forEach(b => b.onclick = () => key(id, b.dataset.key, b));
+  el.querySelectorAll(".hud [data-act]").forEach(b => b.onclick = () => act(id, b.dataset.act, b));
+  bindDrop(el, () => id, el);
+  $("grid").append(el); handCanvas(t.cv, id); io.observe(el);
+  document.documentElement.style.setProperty("--rows", Math.ceil(IDS.length / 4));
+}
+function sayFor(id, st) {
+  const d = S.devs[id], u = S.ui[id];
+  if (u.opening) return `<b>${u.opening}</b><div class="phases" style="max-width:120px"><i style="--f:100%" class="done"></i><i></i><i></i><i></i></div>`;
+  if (st === "empty") return `<button class="btn ink" data-v="start" aria-label="Start ${id}"><svg class="i"><use href="#i-play"/></svg>Start</button>`;
+  if (st === "queued") return `<div>Starts when a boot slot frees up.</div><button class="btn sm" data-v="cancel">Cancel</button>`;
+  if (st === "booting") return `<b class="ph"></b><div class="phases"><i></i><i></i><i></i><i></i></div><div class="el num"></div>`;
+  if (st === "stopping") return "";
+  if (st === "failed") return `<div>${esc(u.failed.replace(/ \(.*\)$/s, ""))}</div>${u.raw ? `<div class="raw">${esc(u.raw)}</div>` : ""}<div class="row" style="justify-content:center"><button class="btn sm ink" data-v="retry">Retry</button><button class="btn sm" data-v="dismiss">Dismiss</button></div>`;
+  if (st === "running" && !S.frame[id]) return `<b>Android is up</b><div>Waiting for the first frame</div>`;
+  if (noApp(id)) return `<b>No app open</b><div>This lean image has no home screen.</div><button class="btn ink sm" data-v="open"><svg class="i"><use href="#i-bolt"/></svg>Open BoltBetz</button>`;
   return "";
 }
-function startSummary() {
-  const a = startArgs(), img = $("s_image").selectedOptions[0];
-  return esc((img ? img.textContent.replace(/\s*\(.*\)/, "") : "") + (a.mem ? ` · ${a.mem} MB` : "") + ` · ${a.cpus || 2} CPU` + (a.net ? "" : " · no network"));
-}
-const esc = (t) => String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
-
-function progress(id, st) {
-  if (st !== "booting") return 0;
-  const d = S.devs[id], ph = PHASE[(d && d.phase) || "spawning"] || PHASE.spawning;
-  const t = d && d.phaseAt ? d.phaseAt : S.ui[id].t0, inPh = t ? (Date.now() - t) / 1000 : 0;
-  return ph[1] + (ph[2] - ph[1]) * Math.min(0.92, inPh / ph[3]);
-}
-function bootEstimate(img) { return Math.round(store.get("boot." + (img || "default"), (img || "").startsWith("phone") ? 120 : 95)); }
-
-// Lean images show black until an app opens: say so on the glass, with the fix.
+// Lean images stay black until an app opens: say so on the glass, with the fix.
 function noApp(id) {
   const d = S.devs[id], f = S.frame[id];
   return d && d.ready && !(d.image_name || "").startsWith("phone") && f && f.blank && !S.ui[id].opening && !S.ui[id].noAppDismissed;
 }
-
-function renderWell(id) {
-  const w = W[id], st = stateOf(id), d = S.devs[id], u = S.ui[id], prev = w.el.dataset.state;
-  if (prev !== st) {
-    w.el.dataset.state = st;
-    if (st === "running" && (prev === "booting" || prev === "queued") && !reduced.matches) {
-      w.el.classList.add("react"); setTimeout(() => w.el.classList.remove("react"), 800);
-    }
+function setSay(box, html, over, id) {
+  if (box._html !== html) {
+    box._html = html; box.innerHTML = html;
+    box.querySelectorAll("[data-v]").forEach(b => b.onclick = (ev) => { ev.stopPropagation(); sayAct(id, b.dataset.v, b); });
   }
-  w.badge.textContent = u.opening ? "Opening app" : LABEL[st];
-  w.el.classList.toggle("sel", S.sel === id);
-  w.stop.title = st === "queued" || st === "booting" ? "Cancel" : "Stop";
-  w.el.style.setProperty("--p", progress(id, st).toFixed(1));
-  const live = st === "running", m = S.m[id] || {};
-  const fps = Math.round(m.scanout_fps || 0);
-  w.fps.innerHTML = live && fps ? `<b>${fps}</b> fps` : "";
-  w.fps.title = "Frames the phone drew in the last second (0 while the screen is still)";
-  w.ram.innerHTML = (live || st === "booting") && m.own_mb != null ? `<b>${m.own_mb}</b> MB` : "";
-  w.ram.title = m.own_mb != null ? `own ${m.own_mb} MB: RAM only this Device uses. +${m.shared_mb} MB shared: system image and program files other Devices reuse.` : "";
-  w.crash.hidden = !S.crashes[id]; w.crash.textContent = S.crashes[id] === 1 ? "1 crash" : S.crashes[id] + " crashes";
-  const html = noApp(id)
-    ? `<div class="big">No app open</div><div>This lean image has no home screen.</div><div class="row"><button class="btn primary sm" data-v="open"><svg class="i"><use href="#i-bolt"/></svg>Open BoltBetz</button><button class="btn sm ghost" data-v="noapp">Dismiss</button></div>`
-    : veilFor(id, st);
-  setVeil(w.veil, html, live && S.frame[id], id);
-  w.cv.style.visibility = live && S.frame[id] ? "visible" : "hidden";
+  box.hidden = !html; box.classList.toggle("over", !!over);
 }
-function setVeil(veil, html, over, id) {
-  if (veil._html !== html) {
-    veil._html = html; veil.innerHTML = html;
-    veil.querySelectorAll("[data-v]").forEach(b => b.onclick = (ev) => veilAct(id, b.dataset.v, b, ev));
-  }
-  veil.hidden = !html; veil.classList.toggle("over", !!over);
-}
-function veilAct(id, v, btn) {
+function sayAct(id, v, btn) {
   if (v === "start" || v === "retry") { S.ui[id] = {}; start([id]); }
-  else if (v === "cancel") { dequeue(id); }
-  else if (v === "dismiss") { S.ui[id] = {}; render(); }
+  else if (v === "cancel") dequeue(id);
+  else if (v === "dismiss") { S.ui[id] = {}; renderAll(); }
   else if (v === "open") openApp(id, btn);
-  else if (v === "noapp") { S.ui[id].noAppDismissed = true; render(); }
 }
-
-function render() {
-  IDS.forEach(renderWell);
-  renderStage(); renderBudget(); renderStartBtn();
+// Boot progress: the elapsed time inside the current phase fills its mark (never past 92% until the daemon moves on).
+function bootInfo(id) {
+  const d = S.devs[id], u = S.ui[id], ph = PHASE[(d && d.phase) || "spawning"] || PHASE.spawning;
+  const t = d && d.phaseAt ? d.phaseAt : u.t0 || Date.now(), inPh = (Date.now() - t) / 1000;
+  const t0 = d && d.upAt ? d.upAt - (d.uptime_s || 0) * 1000 : u.t0 || t;
+  const frac = Math.min(.92, inPh / ph[2]), done = ph[1];
+  const weights = [1, 2, 4, 1], p = (weights.slice(0, done).reduce((a, b) => a + b, 0) + weights[Math.min(3, done)] * frac) / 8 * 100;
+  return { word: ph[0], mark: done, frac, p, el: Math.max(0, Math.round((Date.now() - t0) / 1000)) };
 }
-
-// ---------- host memory budget ----------
-function renderBudget() {
-  const bar = $("budgetbar"), cap = $("budgetcap");
-  if (S.avail == null) { cap.textContent = S.online === false ? "Daemon offline: retrying every 2 s" : "Connecting to the daemon…"; bar.innerHTML = ""; return; }
-  const running = IDS.filter(id => S.devs[id]);
-  const mem = (id) => S.m[id] && S.m[id].own_mb != null ? S.m[id] : null;
-  const own = running.reduce((a, id) => a + (mem(id) ? mem(id).own_mb : 0), 0);
-  const shared = Math.max(0, ...running.map(id => mem(id) ? mem(id).shared_mb : 0));
-  const total = own + shared + S.avail, floor = 1500;
-  const per = own ? own / running.filter(mem).length : 650;
-  const room = Math.max(0, Math.floor((S.avail - floor) / Math.max(400, per)));
-  bar.innerHTML = running.map(id => mem(id) ? `<div class="seg dev ${S.devs[id].ready ? "" : "booting"}" style="flex-basis:${100 * mem(id).own_mb / total}%" title="${id}: ${mem(id).own_mb} MB own"></div>` : "").join("")
-    + (shared ? `<div class="seg shared" style="flex-basis:${100 * shared / total}%" title="shared by all Devices: ${shared} MB"></div>` : "")
-    + `<div class="seg free" style="flex-basis:${100 * S.avail / total}%"></div>`
-    + `<div class="floor" style="right:${100 * floor / total}%" title="Boot floor: a Device starts only with more than ${floor} MB free"></div>`;
-  cap.innerHTML = `<span>Devices <b>${(own / 1024).toFixed(1)} GB</b> own + <b>${(shared / 1024).toFixed(1)}</b> shared</span>`
-    + `<span>Host free <b>${(S.avail / 1024).toFixed(1)} GB</b></span>`
-    + `<span class="${room ? "" : "warn"}">${room ? `room for about <b>${room}</b> more` : "at the 4 GB boot floor: no room for another Device"}</span>`;
+function paintBoot(box, host, id) {
+  const b = bootInfo(id), usual = bootEstimate(imageOf(id));
+  const ph = box.querySelector(".ph"); if (!ph) return;
+  setText(ph, b.word);
+  box.querySelectorAll(".phases i").forEach((i, k) => { i.classList.toggle("done", k < b.mark); i.style.setProperty("--f", k === b.mark ? (b.frac * 100).toFixed(1) + "%" : "0%"); });
+  setText(box.querySelector(".el"), `${b.el} s · usually about ${usual} s`);
+  host.style.setProperty("--p", b.p.toFixed(1));
 }
+const imageOf = (id) => (S.devs[id] && S.devs[id].image_name) || (S.ui[id].args && S.ui[id].args.image) || startArgs().image || "";
+function bootEstimate(img) { return Math.round(store.get("boot." + (img || "default"), (img || "").startsWith("phone") ? 120 : 100)); }
 
-// ---------- live state: one /events stream (snapshot, phases, jobs, metrics each second, crashes, errors) ----------
-// status() also runs after a start or stop reply, so the plate never waits for the next metrics tick.
+function renderTile(id) {
+  const t = T[id]; if (!t) return;
+  const st = stateOf(id), u = S.ui[id], m = S.m[id] || {}, prev = t.el.dataset.state;
+  if (prev !== st) {
+    t.el.dataset.state = st;
+    if (st === "running" && (prev === "booting" || prev === "queued") && !reduced.matches) { t.el.classList.add("ready"); setTimeout(() => t.el.classList.remove("ready"), 1100); }
+  }
+  t.el.classList.toggle("sel", S.sel === id);
+  t.el.classList.toggle("busy", !!u.opening);
+  setText(t.pill, u.opening ? "Opening app" : LABEL[st]);
+  const live = st === "running";
+  setText(t.m1, (live || st === "booting") && m.own_mb != null ? `${m.own_mb} MB` : "");
+  setText(t.m2, live ? (m.activity === "idle" ? "idle" : `${Math.round(m.scanout_fps || 0)} fps`) : "");
+  setText(t.m3, live && m.memory_mode === "capped" ? "capped" : "");
+  t.m1.title = m.own_mb != null ? `${m.own_mb} MB only this phone uses, plus ${m.shared_mb} MB shared with the others` : "";
+  t.m2.title = "idle: nothing changed on screen in the last second";
+  t.m3.title = "capped: memory is held down until the next input";
+  t.crash.hidden = !S.crashes[id]; setText(t.crash, S.crashes[id] === 1 ? "1 crash" : S.crashes[id] + " crashes");
+  setSay(t.say, sayFor(id, st), live && S.frame[id], id);
+  if (st === "booting") paintBoot(t.say, t.el, id);
+}
+function renderAll() { IDS.forEach(renderTile); renderStage(); renderMem(); renderStartBtns(); }
+
+// ---------- memory ----------
+const FLOOR = 1500;
+function memModel() {
+  const run = IDS.filter(id => S.devs[id]), mm = (id) => S.m[id] && S.m[id].own_mb != null ? S.m[id] : null;
+  const own = run.reduce((a, id) => a + (mm(id) ? mm(id).own_mb : 0), 0);
+  const shared = Math.max(0, ...run.map(id => mm(id) ? mm(id).shared_mb : 0));
+  const per = Math.max(700, own && run.filter(mm).length ? own / run.filter(mm).length : 900);
+  const room = S.avail == null ? 0 : Math.max(0, Math.floor((S.avail - FLOOR) / per));
+  return { run, mm, own, shared, per, room, total: own + shared + (S.avail || 0) };
+}
+const GB = (mb) => (mb / 1024).toFixed(1);
+function renderMem() {
+  if (S.avail == null) { setText($("memword"), S.online === false ? "Offline" : "Memory"); $("memmini").innerHTML = ""; if ($("mempop").matches(":popover-open")) $("memin").innerHTML = `<h3>Memory</h3><p class="note">Waiting for the daemon.</p>`; return; }
+  const M = memModel(), colour = (id) => S.devs[id] && S.devs[id].ready ? "var(--green)" : "var(--amber)";
+  setText($("memword"), `${GB(S.avail)} GB free`);
+  const mini = M.run.filter(M.mm).map(id => `<i style="flex-basis:${100 * M.mm(id).own_mb / M.total}%;background:${colour(id)}"></i>`).join("")
+    + (M.shared ? `<i style="flex-basis:${100 * M.shared / M.total}%;background:color-mix(in srgb, var(--green) 40%, var(--ink-3))"></i>` : "");
+  if ($("memmini")._h !== mini) { $("memmini")._h = mini; $("memmini").innerHTML = mini; }
+  if (!$("mempop").matches(":popover-open")) return;
+  const segs = M.run.filter(M.mm).map(id => `<i style="flex-basis:${100 * M.mm(id).own_mb / M.total}%;background:${colour(id)}" title="${id}: ${M.mm(id).own_mb} MB"></i>`).join("")
+    + (M.shared ? `<i style="flex-basis:${100 * M.shared / M.total}%;background:color-mix(in srgb, var(--green) 40%, var(--ink-3))"></i>` : "")
+    + `<i style="flex-basis:${100 * S.avail / M.total}%;background:transparent"></i><span class="floor" style="right:${100 * FLOOR / M.total}%"></span>`;
+  const rows = M.run.map(id => { const m = S.m[id] || {};
+    return `<tr><td><span class="dot ${S.devs[id].ready ? "ok" : "warm"}"></span>${id}</td><td class="n">${m.own_mb ?? "…"}</td><td class="n">${m.shared_mb ?? "…"}</td><td>${m.memory_mode === "capped" ? "capped" : S.devs[id].ready ? "active" : "starting"}</td></tr>`; }).join("");
+  $("memin").innerHTML = `<h3>Memory</h3>
+    <div class="row" style="gap:28px"><div class="stat"><span>Free on this PC</span><b class="bign num">${GB(S.avail)} GB</b></div>
+      <div class="stat"><span>Phones use</span><b class="bign num">${GB(M.own + M.shared)} GB</b></div></div>
+    <div class="membar">${segs}</div>
+    <div class="legend"><span><i style="background:var(--green)"></i>Own, running</span><span><i style="background:var(--amber)"></i>Own, starting</span>
+      <span><i style="background:color-mix(in srgb, var(--green) 40%, var(--ink-3))"></i>Shared</span><span><i style="background:var(--red)"></i>Boot floor ${FLOOR} MB</span></div>
+    <p class="note">${M.room ? `Room for about <b>${M.room}</b> more phone${M.room === 1 ? "" : "s"}.` : "At the boot floor: no room for another phone. Stop one first."}</p>
+    ${M.run.length ? `<table class="t"><thead><tr><th>Phone</th><th class="n">Own MB</th><th class="n">Shared MB</th><th>Memory</th></tr></thead><tbody>${rows}</tbody></table>` : `<p class="note">No phones running.</p>`}
+    <p class="note">Own is memory only that phone uses. Shared is the system image and program files all phones reuse, counted once. Idle phones are capped after a quiet minute; any input lifts the cap.</p>`;
+}
+$("mempop").addEventListener("toggle", renderMem);
+
+// ---------- live state: one /events stream ----------
 function applyStatus(r) {
   S.avail = r.available_mb; const now = {};
-  for (const d of r.devices) now[d.id] = { ...(S.devs[d.id] || {}), ...d, phaseAt: (S.devs[d.id] && S.devs[d.id].phase === d.phase) ? S.devs[d.id].phaseAt : Date.now() };
+  for (const d of r.devices) { now[d.id] = { ...(S.devs[d.id] || {}), ...d, upAt: Date.now(), phaseAt: (S.devs[d.id] && S.devs[d.id].phase === d.phase) ? S.devs[d.id].phaseAt : Date.now() }; if (!T[d.id]) { IDS.push(d.id); addTile(d.id); } }
   for (const id of IDS) if (S.devs[id] && !now[id]) gone(id);
-  S.devs = now; render();
+  S.devs = now; renderAll(); syncStreams();
 }
 async function status() { const r = await api("status"); if (r.ok) applyStatus(r); }
-function gone(id) { delete S.frame[id]; delete S.m[id]; clearCanvas(id); }
+function gone(id) { delete S.frame[id]; delete S.m[id]; FW.postMessage({ t: "clear", id }); }
 function online(on) {
   if (on === S.online) return;
-  if (on === false) { say("The agent-emu daemon is not answering. Start it with agent-emu.cmd; this page reconnects by itself.", true); S.avail = null; }
-  else if (S.online === false) say("Daemon back online.");
-  S.online = on; $("brand").classList.toggle("off", !on); render();
+  if (on === false) { S.avail = null; if (S.online) toast("The daemon stopped answering. This page reconnects by itself.", { err: true }); }
+  else if (S.online === false) toast("Daemon back online.");
+  S.online = on; $("conn").className = on ? "on" : "off"; setText($("connword"), on ? "" : "Offline, retrying");
+  renderAll();
 }
 function onEvent(e) {
   if (e.type === "snapshot") { online(true); applyStatus(e); return; }
@@ -668,27 +866,30 @@ function onEvent(e) {
     for (const m of e.devices) {
       S.m[m.id] = { ...(S.m[m.id] || {}), ...m };
       const d = S.devs[m.id];
-      if (d) { d.uptime_s = m.uptime_s; d.ready = m.ready; if (m.phase && m.phase !== d.phase) { d.phase = m.phase; d.phaseAt = Date.now(); } }
+      if (d) { d.uptime_s = m.uptime_s; d.upAt = Date.now(); d.ready = m.ready; if (m.phase && m.phase !== d.phase) { d.phase = m.phase; d.phaseAt = Date.now(); } }
       else if (m.phase && m.phase !== "stopped") status();
     }
-    render(); return;
+    IDS.forEach(renderTile); renderMem(); if (S.view === "phones") renderStage(); return;
   }
   if (e.type === "device") {
-    const id = e.device; if (!W[id]) return;
-    if (!e.phase) return; // balloon / memory_mode updates carry no phase; they must not reset a running tile to "Starting the VM"
-    if (e.phase === "stopped") { if (S.devs[id]) { delete S.devs[id]; gone(id); } render(); return; }
+    const id = e.device;
+    if (e.memory_mode && S.m[id]) { S.m[id].memory_mode = e.memory_mode; renderTile(id); }
+    // Balloon, browser and memory_mode updates carry no phase: they must never change a phone's state.
+    if (!e.phase || !T[id]) return;
+    if (e.phase === "stopped") { if (S.devs[id]) { delete S.devs[id]; gone(id); } renderAll(); syncStreams(); return; }
     const d = S.devs[id] || (S.devs[id] = { id, uptime_s: 0 });
     if (e.info) Object.assign(d, e.info);
     d.phase = e.phase; d.phaseAt = Date.now(); d.t_s = e.t_s; d.ready = e.phase === "ready";
+    if (e.phase === "spawning") syncStreams();
     if (d.ready) status();
-    render(); return;
+    renderTile(id); if (id === S.sel) renderStage(); return;
   }
   if (e.type === "crash") {
     S.crashes[e.device] = (S.crashes[e.device] || 0) + 1;
     if (e.device === S.sel) addCrash(e.event);
-    render(); return;
+    renderTile(e.device); setText($("crashn"), S.crashes[S.sel] || ""); return;
   }
-  if (e.type === "error" && W[e.device]) { wellSay(e.device, plain(e.error, e.device), true, 7000); return; }
+  if (e.type === "error" && T[e.device]) toast(`${e.device}: ${plain(e.error, e.device)}`, { err: true });
 }
 function openEvents() {
   const es = new EventSource(BASE + "/events");
@@ -697,87 +898,14 @@ function openEvents() {
   es.onerror = () => { if (es.readyState !== EventSource.OPEN) online(false); };
 }
 
-// ---------- frames: every Device on one connection ----------
-// /mux sends [u32 len][u64 seq][u32 w][u32 h][u32 n][jpeg]; w x h is the device size. The focused one comes unscaled.
-// Two connections: unfocused tiles share one /mux at small size and 5 fps (light on the host); the focused
-// phone gets its own /frames at full rate. Both pause while this tab is hidden.
-const TILE_FPS = 5;
-let streams = [], streamKey = "";
-function tileWidth() { return Math.min(240, Math.ceil(W.d0.recess.clientWidth * (devicePixelRatio || 1) / 40) * 40); }
-function openMux() {
-  const key = document.hidden ? "hidden" : `${S.sel}|${tileWidth()}`;
-  if (key === streamKey && streams.length) return;
-  streams.forEach(c => c.abort()); streams = []; streamKey = key;
-  if (document.hidden) return;
-  const tiles = IDS.filter(id => id !== S.sel).join(",");
-  readStream(`${BASE}/mux?devices=${tiles}&max_width=${tileWidth()}&fps=${TILE_FPS}&quality=60`, null);
-  if (S.sel) readStream(`${BASE}/frames?device=${S.sel}&fps=60`, S.sel);
-}
-document.addEventListener("visibilitychange", openMux);
-// /mux records carry the device number (24-byte head); /frames records are one Device's (20-byte head).
-async function readStream(url, fixedId) {
-  const ctl = new AbortController(); streams.push(ctl);
-  const head = fixedId ? 20 : 24;
-  try {
-    const res = await fetch(url, { signal: ctl.signal });
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    const rd = res.body.getReader(); let buf = new Uint8Array(0);
-    for (;;) {
-      const { value, done } = await rd.read(); if (done) break;
-      const nb = new Uint8Array(buf.length + value.length); nb.set(buf); nb.set(value, buf.length); buf = nb;
-      while (buf.length >= head) {
-        const dv = new DataView(buf.buffer, buf.byteOffset, head), n = dv.getUint32(0, true);
-        if (buf.length < head + n) break;
-        const seq = Number(dv.getBigUint64(4, true)), w = dv.getUint32(12, true), h = dv.getUint32(16, true);
-        const id = fixedId || "d" + dv.getUint32(20, true);
-        const blob = new Blob([buf.slice(head, head + n)], { type: "image/jpeg" }); buf = buf.slice(head + n);
-        onFrame(id, seq, w, h, await createImageBitmap(blob));
-      }
-    }
-  } catch (e) { if (e.name === "AbortError") return; }
-  // Ended (the focused Device stopped, or the daemon went away): retry while this stream is still wanted.
-  if (streams.includes(ctl)) setTimeout(() => { if (streams.includes(ctl)) { streams.splice(streams.indexOf(ctl), 1); readStream(url, fixedId); } }, 1000);
-}
-function onFrame(id, seq, w, h, bmp) {
-  if (!W[id]) { bmp.close(); return; }
-  const f = S.frame[id] || (S.frame[id] = {}), first = !f.bmp;
-  if (f.bmp) f.bmp.close();
-  Object.assign(f, { bmp, seq, w, h });
-  draw(W[id].cv, bmp);
-  if (id === S.sel) draw($("stagecv"), bmp);
-  if (pending && pending.id === id && seq > pending.seq) {
-    const ms = Math.round(performance.now() - pending.t0); S.lat.push(ms); if (S.lat.length > 100) S.lat.shift();
-    say(`${id}: ${pending.what} → screen changed in ${ms} ms`); pending = null;
-  }
-  if (first) { f.blank = isBlank(bmp); renderWell(id); if (id === S.sel) renderStage(); }
-}
-function draw(cv, bmp) {
-  if (cv.width !== bmp.width || cv.height !== bmp.height) { cv.width = bmp.width; cv.height = bmp.height; }
-  cv.getContext("2d").drawImage(bmp, 0, 0);
-}
-function clearCanvas(id) { const c = W[id].cv; c.getContext("2d").clearRect(0, 0, c.width, c.height); }
-const probe = document.createElement("canvas"); probe.width = 24; probe.height = 36;
-function isBlank(bmp) {
-  const g = probe.getContext("2d", { willReadFrequently: true }); g.drawImage(bmp, 0, 0, 24, 36);
-  const px = g.getImageData(0, 0, 24, 36).data;
-  for (let i = 0; i < px.length; i += 4) if (px[i] > 24 || px[i + 1] > 24 || px[i + 2] > 24) return false;
-  return true;
-}
-setInterval(() => {
-  for (const id of IDS) { const f = S.frame[id]; if (f && f.bmp) f.blank = isBlank(f.bmp); }
-  render();
-}, 1000);
-
-// ---------- input: click = tap, drag = swipe, wheel = scroll, keys to the focused phone ----------
-let pending = null;
+// ---------- input: click = tap, drag = swipe, wheel = scroll, keys to the phone ----------
 async function input(id, call, args, what) {
-  const f = S.frame[id], mine = f ? { id, seq: f.seq, t0: performance.now(), what } : null; pending = mine;
-  // No new frame within 3 s: say so, so a tap that did nothing on the phone is not mistaken for a lost click.
-  if (mine) setTimeout(() => { if (pending === mine) { pending = null; say(`${id}: ${what} sent; the screen did not change.`); } }, 3000);
+  const mine = { id, t0: performance.now(), what }; pending = mine; FW.postMessage({ t: "watch", id });
+  setTimeout(() => { if (pending === mine) { pending = null; } }, 3000);
   const r = await api(call, { device: id, ...args, screenshot: false, device_px: true });
-  if (!r.ok) { pending = null; wellSay(id, plain(r.error, id), true, 5000); say(`${id}: ${plain(r.error, id)}`, true); }
+  if (!r.ok) { if (pending === mine) pending = null; toast(`${id}: ${plain(r.error, id)}`, { err: true }); }
 }
-// Device px under the pointer: the canvas is letterboxed (object-fit: contain) inside its glass.
+// Device px under the pointer: the worker draws the frame contain-fitted into the canvas.
 function toDev(ev, cv, id) {
   const f = S.frame[id]; if (!f) return null;
   const r = cv.getBoundingClientRect(), s = Math.min(r.width / f.w, r.height / f.h);
@@ -785,9 +913,10 @@ function toDev(ev, cv, id) {
   return [cl((ev.clientX - r.left - ox) / s, f.w), cl((ev.clientY - r.top - oy) / s, f.h)];
 }
 function touchMark(host, ev, swipe) {
+  if (reduced.matches) return;
   const r = host.getBoundingClientRect(), m = document.createElement("span");
   m.className = "touch" + (swipe ? " swipe" : ""); m.style.left = (ev.clientX - r.left) + "px"; m.style.top = (ev.clientY - r.top) + "px";
-  host.appendChild(m); setTimeout(() => m.remove(), 650);
+  host.append(m); setTimeout(() => m.remove(), 480);
 }
 function bindScreen(cv, getId, host) {
   let down = null;
@@ -802,7 +931,7 @@ function bindScreen(cv, getId, host) {
     const id = getId(); if (!down || !down.xy) { down = null; return; }
     const xy = toDev(ev, cv, id), moved = Math.hypot(ev.clientX - down.cx, ev.clientY - down.cy);
     const ms = Math.max(60, Math.min(1000, Math.round(performance.now() - down.t)));
-    if (moved < 8) input(id, "tap", { x: down.xy[0], y: down.xy[1] }, `tap ${down.xy[0]},${down.xy[1]}`);
+    if (moved < 8) input(id, "tap", { x: down.xy[0], y: down.xy[1] }, "tap");
     else { touchMark(host, ev, true); input(id, "swipe", { x1: down.xy[0], y1: down.xy[1], x2: xy[0], y2: xy[1], ms }, "swipe"); }
     down = null;
   });
@@ -812,10 +941,10 @@ function bindScreen(cv, getId, host) {
     ev.preventDefault(); const f = S.frame[id], xy = toDev(ev, cv, id); if (!xy) return;
     const now = performance.now(); if (cv._wheel && now - cv._wheel < 140) return; cv._wheel = now;
     const dy = Math.sign(ev.deltaY) * Math.round(f.h * 0.25);
-    input(id, "swipe", { x1: xy[0], y1: xy[1], x2: xy[0], y2: Math.max(1, Math.min(f.h - 1, xy[1] - dy)), ms: 120 }, ev.deltaY > 0 ? "scroll down" : "scroll up");
+    input(id, "swipe", { x1: xy[0], y1: xy[1], x2: xy[0], y2: Math.max(1, Math.min(f.h - 1, xy[1] - dy)), ms: 120 }, "scroll");
   }, { passive: false });
   let typed = "", typeT = null;
-  const flush = () => { if (typed) { const t = typed, id = getId(); typed = ""; input(id, "type_text", { text: t }, `type "${t}"`); } };
+  const flush = () => { if (typed) { const t = typed, id = getId(); typed = ""; input(id, "type_text", { text: t }, "type"); } };
   cv.addEventListener("keydown", (ev) => {
     const id = getId(); if (!id || stateOf(id) !== "running" || ev.ctrlKey || ev.metaKey || ev.altKey) return;
     if (ev.key.length === 1) { ev.preventDefault(); typed += ev.key; clearTimeout(typeT); typeT = setTimeout(flush, 150); return; }
@@ -824,55 +953,60 @@ function bindScreen(cv, getId, host) {
 }
 const KEYS = { Enter: "enter", Backspace: "del", Escape: "back", Tab: "tab", ArrowUp: "dpad_up", ArrowDown: "dpad_down",
   ArrowLeft: "dpad_left", ArrowRight: "dpad_right", Home: "home", Delete: "forward_del" };
-function key(id, name, btn) {
-  if (stateOf(id) !== "running") return;
-  btn && btn.animate && !reduced.matches && btn.animate([{ background: "var(--z5)" }, { background: "transparent" }], 250);
-  input(id, "key", { name }, name.replace("app_switch", "recents"));
-}
+function key(id, name) { if (stateOf(id) === "running") input(id, "key", { name }, name); }
 
 // ---------- focus ----------
 function select(id) {
-  if (S.sel === id) { render(); return; }
-  S.sel = id; store.set("sel", id);
-  const f = S.frame[id]; const cv = $("stagecv");
-  if (f && f.bmp) draw(cv, f.bmp); else cv.getContext("2d").clearRect(0, 0, cv.width, cv.height);
-  openMux(); render(); resetLogs(); crashReset();
+  if (!T[id]) return;
+  const was = S.sel; S.sel = id; store.set("sel", id);
+  if (was !== id) {
+    FW.postMessage({ t: "stage", id });
+    if (!reduced.matches) { const s = $("stage"); s.classList.remove("swap"); void s.offsetWidth; s.classList.add("swap"); }
+    $("browserrow").hidden = true;
+    resetLogs(); crashReset(); syncStreams();
+  }
+  IDS.forEach(renderTile); renderStage();
 }
 function renderStage() {
-  const id = S.sel, st = stateOf(id), d = S.devs[id], u = S.ui[id], m = S.m[id] || {}, f = S.frame[id];
-  const ph = $("stagephone");
-  ph.dataset.state = st;
-  ph.style.setProperty("--p", W[id].el.style.getPropertyValue("--p"));
-  $("st_id").textContent = id; $("st_badge").textContent = u.opening ? "Opening app" : LABEL[st];
-  $("st_badge").parentElement.parentElement.parentElement.dataset.state = st;
-  $("stageside").dataset.state = st;
-  $("st_sub").textContent = d ? `${d.image || ""} · ${d.mem || "?"} MB · ${d.cpus || "?"} CPU${d.net === false ? " · no network" : ""}` : "Not running";
+  const id = S.sel, st = stateOf(id), d = S.devs[id], u = S.ui[id] || {}, f = S.frame[id], stg = $("stage"), prev = stg.dataset.state;
+  if (prev !== st) { stg.dataset.state = st; if (st === "running" && prev === "booting" && !reduced.matches) { stg.classList.add("ready"); setTimeout(() => stg.classList.remove("ready"), 1100); } }
+  setText($("st_id"), id); $("insp").dataset.state = st;
+  const m = S.m[id] || {};
+  setText($("st_pill"), u.opening ? "Opening app" : LABEL[st]);
+  setText($("st_sub"), d ? [d.image_name || d.image, d.mem && `${d.mem} MB`, d.cpus && `${d.cpus} CPU`, d.net === false && "no network"].filter(Boolean).join(" · ") : st === "empty" ? "Off. Start it from its tile or Start all." : "");
   const live = st === "running";
-  $("stagecv").style.visibility = live && f ? "visible" : "hidden";
-  document.querySelectorAll("#st_keys .btn, #st_acts [data-act=open], #st_acts [data-act=browser], #st_acts [data-act=shot], #st_acts [data-act=restart]").forEach(b => b.disabled = !live);
+  document.querySelectorAll("#insp .keys .btn, #st_acts [data-act=open], #st_acts [data-act=browser], #st_acts [data-act=shot], #st_acts [data-act=restart], #installpath, #launch").forEach(b => b.disabled = !live);
   document.querySelector("#st_acts [data-act=stop]").disabled = st === "empty" || st === "stopping";
-  const html = noApp(id)
-    ? `<div class="big">No app open</div><div>This lean image has no home screen.</div><div class="row"><button class="btn primary sm" data-v="open"><svg class="i"><use href="#i-bolt"/></svg>Open BoltBetz</button><button class="btn sm ghost" data-v="noapp">Dismiss</button></div>`
-    : veilFor(id, st);
-  setVeil($("stageveil"), html, live && f, id);
+  setText(document.querySelector("#st_acts [data-act=stop]").lastChild, st === "queued" || st === "booting" ? "Cancel" : "Stop");
+  setSay($("stagesay"), sayFor(id, st), live && f, id);
+  if (st === "booting") paintBoot($("stagesay"), stg, id);
+  setText($("crashn"), S.crashes[id] || "");
+  renderFacts();
+}
+function renderFacts() {
+  const id = S.sel, st = stateOf(id), d = S.devs[id], m = S.m[id] || {}, f = S.frame[id], live = st === "running";
   const pct = (a, p) => { const s = [...a].sort((x, y) => x - y); return s.length ? s[Math.min(s.length - 1, Math.floor(s.length * p))] : null; };
   const rows = [
-    ["Frames drawn", live ? `${Math.round(m.scanout_fps || 0)} fps` : "—"], ["Frames sent", live ? `${Math.round(m.sent_fps || 0)} fps` : "—"],
+    ["Phone draws", live ? (m.activity === "idle" ? "still screen" : `${Math.round(m.scanout_fps || 0)} fps`) : "—"],
+    ["Shown here", live ? `${S.shown[id] || 0} fps` : "—"],
+    ["Memory", m.own_mb != null ? `${m.own_mb} MB own + ${m.shared_mb} shared` : "—"],
     ["Screen", f ? `${f.w} × ${f.h}` : d && d.screen ? `${d.screen.width} × ${d.screen.height}` : "—"],
-    ["RAM own", m.own_mb != null ? `${m.own_mb} MB` : "—"], ["RAM shared", m.shared_mb != null ? `${m.shared_mb} MB` : "—"],
     ["Up", d ? fmtUp(d.uptime_s || 0) : "—"],
-    ["Input → frame", m.input_n ? `${m.input_p50_ms} ms p50 (n ${m.input_n})` : "no input yet"],
-    ["Click → screen", S.lat.length ? `${pct(S.lat, .5)} ms p50 · ${pct(S.lat, .95)} p95` : "no clicks yet"],
+    ["Tap to screen", S.lat.length ? `${pct(S.lat, .5)} ms median` : m.input_n ? `${m.input_p50_ms} ms median` : "no taps yet"],
   ];
-  $("st_facts").innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
-  $("appsaside").textContent = $("logsaside").textContent = $("crashaside").textContent = id;
+  const html = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
+  if ($("st_facts")._h !== html) { $("st_facts")._h = html; $("st_facts").innerHTML = html; }
 }
 const fmtUp = (s) => s < 60 ? s + " s" : s < 3600 ? Math.floor(s / 60) + " min" : (s / 3600).toFixed(1) + " h";
-bindScreen($("stagecv"), () => S.sel, $("stagephone"));
-document.querySelectorAll("#st_keys [data-key]").forEach(b => b.onclick = () => key(S.sel, b.dataset.key, b));
-document.querySelectorAll("#st_acts [data-act]").forEach(b => b.onclick = (ev) => act(S.sel, b.dataset.act, b, ev));
+bindScreen($("stagecv"), () => S.sel, $("stage"));
+document.querySelectorAll("#insp .keys [data-key]").forEach(b => b.onclick = () => key(S.sel, b.dataset.key));
+document.querySelectorAll("#st_acts [data-act]").forEach(b => b.onclick = () => act(S.sel, b.dataset.act, b));
+document.addEventListener("keydown", (ev) => {
+  const a = document.activeElement; if (ev.ctrlKey || ev.metaKey || ev.altKey || (a && /^(INPUT|SELECT|TEXTAREA|CANVAS)$/.test(a.tagName))) return;
+  const n = parseInt(ev.key); if (n >= 1 && n <= 8 && IDS[n - 1] && S.view === "phones") { select(IDS[n - 1]); }
+});
 
-// ---------- start / stop ----------
+// ---------- start / stop (optimistic: the tile changes the moment you click) ----------
 function startArgs() {
   const a = { net: $("s_net").checked, auto_squeeze: $("s_squeeze").checked };
   if ($("s_image").value) a.image = $("s_image").value;
@@ -881,47 +1015,46 @@ function startArgs() {
   if (mem > 0) a.mem = mem; if (cpus > 0) a.cpus = cpus;
   return a;
 }
-// Starts run as daemon jobs, at most 4 booting at once (more thrash the host); the rest wait as Queued.
-const queue = []; let booting = 0; const MAXBOOT = 4;
+// At most 4 boot at once (more thrash the host); the rest wait.
+const queue = [], cancelled = new Set(); let booting = 0; const MAXBOOT = 4;
 function start(ids, args = startArgs(), openAfter = $("s_openapp").checked) {
   for (const id of ids) {
-    if (stateOf(id) !== "empty" && stateOf(id) !== "failed") continue;
-    S.ui[id] = { queued: true }; queue.push({ id, args, openAfter });
+    if (!["empty", "failed"].includes(stateOf(id))) continue;
+    S.ui[id] = { queued: true, args }; queue.push({ id, args, openAfter });
   }
   if (ids.length && stateOf(S.sel) === "empty") select(ids[0]);
-  render(); pump();
+  pump(); renderAll();
 }
-function dequeue(id) {
-  const i = queue.findIndex(j => j.id === id); if (i >= 0) queue.splice(i, 1);
-  S.ui[id] = {}; render();
-}
-function pump() {
-  while (booting < MAXBOOT && queue.length) boot(queue.shift());
-}
+function dequeue(id) { const i = queue.findIndex(j => j.id === id); if (i >= 0) queue.splice(i, 1); S.ui[id] = {}; renderAll(); }
+function pump() { while (booting < MAXBOOT && queue.length) boot(queue.shift()); }
 async function boot(j) {
   const id = j.id; booting++;
-  S.ui[id] = { starting: true, t0: Date.now() }; render(); say(`Starting ${id}…`);
+  S.ui[id] = { starting: true, t0: Date.now(), args: j.args }; renderTile(id); if (id === S.sel) renderStage();
   const r = await job("start", { device: id, ...j.args });
   booting--; pump();
   if (r.ok) {
-    const key = "boot." + (j.args.image || "default"), old = store.get(key, null);
-    if (r.ready_s) store.set(key, old ? old * 0.6 + r.ready_s * 0.4 : r.ready_s);
-    S.ui[id] = {}; say(`${id} is running${r.ready_s ? ` (booted in ${Math.round(r.ready_s)} s)` : ""}.`);
+    const k = "boot." + (j.args.image || "default"), old = store.get(k, null);
+    if (r.ready_s) store.set(k, old ? old * 0.6 + r.ready_s * 0.4 : r.ready_s);
+    S.ui[id] = {}; toast(`${id} is running${r.ready_s ? `, started in ${Math.round(r.ready_s)} s` : ""}.`);
     await status();
     if (j.openAfter) openApp(id);
+  } else if (cancelled.delete(id)) {
+    S.ui[id] = {}; await status();
   } else if (!S.ui[id].stopping) {
-    S.ui[id] = { failed: plain(r.error, id), raw: String(r.error || "") }; say(`${id}: ${plain(r.error, id).replace(/ \(.*\)$/, "")}`, true); await status();
+    S.ui[id] = { failed: plain(r.error, id), raw: String(r.error || "") }; toast(`${id}: ${plain(r.error, id).replace(/ \(.*\)$/s, "")}`, { err: true }); await status();
   }
-  render();
+  renderAll();
 }
 async function stop(id, btn) {
   const st = stateOf(id);
   if (st === "queued") return dequeue(id);
   if (st === "empty" || st === "stopping") return;
-  S.ui[id] = { stopping: true }; render(); wellSay(id, "Stopping…", false, 0);
+  const before = { ...S.ui[id] };
+  if (st === "booting") cancelled.add(id); // its start job fails when the VM goes; that is the cancel, not an error
+  S.ui[id] = { stopping: true }; renderAll();
   const r = await busy(btn, job("stop", { device: id }));
-  S.ui[id] = {}; await status();
-  if (r.ok || /no Device/.test(r.error)) wellSay(id, "Stopped"); else wellSay(id, plain(r.error, id), true, 6000);
+  if (r.ok || /no Device/.test(r.error)) { S.ui[id] = {}; await status(); }
+  else { cancelled.delete(id); S.ui[id] = before; renderAll(); toast(`${id} did not stop: ${plain(r.error, id)}`, { err: true }); }
 }
 async function restart(id, btn) {
   const d = S.devs[id]; if (!d) return;
@@ -931,21 +1064,29 @@ async function restart(id, btn) {
   if (d.screen && d.screen.name) args.screen = d.screen.name;
   await stop(id, btn); start([id], args, !(d.image_name || "").startsWith("phone"));
 }
-function firstEmpty(n) { return IDS.filter(id => stateOf(id) === "empty" || stateOf(id) === "failed").slice(0, n); }
+const offIds = () => IDS.filter(id => ["empty", "failed"].includes(stateOf(id)));
 let nStart = store.get("n", 1);
-function renderStartBtn() {
-  const free = firstEmpty(8).length; nStart = Math.max(1, Math.min(8, nStart));
-  $("n_out").textContent = nStart;
-  const ids = firstEmpty(nStart);
-  $("startnlbl").textContent = ids.length ? (ids.length === 1 ? `Start ${ids[0]}` : `Start ${ids.length}: ${ids[0]}–${ids[ids.length - 1]}`) : "All wells in use";
-  $("startn").disabled = !ids.length;
-  $("startaside").textContent = `${8 - free} of 8 in use`;
-  const next = firstEmpty(1)[0]; $("topstartlbl").textContent = next ? `Start ${next}` : "All in use"; $("topstart").disabled = !next;
+function renderStartBtns() {
+  const off = offIds(), room = S.avail == null ? off.length : memModel().room;
+  const n = Math.min(off.length, Math.max(room, 0));
+  setText($("startlbl"), off.length && n < off.length && n > 0 ? `Start ${n}` : "Start all");
+  $("startall").disabled = !off.length || (S.avail != null && n === 0);
+  $("startall").title = !off.length ? "Every phone is on" : n === 0 ? "Not enough free memory for another phone" : n < off.length ? `Free memory fits ${n} more` : "Start every phone that is off";
+  nStart = Math.max(1, Math.min(IDS.length, nStart)); setText($("n_out"), nStart);
+  const ids = off.slice(0, nStart);
+  setText($("startnlbl"), ids.length ? (ids.length === 1 ? `Start ${ids[0]}` : `Start ${ids.length}`) : "All on"); $("startn").disabled = !ids.length;
+  const live = IDS.filter(id => !["empty", "failed"].includes(stateOf(id))).length;
+  $("stopall").disabled = !live;
 }
-$("n_minus").onclick = () => { nStart--; store.set("n", Math.max(1, nStart)); renderStartBtn(); };
-$("n_plus").onclick = () => { nStart++; store.set("n", Math.min(8, nStart)); renderStartBtn(); };
-$("topstart").onclick = () => { const ids = firstEmpty(1); if (ids.length) start(ids); };
-$("startn").onclick = () => { const ids = firstEmpty(nStart); if (ids.length) { start(ids); if (!S.devs[S.sel]) select(ids[0]); } };
+$("n_minus").onclick = () => { nStart--; store.set("n", Math.max(1, nStart)); renderStartBtns(); };
+$("n_plus").onclick = () => { nStart++; store.set("n", Math.min(IDS.length, nStart)); renderStartBtns(); };
+$("startall").onclick = () => {
+  const off = offIds(), room = S.avail == null ? off.length : memModel().room, ids = off.slice(0, Math.max(1, room));
+  if (!ids.length) return;
+  start(ids);
+  if (ids.length < off.length) toast(`Starting ${ids.length}. Free memory does not fit more.`);
+};
+$("startn").onclick = () => { const ids = offIds().slice(0, nStart); if (ids.length) { start(ids); $("startpop").hidePopover(); } };
 
 // Two-step confirm in place: the button turns red and asks once; no dialog.
 function confirmStep(btn, label, fn) {
@@ -955,80 +1096,77 @@ function confirmStep(btn, label, fn) {
 }
 $("stopall").onclick = () => {
   const live = IDS.filter(id => !["empty", "failed"].includes(stateOf(id)));
-  if (!live.length) return say("Nothing is running.");
+  if (!live.length) return;
   confirmStep($("stopall"), `Stop ${live.length}? Click again`, async () => {
-    queue.length = 0; live.forEach(id => { S.ui[id] = S.devs[id] ? { stopping: true } : {}; }); render(); say(`Stopping ${live.length} Devices…`);
-    const r = await busy($("stopall"), job("stop_many"));
-    IDS.forEach(id => { S.ui[id] = {}; }); await status();
-    say(r.ok ? `Stopped ${live.length === 1 ? live[0] : live.length + " Devices"}.` : plain(r.error), !r.ok);
+    queue.length = 0; const before = Object.fromEntries(live.map(id => [id, { ...S.ui[id] }]));
+    live.forEach(id => { S.ui[id] = S.devs[id] ? { stopping: true } : {}; }); renderAll();
+    const r = await busy($("stopall"), job("stop_many", { devices: live.filter(id => S.devs[id]) }));
+    if (r.ok) { live.forEach(id => { S.ui[id] = {}; }); await status(); toast(`Stopped ${live.length === 1 ? live[0] : live.length + " phones"}.`); }
+    else { live.forEach(id => { S.ui[id] = before[id]; }); await status(); toast(plain(r.error), { err: true }); }
   });
 };
 $("quit").onclick = () => confirmStep($("quit"), "Stop all and quit? Click again", async () => {
-  await api("quit"); document.body.innerHTML = "<p style='padding:24px;font:16px system-ui;color:#eaf1f2'>agent-emu stopped. Open agent-emu again to restart it.</p>";
+  await api("quit"); document.body.innerHTML = "<p style='padding:32px;font:15px system-ui'>agent-emu stopped. Open agent-emu again to restart it.</p>";
 });
 
-// ---------- per-well actions ----------
-function act(id, a, btn, ev) {
-  if (a === "focus") return select(id);
+// ---------- per-phone actions ----------
+function act(id, a, btn) {
   if (a === "stop") return stop(id, btn);
   if (a === "restart") return restart(id, btn);
   if (a === "open") return openApp(id, btn);
   if (a === "shot") return shot(id);
-  if (a === "browser") return openBrowser(id, btn);
+  if (a === "browser") { $("browserrow").hidden = !$("browserrow").hidden; if (!$("browserrow").hidden) { $("browserurl").value = store.get("browser.url", "https://"); $("browserurl").focus(); $("browserurl").select(); } }
 }
 // Firefox (installed by the daemon after boot) opens the page; Auth0 and Plaid use it for Custom Tabs.
-async function openBrowser(id, btn) {
-  if (stateOf(id) !== "running") return;
-  let url = prompt("Open in the phone's browser", store.get("browser.url", "https://"));
-  if (!url) return;
+$("browserrow").onsubmit = async (ev) => {
+  ev.preventDefault(); const id = S.sel; let url = $("browserurl").value.trim(); if (!url || stateOf(id) !== "running") return;
   if (!/^[a-z][a-z0-9+.-]*:/i.test(url)) url = "https://" + url;
-  store.set("browser.url", url);
-  const r = await busy(btn, job("deep_link", { device: id, uri: url, package: "org.mozilla.firefox" }));
-  wellSay(id, r.ok ? "Opened " + url : "Browser: " + (r.error || "failed"), !r.ok);
-}
+  store.set("browser.url", url); $("browserrow").hidden = true;
+  const h = toast(`${id}: opening ${url}…`, { ms: 0 });
+  const r = await job("deep_link", { device: id, uri: url, package: "org.mozilla.firefox" });
+  h.set(r.ok ? `${id}: opened ${url}` : `${id}: browser did not open: ${plain(r.error, id)}`, { err: !r.ok });
+};
 function shot(id) {
   if (stateOf(id) !== "running") return;
-  for (const host of [W[id].recess, id === S.sel ? $("stagephone") : null].filter(Boolean)) {
-    if (reduced.matches) continue; const fl = document.createElement("div"); fl.className = "flash"; fl.style.borderRadius = "12.5% / 5.75%";
-    host.appendChild(fl); setTimeout(() => fl.remove(), 320);
+  for (const host of [T[id].phone, id === S.sel ? $("stage") : null].filter(Boolean)) {
+    if (reduced.matches) continue; const fl = document.createElement("div"); fl.className = "flash"; host.append(fl); setTimeout(() => fl.remove(), 360);
   }
   const a = document.createElement("a"); a.href = BASE + "/screenshot.png?device=" + encodeURIComponent(id); a.download = ""; a.click();
-  wellSay(id, "Screenshot saved to Downloads");
+  toast(`${id}: screenshot saved to Downloads`);
 }
 async function openApp(id, btn) {
-  if (stateOf(id) !== "running") return;
-  S.ui[id].opening = true; render(); wellSay(id, "Installing BoltBetz…", false, 0);
+  if (stateOf(id) !== "running" || S.ui[id].opening) return;
+  S.ui[id].opening = "Installing BoltBetz"; renderTile(id); if (id === S.sel) renderStage();
   let r = await busy(btn, job("install_bundled", { device: id }));
-  if (r.ok) { wellSay(id, "Opening BoltBetz…", false, 0); r = await busy(btn, job("app", { device: id, launch: APP })); }
+  if (r.ok) { S.ui[id].opening = "Opening BoltBetz"; renderTile(id); if (id === S.sel) renderStage(); r = await busy(btn, job("app", { device: id, launch: APP })); }
   S.ui[id].opening = false;
   if (r.ok) {
     S.ui[id].noAppDismissed = true; setTimeout(() => { if (S.ui[id]) S.ui[id].noAppDismissed = false; }, 20000);
-    let msg = "BoltBetz is open";
-    if (r.auto_squeeze && r.auto_squeeze.ok !== false) msg += ` · Save RAM ${r.auto_squeeze.ws_before_mb} → ${r.auto_squeeze.ws_after_mb} MB`;
-    wellSay(id, msg, false, 4000);
-  } else wellSay(id, plain(r.error, id), true, 7000);
-  render();
+    let msg = `${id}: BoltBetz is open`;
+    if (r.auto_squeeze && r.auto_squeeze.ok !== false) msg += `, memory ${r.auto_squeeze.ws_before_mb} → ${r.auto_squeeze.ws_after_mb} MB`;
+    toast(msg);
+  } else toast(`${id}: BoltBetz did not open: ${plain(r.error, id)}`, { err: true });
+  renderTile(id); if (id === S.sel) renderStage();
 }
 
-// ---------- APK install: drop on a phone, on the panel, or pick a file ----------
+// ---------- APK install: drop on a phone or the drop box, or pick a file ----------
 async function upload(id, file) {
-  if (stateOf(id) !== "running") return wellSay(id, `${id} is not running; start it first.`, true, 4000);
-  if (!/\.apk$/i.test(file.name)) return wellSay(id, `${file.name} is not an .apk file.`, true, 4000);
-  wellSay(id, `Installing ${file.name}…`, false, 0); $("appout").className = "out"; $("appout").textContent = `${id}: installing ${file.name}…`;
-  const r = await fetch(BASE + "/upload?device=" + encodeURIComponent(id), { method: "POST", body: file }).then(r => r.json()).catch(e => ({ ok: false, error: "daemon not reachable" }));
+  if (stateOf(id) !== "running") return toast(`${id} is off. Start it first.`, { err: true });
+  if (!/\.apk$/i.test(file.name)) return toast(`${file.name} is not an .apk file.`, { err: true });
+  const h = toast(`${id}: installing ${file.name}…`, { ms: 0 }); $("appout").className = "out"; $("appout").textContent = `${id}: installing ${file.name}…`;
+  const r = await fetch(BASE + "/upload?device=" + encodeURIComponent(id), { method: "POST", body: file }).then(r => r.json()).catch(() => ({ ok: false, error: "daemon not reachable" }));
   const msg = r.ok ? `${id}: installed ${file.name}` : `${id}: ${plain(r.error, id)}`;
-  wellSay(id, r.ok ? `Installed ${file.name}` : plain(r.error, id), !r.ok, r.ok ? 3000 : 7000);
-  $("appout").textContent = msg; $("appout").classList.toggle("err", !r.ok);
+  h.set(msg, { err: !r.ok }); $("appout").textContent = msg; $("appout").classList.toggle("err", !r.ok);
 }
-function bindDrop(el, getId) {
-  el.addEventListener("dragover", (e) => { if (e.dataTransfer.types.includes("Files")) { e.preventDefault(); el.classList.add(el.id === "drop" ? "over" : "drop"); } });
-  el.addEventListener("dragleave", (e) => { if (!el.contains(e.relatedTarget)) el.classList.remove("over", "drop"); });
-  el.addEventListener("drop", (e) => { e.preventDefault(); el.classList.remove("over", "drop"); const f = e.dataTransfer.files[0]; if (f) upload(getId(), f); });
+function bindDrop(el, getId, mark) {
+  el.addEventListener("dragover", (e) => { if (e.dataTransfer.types.includes("Files")) { e.preventDefault(); mark.classList.add(el.id === "drop" ? "over" : "drop"); } });
+  el.addEventListener("dragleave", (e) => { if (!el.contains(e.relatedTarget)) mark.classList.remove("over", "drop"); });
+  el.addEventListener("drop", (e) => { e.preventDefault(); mark.classList.remove("over", "drop"); const f = e.dataTransfer.files[0]; if (f) upload(getId(), f); });
 }
-bindDrop($("drop"), () => S.sel);
-bindDrop($("stagephone"), () => S.sel);
-window.addEventListener("dragover", (e) => e.preventDefault());
-window.addEventListener("drop", (e) => e.preventDefault());
+bindDrop($("drop"), () => S.sel, $("drop"));
+bindDrop($("stage"), () => S.sel, $("stage"));
+addEventListener("dragover", (e) => e.preventDefault());
+addEventListener("drop", (e) => e.preventDefault());
 $("apkfile").onchange = (e) => { if (e.target.files[0]) upload(S.sel, e.target.files[0]); e.target.value = ""; };
 $("installpath").onclick = async (ev) => {
   const id = S.sel, p = $("apkpath").value.trim(); if (!p) return $("apkpath").focus();
@@ -1038,41 +1176,41 @@ $("installpath").onclick = async (ev) => {
 };
 $("launch").onclick = async (ev) => {
   const id = S.sel, p = $("pkg").value.trim(); if (!p) return $("pkg").focus();
+  $("appout").className = "out"; $("appout").textContent = `${id}: launching ${p}…`;
   const r = await busy(ev.currentTarget, api("app", { device: id, launch: p }));
   $("appout").textContent = r.ok ? `${id}: launched ${p}` : `${id}: ${plain(r.error, id)}`; $("appout").classList.toggle("err", !r.ok);
 };
 
-// ---------- logs, issues, crashes (focused Device) ----------
-let logGen = 0, logCursor = null, logView = "stream";
+// ---------- inspector tabs: apps, logs, issues, crashes (focused phone) ----------
+let tab = store.get("tab", "apps");
+function setTab(t) {
+  tab = t; store.set("tab", t);
+  document.querySelectorAll("#tabs [data-tab]").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === t));
+  document.querySelectorAll("#tabbody [data-pane]").forEach(p => p.hidden = p.dataset.pane !== t);
+  if (t === "issues") loadIssues(); if (t === "logs") resetLogs();
+}
+document.querySelectorAll("#tabs [data-tab]").forEach(b => b.onclick = () => setTab(b.dataset.tab));
+let logGen = 0, logCursor = null;
 function resetLogs() { logGen++; logCursor = null; $("logtext").textContent = ""; loadIssues(); }
 $("clearlogs").onclick = () => { $("logtext").textContent = ""; };
 $("logfilter").onchange = resetLogs; $("loglevel").onchange = resetLogs;
 $("allogs").onchange = () => { $("logfilter").disabled = $("loglevel").disabled = $("allogs").checked; resetLogs(); };
-document.querySelectorAll("[data-view]").forEach(b => b.onclick = () => {
-  document.querySelectorAll("[data-view]").forEach(x => x.setAttribute("aria-pressed", x === b));
-  logView = b.dataset.view; $("streambox").hidden = logView !== "stream"; $("issuesbox").hidden = logView !== "issues"; loadIssues();
-});
 function logArgs() { const all = $("allogs").checked; return { filter: all ? undefined : $("logfilter").value.trim() || undefined, level: all ? undefined : $("loglevel").value || undefined }; }
 async function loadIssues() {
-  if (logView !== "issues" || !$("sec_logs").open) return;
-  const id = S.sel; if (stateOf(id) !== "running") { $("issues").innerHTML = `<tr><td colspan="3" class="empty">${id} is not running.</td></tr>`; $("issuesum").innerHTML = ""; return; }
+  if (tab !== "issues" || S.view !== "phones") return;
+  const id = S.sel; if (stateOf(id) !== "running") { $("issues").innerHTML = `<tr><td colspan="3" class="empty">${id} is off.</td></tr>`; $("issuesum").textContent = ""; return; }
   const r = await api("issues", { device: id, filter: logArgs().filter, top: 60 });
   if (!r.ok || id !== S.sel) return;
-  const app = r.issues.filter(i => i.side === "app"), sys = r.issues.filter(i => i.side !== "app");
-  const sum = (a) => a.reduce((n, i) => n + i.count, 0);
-  $("issuesum").innerHTML = `<span>App <b>${sum(app)}</b> in ${app.length} groups</span><span>System <b>${sum(sys)}</b> in ${sys.length}</span>`;
+  const app = r.issues.filter(i => i.side === "app"), sys = r.issues.filter(i => i.side !== "app"), sum = (a) => a.reduce((n, i) => n + i.count, 0);
+  $("issuesum").innerHTML = `Errors since boot, grouped. App <b>${sum(app)}</b> in ${app.length} groups · System <b>${sum(sys)}</b> in ${sys.length}.`;
   $("issues").innerHTML = r.issues.length ? [...app, ...sys].map(i => `<tr><td class="n">${i.count}</td><td><span class="side ${i.side === "app" ? "app" : "sys"}">${i.side === "app" ? "App" : "System"}</span></td>
-    <td title="last ${esc(i.last)}"><b>${esc(i.tag)}</b> ${esc(i.level)} ${esc(i.message.slice(0, 200))}</td></tr>`).join("")
-    : `<tr><td colspan="3" class="empty">No errors since boot.</td></tr>`;
+    <td title="last ${esc(i.last)}"><b>${esc(i.tag)}</b> ${esc(i.level)} ${esc(i.message.slice(0, 200))}</td></tr>`).join("") : `<tr><td colspan="3" class="empty">No errors since boot.</td></tr>`;
 }
 setInterval(loadIssues, 5000);
-$("sec_logs").addEventListener("toggle", resetLogs);
 async function logLoop() {
   for (;;) {
     const id = S.sel;
-    if (stateOf(id) !== "running" || !$("follow").checked || !$("sec_logs").open || logView !== "stream" || $("panel").offsetParent === null || document.body.classList.contains("panel-closed")) {
-      await new Promise(r => setTimeout(r, 700)); continue;
-    }
+    if (stateOf(id) !== "running" || !$("follow").checked || tab !== "logs" || S.view !== "phones" || document.hidden) { await new Promise(r => setTimeout(r, 600)); continue; }
     const g = logGen, args = { device: id, max_lines: 300, ...logArgs() };
     if (logCursor != null) { args.cursor = logCursor; args.wait_ms = 1500; }
     const r = await api("logs", args);
@@ -1080,15 +1218,13 @@ async function logLoop() {
     if (!r.ok) { await new Promise(r => setTimeout(r, 1000)); continue; }
     logCursor = r.cursor;
     if (r.lines.length) {
-      const box = $("logs"), atEnd = box.scrollTop + box.clientHeight > box.scrollHeight - 24, t = $("logtext");
-      const frag = document.createDocumentFragment();
-      for (const l of r.lines) { const s = document.createElement("span"), m = l.match(/\s([VDIWEF])\s/); if (m) s.className = m[1]; s.textContent = l + "\n"; frag.appendChild(s); }
-      t.appendChild(frag); while (t.childNodes.length > 600) t.firstChild.remove();
+      const box = $("logs"), atEnd = box.scrollTop + box.clientHeight > box.scrollHeight - 24, t = $("logtext"), frag = document.createDocumentFragment();
+      for (const l of r.lines) { const s = document.createElement("span"), m = l.match(/\s([VDIWEF])\s/); if (m) s.className = m[1]; s.textContent = l + "\n"; frag.append(s); }
+      t.append(frag); while (t.childNodes.length > 600) t.firstChild.remove();
       if (atEnd) box.scrollTop = box.scrollHeight;
     }
   }
 }
-// Crashes: the focused Device's history once on focus, then live from /events.
 let crashGen = 0;
 function addCrash(e) {
   const tb = $("crashes"); if (tb.querySelector(".empty")) tb.innerHTML = "";
@@ -1104,40 +1240,88 @@ async function crashReset() {
   if (r.ok && g === crashGen) r.events.forEach(addCrash);
 }
 
-// ---------- panel, stage, sections: collapsible, remembered ----------
-function setPanel(open) {
-  document.body.classList.toggle("panel-closed", !open); store.set("panel", open);
-  $("paneltoggle").setAttribute("aria-expanded", open); $("paneltoggle").title = open ? "Collapse the side panel" : "Expand the side panel";
-  setTimeout(openMux, 50);
+// ---------- test runs: the runner's results folders, newest first ----------
+let runs = [], runSel = null, runShots = [], lbAt = 0;
+const stampWord = (s) => { const m = /^(\d{4})(\d\d)(\d\d)-(\d\d)(\d\d)(\d\d)$/.exec(s); if (!m) return s;
+  const d = new Date(+m[1], m[2] - 1, +m[3], +m[4], +m[5], +m[6]); return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); };
+async function loadRuns() {
+  if (!runs.length) $("runlist").innerHTML = '<div class="skel"></div><div class="skel" style="margin-top:6px"></div><div class="skel" style="margin-top:6px"></div>';
+  let r; try { r = await (await fetch(BASE + "/runs")).json(); } catch { r = { ok: false }; }
+  if (!r.ok) { $("runlist").innerHTML = `<p class="note" style="padding:10px">This daemon does not serve test runs yet.</p>`; $("rundetail").innerHTML = ""; return; }
+  runs = r.runs;
+  if (!runs.length) { $("runlist").innerHTML = `<p class="note" style="padding:10px">No runs yet. tests/boltbetz/run.py writes them to tests/boltbetz/results.</p>`; return; }
+  $("runlist").innerHTML = runs.map(x => `<button data-stamp="${esc(x.stamp)}" aria-current="${x.stamp === runSel}"><span class="s1">${esc(stampWord(x.stamp))}</span>
+    <span class="res ${x.failed ? "bad" : ""}">${x.failed ? `${x.failed} failed` : "All passed"}</span><span class="s2 num">${x.passed} of ${x.total} passed${x.wall_s != null ? ` · ${Math.round(x.wall_s)} s` : ""}</span></button>`).join("");
+  $("runlist").querySelectorAll("button").forEach(b => b.onclick = () => showRun(b.dataset.stamp));
+  if (!runSel || !runs.some(x => x.stamp === runSel)) showRun(runs[0].stamp);
 }
-$("paneltoggle").onclick = () => setPanel(document.body.classList.contains("panel-closed"));
-document.querySelectorAll("#rail [data-open]").forEach(b => b.onclick = () => { setPanel(true); const s = $(b.dataset.open); s.open = true; s.scrollIntoView({ block: "start" }); });
-function setStage(open) { document.body.classList.toggle("stage-closed", !open); store.set("stage", open); $("stagetoggle").setAttribute("aria-pressed", open); }
-$("stagetoggle").onclick = () => setStage(document.body.classList.contains("stage-closed"));
-for (const s of document.querySelectorAll("details.sec")) {
-  const v = store.get("sec." + s.id, null); if (v != null) s.open = v;
-  s.addEventListener("toggle", () => store.set("sec." + s.id, s.open));
+async function showRun(stamp) {
+  runSel = stamp;
+  $("runlist").querySelectorAll("button").forEach(b => b.setAttribute("aria-current", b.dataset.stamp === stamp));
+  const sum = runs.find(x => x.stamp === stamp) || {};
+  $("rundetail").innerHTML = `<div class="runhead"><h2>${esc(stampWord(stamp))}</h2></div><div class="skel" style="height:160px"></div>`;
+  let r; try { r = await (await fetch(`${BASE}/runs/${encodeURIComponent(stamp)}/results.json`)).json(); } catch { r = null; }
+  if (runSel !== stamp) return;
+  if (!r) { $("rundetail").innerHTML = `<p class="note">Could not read this run's results.json.</p>`; return; }
+  const cases = r.results || [], fail = cases.filter(c => c.status !== "PASS");
+  runShots = cases.flatMap(c => (c.shots || []).map(p => ({ file: p.split(/[\\/]/).pop(), c })));
+  const deal = r.deal ? Object.entries(r.deal).map(([l, d]) => `${l} on ${d}`).join(" · ") : "";
+  const row = (c) => { const bad = c.status !== "PASS", ok = (c.checks || []).filter(k => k.ok).length;
+    return `<details${bad ? " open" : ""}><summary><span class="dot ${bad ? "bad" : "ok"}"></span><span class="t">${esc(c.id)}</span><span class="m">${esc(c.device || "")}</span>
+      <span class="m">${ok}/${(c.checks || []).length} checks</span><span class="m">${c.wall_s != null ? c.wall_s.toFixed(1) + " s" : ""}</span></summary>
+      <ul class="checks-list">${(c.checks || []).map(k => `<li class="${k.ok ? "" : "bad"}"><svg class="i ck"><use href="#i-${k.ok ? "check" : "x"}"/></svg>${esc(k.detail || JSON.stringify(k.check))}</li>`).join("")}</ul></details>`; };
+  $("rundetail").innerHTML = `<div class="runhead"><h2>${esc(stampWord(stamp))}</h2></div>
+    <p class="runline num">${fail.length ? `<b class="bad">${fail.length} failed</b> · ` : ""}${cases.length - fail.length} passed${r.total_wall_s != null ? ` · ${Math.round(r.total_wall_s)} s` : ""}${deal ? ` · ${esc(deal)}` : ""}</p>
+    <div class="cases">${[...fail, ...cases.filter(c => c.status === "PASS")].map(row).join("")}</div>
+    ${runShots.length ? `<h3 class="sec">Screenshots</h3><div class="shots">${runShots.map((s, i) => `<figure><button data-i="${i}" aria-label="Open ${esc(s.file)}"><img loading="lazy" decoding="async" src="${BASE}/runs/${encodeURIComponent(stamp)}/${encodeURIComponent(s.file)}?w=${Math.ceil(170 * (devicePixelRatio || 1))}" alt="" onload="this.parentNode.style.animation='none'"></button><figcaption>${esc(s.file.replace(/\.png$/, ""))}</figcaption></figure>`).join("")}</div>` : ""}`;
+  $("rundetail").querySelectorAll(".shots button").forEach(b => b.onclick = () => openShot(+b.dataset.i));
 }
-// Start settings persist per field.
+function openShot(i) {
+  lbAt = (i + runShots.length) % runShots.length; const s = runShots[lbAt];
+  let img = $("lbimg"); if (!img) { img = document.createElement("img"); img.id = "lbimg"; $("lbfig").prepend(img); }
+  img.src = `${BASE}/runs/${encodeURIComponent(runSel)}/${encodeURIComponent(s.file)}`; img.alt = s.file;
+  setText($("lbcap"), `${s.file.replace(/\.png$/, "")} · ${lbAt + 1} of ${runShots.length}`);
+  if (!$("lightbox").open) $("lightbox").showModal();
+}
+$("lbprev").onclick = () => openShot(lbAt - 1); $("lbnext").onclick = () => openShot(lbAt + 1); $("lbclose").onclick = () => $("lightbox").close();
+$("lightbox").addEventListener("keydown", (e) => { if (e.key === "ArrowLeft") openShot(lbAt - 1); if (e.key === "ArrowRight") openShot(lbAt + 1); });
+$("lightbox").addEventListener("click", (e) => { if (e.target === $("lightbox")) $("lightbox").close(); });
+
+// ---------- views ----------
+function setView(v) {
+  S.view = v; store.set("view", v);
+  $("v-phones").setAttribute("aria-selected", v === "phones"); $("v-runs").setAttribute("aria-selected", v === "runs");
+  $("phones").hidden = v !== "phones"; $("runs").hidden = v !== "runs";
+  if (v === "runs") loadRuns(); else renderAll();
+  syncStreams();
+}
+$("v-phones").onclick = () => setView("phones"); $("v-runs").onclick = () => setView("runs");
+setInterval(() => { if (S.view === "runs" && !document.hidden) loadRuns(); }, 10000);
+
+// ---------- settings persist per field ----------
 const FIELDS = ["s_image", "s_screen", "s_mem", "s_cpus", "s_net", "s_openapp", "s_squeeze", "logfilter", "loglevel", "pkg", "apkpath"];
 for (const f of FIELDS) {
   const el = $(f), v = store.get("f." + f, null);
   if (v != null) { if (el.type === "checkbox") el.checked = v; else el.value = v; }
-  el.addEventListener("change", () => { store.set("f." + f, el.type === "checkbox" ? el.checked : el.value); render(); });
+  el.addEventListener("change", () => { store.set("f." + f, el.type === "checkbox" ? el.checked : el.value); renderStartBtns(); });
 }
 function imgNote() {
   const phone = $("s_image").value.startsWith("phone");
-  $("imgnote").textContent = phone ? "Home screen, status bar, navigation bar, notifications and Settings. About 2 GB per Device."
-    : "No home screen or bars: the screen stays black until an app opens. Good for agents.";
+  $("imgnote").textContent = phone ? "Home screen, status bar, navigation, notifications and Settings. About 2 GB per phone."
+    : "No home screen: the screen stays black until an app opens. Good for agents.";
 }
 $("s_image").addEventListener("change", () => { $("s_openapp").checked = !$("s_image").value.startsWith("phone"); store.set("f.s_openapp", $("s_openapp").checked); imgNote(); });
 imgNote();
-if (!IDS.includes(S.sel)) S.sel = "d0";
-setPanel(store.get("panel", true)); setStage(store.get("stage", true));
-addEventListener("resize", () => { clearTimeout(window._rz); window._rz = setTimeout(openMux, 300); });
 
-buildPlate(); render(); openEvents(); openMux(); logLoop(); crashReset();
-setInterval(render, 1000);
+// ---------- boot ----------
+IDS.forEach(addTile);
+handCanvas($("stagecv"), "stage");
+if (!T[S.sel]) S.sel = IDS[0];
+FW.postMessage({ t: "stage", id: S.sel });
+setTab(tab); setView(S.view === "runs" ? "runs" : "phones");
+renderAll(); openEvents(); logLoop(); crashReset();
+// Boot timers tick once a second; everything else changes only when the daemon says so.
+setInterval(() => { for (const id of IDS) if (stateOf(id) === "booting") renderTile(id); if (stateOf(S.sel) === "booting") renderStage(); }, 1000);
 </script>
     <!-- reticle:connect (dev only, written by reticle init) -->
     <!-- The daemon serves ./reticle.local.js from this machine's ~/.reticle/pairing-token; 404 (no token) = no connect. -->

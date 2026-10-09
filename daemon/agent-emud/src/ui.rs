@@ -13,6 +13,8 @@
 //                                  [u32 jpeg_len][u64 seq][u32 w][u32 h][u32 device n][jpeg], LE; `full` goes unscaled
 //   GET  /screenshot.png?device=d0 one PNG download
 //   POST /upload?device=d0         body = APK, installed with adb
+//   GET  /runs                     test runner results, newest first (tests/boltbetz/results, plus the old .scratch runner folder)
+//   GET  /runs/<stamp>/<file>      one file of a run (results.json, grid.md, *.png), read-only, that folder only
 // Localhost only; no auth (the panel can do what the binary API can). See daemon/API.md.
 use crate::device::{self, R};
 use crate::State;
@@ -301,7 +303,78 @@ async fn conn(st: &Arc<State>, mut sock: TcpStream) -> R<()> {
             let rep = upload(st, req.q("device").unwrap_or("d0"), &body).await.unwrap_or_else(|e| json!({"ok": false, "error": e}));
             send(&mut sock, 200, "application/json", rep.to_string().as_bytes(), c).await
         }
+        ("GET", "/runs") => send(&mut sock, 200, "application/json", runs_list().to_string().as_bytes(), c).await,
+        ("GET", p) if p.starts_with("/runs/") => match {
+            let (rest, w) = (p[6..].to_string(), req.q("w").and_then(|w| w.parse::<u32>().ok()));
+            tokio::task::spawn_blocking(move || run_file(&rest, w)).await.ok().flatten()
+        } {
+            Some((ctype, bytes)) => send(&mut sock, 200, ctype, &bytes, c).await,
+            None => send(&mut sock, 404, "text/plain", b"not found", c).await,
+        },
         _ => send(&mut sock, 404, "text/plain", b"not found", c).await,
+    }
+}
+
+/// Test runner results folders, newest layout first: AE_RUNS_DIR; else AE_TESTS_DIR/results or tests/boltbetz/results
+/// beside the exe or in any folder above it (checkout or install root, like mcp.rs finds run.py), plus the old
+/// .scratch/test-matrix/runner/results kept for history.
+fn runs_dirs() -> Vec<std::path::PathBuf> {
+    if let Some(d) = std::env::var_os("AE_RUNS_DIR") {
+        return vec![d.into()];
+    }
+    let exe = std::env::current_exe().unwrap_or_default();
+    let above = |rel: &str| exe.ancestors().map(|a| a.join(rel)).find(|p| p.is_dir());
+    let tests = std::env::var_os("AE_TESTS_DIR").map(|d| std::path::PathBuf::from(d).join("results"))
+        .or_else(|| above("tests/boltbetz/results"));
+    tests.into_iter().chain(above(".scratch/test-matrix/runner/results")).collect()
+}
+
+/// The folder of run `stamp` (first results folder that has it).
+fn run_dir(stamp: &str) -> Option<std::path::PathBuf> {
+    runs_dirs().into_iter().map(|d| d.join(stamp)).find(|d| d.join("results.json").is_file())
+}
+
+/// GET /runs: the newest 30 runs, newest first, each `{stamp, total, passed, failed, wall_s}` read from its results.json.
+fn runs_list() -> Value {
+    let mut stamps: Vec<(String, std::path::PathBuf)> = runs_dirs().iter()
+        .flat_map(|d| std::fs::read_dir(d).into_iter().flatten().flatten())
+        .filter(|e| e.path().join("results.json").is_file())
+        .filter_map(|e| Some((e.file_name().into_string().ok()?, e.path()))).collect();
+    stamps.sort_unstable_by(|a, b| b.0.cmp(&a.0));
+    stamps.dedup_by(|a, b| a.0 == b.0);
+    let runs: Vec<Value> = stamps.into_iter().take(30).map(|(s, dir)| {
+        let r: Value = std::fs::read(dir.join("results.json")).ok()
+            .and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or(Value::Null);
+        let cases = r["results"].as_array().cloned().unwrap_or_default();
+        let passed = cases.iter().filter(|c| c["status"] == json!("PASS")).count();
+        json!({"stamp": s, "total": cases.len(), "passed": passed, "failed": cases.len() - passed, "wall_s": r["total_wall_s"]})
+    }).collect();
+    json!({"ok": true, "runs": runs})
+}
+
+/// GET /runs/<stamp>/<file>: one file of a run (results.json, grid.md, a PNG). Plain names only, no subfolders.
+/// `?w=340` on a PNG returns a JPEG thumbnail that wide (the panel's screenshot grid).
+fn run_file(rest: &str, w: Option<u32>) -> Option<(&'static str, Vec<u8>)> {
+    let (stamp, file) = rest.split_once('/')?;
+    let ok = |s: &str| !s.is_empty() && !s.starts_with('.') && s.chars().all(|c| c.is_ascii_alphanumeric() || "-_.".contains(c));
+    if !ok(stamp) || !ok(file) {
+        return None;
+    }
+    let ctype = match file.rsplit('.').next()? {
+        "json" => "application/json",
+        "png" => "image/png",
+        "md" => "text/plain; charset=utf-8",
+        _ => return None,
+    };
+    let bytes = std::fs::read(run_dir(stamp)?.join(file)).ok()?;
+    match w {
+        Some(w) if ctype == "image/png" && (16..=2000).contains(&w) => {
+            let img = image::load_from_memory(&bytes).ok()?.to_rgb8();
+            let h = (img.height() as u64 * w as u64 / img.width().max(1) as u64).max(1) as u32;
+            let small = if w < img.width() { image::imageops::thumbnail(&img, w, h) } else { img };
+            device::encode_q(&small, None, 80).ok().map(|(j, ..)| ("image/jpeg", j))
+        }
+        _ => Some((ctype, bytes)),
     }
 }
 
@@ -623,6 +696,13 @@ mod tests {
         assert_eq!(u32::from_le_bytes(r[12..16].try_into().unwrap()), 720);
         assert_eq!(u32::from_le_bytes(r[16..20].try_into().unwrap()), 1080);
         assert_eq!(&r[20..], &[9, 8, 7]);
+    }
+
+    #[test]
+    fn run_files_stay_in_the_runs_folder() {
+        for bad in ["../x/results.json", "a/../b.png", "a/b/c.png", "a/.png", "a/x.exe", "/results.json", "a"] {
+            assert!(run_file(bad, None).is_none(), "{bad}");
+        }
     }
 
     #[test]

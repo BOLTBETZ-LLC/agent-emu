@@ -25,6 +25,8 @@ is under 4000 MB (`AE_MIN_AVAIL_MB`).
 | GET | `/mux?devices=d0,d1,d2&full=d1` | frame streams of several Devices on one connection |
 | GET | `/screenshot.png?device=d0` | one full-size PNG |
 | POST | `/upload?device=d0` | body = APK, installed with adb |
+| GET | `/runs` | test runner results, newest 30: `{runs: [{stamp, total, passed, failed, wall_s}]}` (`AE_RUNS_DIR`, else `tests/boltbetz/results` above the exe, plus the old `.scratch/test-matrix/runner/results`) |
+| GET | `/runs/<stamp>/<file>` | one file of a run: `results.json`, `grid.md` or a `.png`. Read-only, plain names, that folder only |
 
 A browser opens at most 6 HTTP/1.1 connections per host. An 8-tile dashboard should use one `/mux` and one
 `/events`. Separate `/frames` streams per tile would run out of connections.

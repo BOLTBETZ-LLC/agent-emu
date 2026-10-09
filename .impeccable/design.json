@@ -1,164 +1,161 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-08T00:00:00Z",
+  "generatedAt": "2026-10-09T00:00:00Z",
   "title": "Design System: agent-emu",
   "extensions": {
     "colorMeta": {
-      "graphite-0": { "role": "neutral", "displayName": "Bench Black", "canonical": "var(--z0)", "tonalRamp": ["#09090a", "#101112", "#161719", "#1e1f22", "#2a2b2e", "#3a3b3f", "#5f6166", "#95979c", "#c4c6ca", "#eeeff0"] },
-      "graphite-1": { "role": "neutral", "displayName": "Bench", "canonical": "var(--z1)", "tonalRamp": ["#09090a", "#101112", "#161719", "#1e1f22", "#2a2b2e", "#3a3b3f", "#5f6166", "#95979c", "#c4c6ca", "#eeeff0"] },
-      "graphite-2": { "role": "neutral", "displayName": "Surface", "canonical": "var(--z2)", "tonalRamp": ["#09090a", "#101112", "#161719", "#1e1f22", "#2a2b2e", "#3a3b3f", "#5f6166", "#95979c", "#c4c6ca", "#eeeff0"] },
-      "graphite-3": { "role": "neutral", "displayName": "Raised", "canonical": "var(--z3)", "tonalRamp": ["#09090a", "#101112", "#161719", "#1e1f22", "#2a2b2e", "#3a3b3f", "#5f6166", "#95979c", "#c4c6ca", "#eeeff0"] },
-      "graphite-4": { "role": "neutral", "displayName": "Rule", "canonical": "var(--z4)", "tonalRamp": ["#09090a", "#101112", "#161719", "#1e1f22", "#2a2b2e", "#3a3b3f", "#5f6166", "#95979c", "#c4c6ca", "#eeeff0"] },
-      "graphite-5": { "role": "neutral", "displayName": "Stroke", "canonical": "var(--z5)", "tonalRamp": ["#09090a", "#101112", "#161719", "#1e1f22", "#2a2b2e", "#3a3b3f", "#5f6166", "#95979c", "#c4c6ca", "#eeeff0"] },
-      "graphite-6": { "role": "neutral", "displayName": "Lift", "canonical": "var(--z6)", "tonalRamp": ["#09090a", "#101112", "#161719", "#1e1f22", "#2a2b2e", "#3a3b3f", "#5f6166", "#95979c", "#c4c6ca", "#eeeff0"] },
-      "graphite-7": { "role": "neutral", "displayName": "Muted Ink", "canonical": "var(--z7)", "tonalRamp": ["#09090a", "#101112", "#161719", "#1e1f22", "#2a2b2e", "#3a3b3f", "#5f6166", "#95979c", "#c4c6ca", "#eeeff0"] },
-      "graphite-8": { "role": "neutral", "displayName": "Soft Ink", "canonical": "var(--z8)", "tonalRamp": ["#09090a", "#101112", "#161719", "#1e1f22", "#2a2b2e", "#3a3b3f", "#5f6166", "#95979c", "#c4c6ca", "#eeeff0"] },
-      "graphite-9": { "role": "neutral", "displayName": "Ink", "canonical": "var(--z9)", "tonalRamp": ["#09090a", "#101112", "#161719", "#1e1f22", "#2a2b2e", "#3a3b3f", "#5f6166", "#95979c", "#c4c6ca", "#eeeff0"] },
-      "reagent-teal": { "role": "primary", "displayName": "Indicator Teal", "canonical": "var(--teal)", "tonalRamp": ["oklch(15% 0.04 172)", "oklch(26% 0.07 172)", "oklch(37% 0.09 172)", "oklch(48% 0.11 172)", "oklch(60% 0.13 172)", "oklch(71% 0.14 172)", "oklch(80% 0.14 172)", "oklch(94% 0.05 172)"] },
-      "reagent-teal-ink": { "role": "primary", "displayName": "Teal Ink", "canonical": "var(--teal-ink)", "tonalRamp": ["oklch(15% 0.04 172)", "oklch(26% 0.07 172)", "oklch(37% 0.09 172)", "oklch(48% 0.11 172)", "oklch(60% 0.13 172)", "oklch(71% 0.14 172)", "oklch(80% 0.14 172)", "oklch(94% 0.05 172)"] },
-      "reagent-amber": { "role": "secondary", "displayName": "Boot Amber", "canonical": "var(--amber)", "tonalRamp": ["oklch(15% 0.04 78)", "oklch(26% 0.07 78)", "oklch(37% 0.09 78)", "oklch(49% 0.11 78)", "oklch(61% 0.13 78)", "oklch(72% 0.15 78)", "oklch(81% 0.15 78)", "oklch(95% 0.05 78)"] },
-      "reagent-amber-ink": { "role": "secondary", "displayName": "Amber Ink", "canonical": "var(--amber-ink)", "tonalRamp": ["oklch(15% 0.04 78)", "oklch(26% 0.07 78)", "oklch(37% 0.09 78)", "oklch(49% 0.11 78)", "oklch(61% 0.13 78)", "oklch(72% 0.15 78)", "oklch(81% 0.15 78)", "oklch(95% 0.05 78)"] },
-      "reagent-red": { "role": "tertiary", "displayName": "Fault Red", "canonical": "var(--red)", "tonalRamp": ["oklch(15% 0.05 28)", "oklch(26% 0.09 28)", "oklch(37% 0.13 28)", "oklch(48% 0.16 28)", "oklch(59% 0.18 28)", "oklch(71% 0.18 28)", "oklch(82% 0.11 28)", "oklch(94% 0.04 28)"] },
-      "reagent-red-ink": { "role": "tertiary", "displayName": "Red Ink", "canonical": "var(--red-ink)", "tonalRamp": ["oklch(15% 0.05 28)", "oklch(26% 0.09 28)", "oklch(37% 0.13 28)", "oklch(48% 0.16 28)", "oklch(59% 0.18 28)", "oklch(71% 0.18 28)", "oklch(82% 0.11 28)", "oklch(94% 0.04 28)"] },
-      "transfer-blue": { "role": "tertiary", "displayName": "Transfer Blue", "canonical": "var(--blue)", "tonalRamp": ["oklch(15% 0.04 258)", "oklch(26% 0.07 258)", "oklch(37% 0.10 258)", "oklch(49% 0.12 258)", "oklch(61% 0.13 258)", "oklch(75% 0.13 258)", "oklch(85% 0.08 258)", "oklch(95% 0.03 258)"] }
+      "indigo": { "role": "primary", "displayName": "Studio Indigo", "canonical": "var(--indigo)", "tonalRamp": ["oklch(18% 0.08 280)", "oklch(28% 0.13 280)", "oklch(38% 0.17 280)", "oklch(48% 0.2 280)", "oklch(58% 0.19 280)", "oklch(68% 0.16 280)", "oklch(80% 0.1 280)", "oklch(94% 0.03 280)"] },
+      "green": { "role": "secondary", "displayName": "Running Green", "canonical": "var(--green)", "tonalRamp": ["oklch(18% 0.05 155)", "oklch(28% 0.08 155)", "oklch(38% 0.11 155)", "oklch(50% 0.13 155)", "oklch(62% 0.15 155)", "oklch(74% 0.16 155)", "oklch(85% 0.1 155)", "oklch(95% 0.04 155)"] },
+      "amber": { "role": "secondary", "displayName": "Warm-up Amber", "canonical": "var(--amber)", "tonalRamp": ["oklch(18% 0.05 70)", "oklch(28% 0.08 70)", "oklch(40% 0.11 70)", "oklch(53% 0.13 70)", "oklch(65% 0.15 70)", "oklch(78% 0.15 75)", "oklch(87% 0.1 75)", "oklch(95% 0.04 75)"] },
+      "red": { "role": "secondary", "displayName": "Fault Red", "canonical": "var(--red)", "tonalRamp": ["oklch(18% 0.06 28)", "oklch(28% 0.1 28)", "oklch(38% 0.14 28)", "oklch(50% 0.18 28)", "oklch(60% 0.2 28)", "oklch(71% 0.17 28)", "oklch(83% 0.1 28)", "oklch(95% 0.03 28)"] },
+      "sweep-top": { "role": "neutral", "displayName": "Sweep Wall", "canonical": "var(--sweep-top)", "tonalRamp": ["#0b0b0d", "#141416", "#1e1e21", "#5f5c56", "#8d8982", "#d9d6d0", "#e2dfda", "#f8f7f4"] },
+      "sweep-mid": { "role": "neutral", "displayName": "Sweep Mid", "canonical": "var(--sweep-mid)", "tonalRamp": ["#0b0b0d", "#141416", "#1e1e21", "#5f5c56", "#8d8982", "#d9d6d0", "#e2dfda", "#f8f7f4"] },
+      "sweep-floor": { "role": "neutral", "displayName": "Sweep Floor", "canonical": "var(--sweep-floor)", "tonalRamp": ["#0b0b0d", "#141416", "#1e1e21", "#5f5c56", "#8d8982", "#d9d6d0", "#e2dfda", "#f8f7f4"] },
+      "pool": { "role": "neutral", "displayName": "Light Pool", "canonical": "var(--pool)" },
+      "ink": { "role": "neutral", "displayName": "Ink", "canonical": "var(--ink)", "tonalRamp": ["#1c1b19", "#5f5c56", "#75726d", "#8d8982", "#a6a39d", "#d9d6d0", "#f2f1ee", "#ffffff"] },
+      "ink-2": { "role": "neutral", "displayName": "Ink 2", "canonical": "var(--ink-2)" },
+      "ink-3": { "role": "neutral", "displayName": "Ink 3", "canonical": "var(--ink-3)" },
+      "line": { "role": "neutral", "displayName": "Line", "canonical": "var(--line)" },
+      "line-2": { "role": "neutral", "displayName": "Line 2", "canonical": "var(--line-2)" },
+      "fill": { "role": "neutral", "displayName": "Fill", "canonical": "var(--fill)" },
+      "fill-2": { "role": "neutral", "displayName": "Fill 2", "canonical": "var(--fill-2)" },
+      "card": { "role": "neutral", "displayName": "Card", "canonical": "var(--card)" },
+      "card-solid": { "role": "neutral", "displayName": "Card Solid", "canonical": "var(--card-solid)" },
+      "bar": { "role": "neutral", "displayName": "Bar", "canonical": "var(--bar)" },
+      "btn-ink": { "role": "neutral", "displayName": "Button Ink", "canonical": "var(--btn-ink)" },
+      "btn-ink-text": { "role": "neutral", "displayName": "Button Ink Text", "canonical": "var(--btn-ink-text)" },
+      "glass": { "role": "neutral", "displayName": "Glass", "canonical": "var(--glass)" }
     },
     "typographyMeta": {
-      "display": { "displayName": "Display", "purpose": "Focused Device id in the stage sidebar." },
-      "headline": { "displayName": "Headline", "purpose": "Product name in the top bar." },
-      "title": { "displayName": "Title", "purpose": "Panel section summaries, panel head, well tape ids." },
+      "display": { "displayName": "Display", "purpose": "Run heading in Test runs; big memory figure." },
+      "headline": { "displayName": "Headline", "purpose": "Focused phone id in the inspector." },
+      "title": { "displayName": "Title", "purpose": "Wordmark, popover and section headings, heading on a phone's glass." },
+      "caption-name": { "displayName": "Caption name", "purpose": "Phone id under each phone." },
       "body": { "displayName": "Body", "purpose": "Default text and controls." },
-      "body-small": { "displayName": "Body small", "purpose": "Notes, captions, field labels, facts, table cells." },
-      "label": { "displayName": "Label", "purpose": "Uppercase state badges and side tags, tabular figures." },
-      "mono": { "displayName": "Mono", "purpose": "Log stream, raw error text, command output, kbd." }
+      "label": { "displayName": "Label", "purpose": "State pills, caption meta, small buttons, legends, notes." },
+      "mono": { "displayName": "Mono", "purpose": "Logs, command output, raw errors, kbd." }
     },
     "shadows": [
-      { "name": "tray-inset", "value": "inset 0 1px 3px rgba(0,0,0,.6)", "purpose": "The plate tray, so wells read as seated in it." },
-      { "name": "lifted-well", "value": "0 10px 28px -10px rgba(0,0,0,.8), 0 0 0 1px var(--z6)", "purpose": "Focused well only, with translateY(-5px)." },
-      { "name": "floating-panel", "value": "0 12px 24px -8px rgba(0,0,0,.8)", "purpose": "Side panel overlaying the stage under 1500px wide." },
-      { "name": "ready-pulse", "value": "0 0 0 14px transparent from 0 0 0 0 teal 70%", "purpose": "One teal ring pulse when a Device becomes ready." }
+      { "name": "shadow", "value": "light-dark(rgb(40 34 24 / .16), rgb(0 0 0 / .55))", "purpose": "Shadow colour token, warm by day." },
+      { "name": "contact", "value": "0 14px 26px -12px var(--shadow), 0 26px 30px -26px var(--shadow)", "purpose": "Every phone on the sweep." },
+      { "name": "lifted", "value": "0 22px 34px -14px var(--shadow), 0 34px 36px -28px var(--shadow)", "purpose": "Selected phone, with translateY(-4px)." },
+      { "name": "card-edge", "value": "0 0 0 .5px var(--line-2), 0 12px 34px -18px var(--shadow)", "purpose": "Inspector card." },
+      { "name": "raised-chip", "value": "0 1px 3px var(--shadow), 0 0 0 .5px var(--line)", "purpose": "Selected segment, current run." },
+      { "name": "floating-sheet", "value": "0 18px 50px -12px var(--shadow), 0 0 0 .5px var(--line-2)", "purpose": "Popovers." },
+      { "name": "toast", "value": "0 12px 30px -12px rgb(0 0 0 / .5)", "purpose": "Toasts." }
     ],
     "motion": [
-      { "name": "control", "value": ".12s", "purpose": "Button background and border changes." },
-      { "name": "press", "value": "transform .06s", "purpose": "1px press-down on buttons." },
-      { "name": "well-lift", "value": ".18s cubic-bezier(.2,.7,.2,1)", "purpose": "Focused well lift and border." },
-      { "name": "rim-fill", "value": "--p .9s linear", "purpose": "Boot progress rising up the rim." },
-      { "name": "ready-react", "value": ".7s ease-out", "purpose": "Teal pulse when ready." },
-      { "name": "busy-breathe", "value": "1.2s ease-in-out infinite alternate", "purpose": "2px bar under a busy button." },
-      { "name": "budget-seg", "value": "flex-basis .25s ease-out", "purpose": "RAM budget segments resizing." },
-      { "name": "touch", "value": ".6s ease-out", "purpose": "Tap and swipe trace on a screen." },
-      { "name": "reduced", "value": "none", "purpose": "prefers-reduced-motion removes all transitions and animations." }
+      { "name": "ease", "value": "cubic-bezier(.2, .8, .2, 1)", "purpose": "Default easing for all state transitions." },
+      { "name": "press", "value": "transform .12s, scale(.965)", "purpose": "Button press." },
+      { "name": "lift", "value": "transform .25s", "purpose": "Selected phone rises 4px." },
+      { "name": "pop", "value": ".18s, from translateY(-4px) scale(.985)", "purpose": "Popover entry." },
+      { "name": "warm-up", "value": "opacity 1s linear, .18 + progress * .0082", "purpose": "Booting glass brightens with progress." },
+      { "name": "glint", "value": "1s, one sweep", "purpose": "Once when a phone becomes ready." },
+      { "name": "breathe", "value": "1.4s ease-in-out alternate", "purpose": "Amber dot while warming or stopping." }
     ],
     "breakpoints": [
-      { "name": "stage-side-narrow", "value": "max-width: 2200px" },
-      { "name": "panel-floats", "value": "max-width: 1500px" }
+      { "name": "narrow-inspector", "value": "1280px" },
+      { "name": "stacked", "value": "980px" }
     ]
   },
   "components": [
     {
-      "name": "Button",
+      "name": "Ink Button",
+      "kind": "button",
+      "refersTo": "button-ink",
+      "description": "Primary pill, one per region (Start).",
+      "html": "<button class=\"ds-btn ds-ink\"><svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linejoin=\"round\"><path d=\"M7 4.5v15l12-7.5z\"/></svg>Start</button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 13px; border: 0; border-radius: 999px; font: 560 13px var(--ui); cursor: pointer; transition: background .15s cubic-bezier(.2,.8,.2,1), transform .12s cubic-bezier(.2,.8,.2,1); } .ds-ink { background: var(--btn-ink); color: var(--btn-ink-text); } .ds-ink:hover { background: color-mix(in srgb, var(--btn-ink) 86%, var(--indigo)); } .ds-ink:active { transform: scale(.965); } .ds-btn:focus-visible { outline: 2px solid var(--indigo); outline-offset: 2px; }"
+    },
+    {
+      "name": "Default Button",
       "kind": "button",
       "refersTo": "button",
-      "description": "Default action button, one vocabulary everywhere.",
-      "html": "<button class=\"ds-btn\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\"><path d=\"M12.8 8A4.8 4.8 0 1 1 11.4 4.6\"/><path d=\"M12.2 2.2v3h-3\"/></svg>Restart</button>",
-      "css": ".ds-btn { display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 12px; border-radius:7px; border:1px solid var(--z5,#3a3b3f); background:var(--z3,#1e1f22); color:var(--z9,#eeeff0); font:550 14px \"Segoe UI Variable Text\",\"Segoe UI\",system-ui,sans-serif; cursor:pointer; transition:background .12s, border-color .12s, transform .06s; } .ds-btn:hover { background:var(--z4,#2a2b2e); border-color:var(--z6,#5f6166); } .ds-btn:active { transform:translateY(1px); background:var(--z5,#3a3b3f); } .ds-btn:focus-visible { outline:2px solid var(--z9,#eeeff0); outline-offset:2px; }"
+      "description": "Everyday action pill.",
+      "html": "<button class=\"ds-btn-d\">Open BoltBetz</button>",
+      "css": ".ds-btn-d { height: 30px; padding: 0 13px; border: 0; border-radius: 999px; background: var(--fill-2); color: var(--ink); font: 560 13px var(--ui); cursor: pointer; transition: background .15s, transform .12s; } .ds-btn-d:hover { background: color-mix(in srgb, var(--fill-2) 100%, var(--ink) 6%); } .ds-btn-d:active { transform: scale(.965); } .ds-btn-d:focus-visible { outline: 2px solid var(--indigo); outline-offset: 2px; }"
     },
     {
-      "name": "Primary Button",
-      "kind": "button",
-      "refersTo": "button-primary",
-      "description": "The one teal action per region, e.g. Start.",
-      "html": "<button class=\"ds-btn-primary\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linejoin=\"round\"><path d=\"M5 3.5v9l7-4.5z\"/></svg>Start d0</button>",
-      "css": ".ds-btn-primary { display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 12px; border-radius:7px; border:1px solid var(--teal,#3fd6b4); background:var(--teal,#3fd6b4); color:var(--teal-ink,#032a21); font:550 14px \"Segoe UI Variable Text\",\"Segoe UI\",system-ui,sans-serif; cursor:pointer; transition:background .12s, border-color .12s, transform .06s; } .ds-btn-primary:hover { background:#62e2c5; border-color:#62e2c5; } .ds-btn-primary:active { transform:translateY(1px); } .ds-btn-primary:focus-visible { outline:2px solid var(--z9,#eeeff0); outline-offset:2px; }"
-    },
-    {
-      "name": "Danger Button",
+      "name": "Danger and Confirm",
       "kind": "button",
       "refersTo": "button-danger",
-      "description": "Destructive action at rest; red text, red border on hover.",
-      "html": "<button class=\"ds-btn-danger\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\"><rect x=\"4\" y=\"4\" width=\"8\" height=\"8\" rx=\"1.2\"/></svg>Stop all</button>",
-      "css": ".ds-btn-danger { display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 12px; border-radius:7px; border:1px solid var(--z5,#3a3b3f); background:var(--z3,#1e1f22); color:var(--red,#ff6f61); font:550 14px \"Segoe UI Variable Text\",\"Segoe UI\",system-ui,sans-serif; cursor:pointer; transition:background .12s, border-color .12s; } .ds-btn-danger:hover { border-color:var(--red,#ff6f61); background:color-mix(in srgb, var(--red,#ff6f61) 12%, var(--z3,#1e1f22)); } .ds-btn-danger:focus-visible { outline:2px solid var(--z9,#eeeff0); outline-offset:2px; }"
+      "description": "Destructive action: red text first, solid red on the confirm click.",
+      "html": "<span style=\"display:flex;gap:8px\"><button class=\"ds-danger\">Stop</button><button class=\"ds-danger ds-confirm\">Stop d3?</button></span>",
+      "css": ".ds-danger { height: 30px; padding: 0 13px; border: 0; border-radius: 999px; background: var(--fill-2); color: var(--red); font: 560 13px var(--ui); cursor: pointer; } .ds-danger:active { transform: scale(.965); } .ds-confirm { background: var(--red); color: #fff; } .ds-danger:focus-visible { outline: 2px solid var(--indigo); outline-offset: 2px; }"
     },
     {
-      "name": "Ghost Button",
-      "kind": "button",
-      "refersTo": "button-ghost",
-      "description": "Transparent toggles, rail and well action icons.",
-      "html": "<button class=\"ds-btn-ghost\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\"><rect x=\"5\" y=\"1.8\" width=\"6\" height=\"12.4\" rx=\"1.6\"/></svg>Focus view</button>",
-      "css": ".ds-btn-ghost { display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 12px; border-radius:7px; border:1px solid transparent; background:transparent; color:var(--z8,#c4c6ca); font:550 14px \"Segoe UI Variable Text\",\"Segoe UI\",system-ui,sans-serif; cursor:pointer; transition:background .12s, border-color .12s; } .ds-btn-ghost:hover { background:var(--z3,#1e1f22); border-color:var(--z4,#2a2b2e); } .ds-btn-ghost:focus-visible { outline:2px solid var(--z9,#eeeff0); outline-offset:2px; }"
+      "name": "Segmented Control",
+      "kind": "nav",
+      "refersTo": "segmented",
+      "description": "Phones / Test runs switch and inspector tabs.",
+      "html": "<div class=\"ds-seg\"><button aria-selected=\"true\">Phones</button><button>Test runs</button></div>",
+      "css": ".ds-seg { display: inline-flex; padding: 3px; gap: 2px; border-radius: 10px; background: var(--fill-2); } .ds-seg button { height: 26px; padding: 0 14px; border: 0; border-radius: 7px; background: transparent; color: var(--ink-2); font: 560 13px var(--ui); cursor: pointer; transition: background .18s, color .18s; } .ds-seg button:hover { color: var(--ink); } .ds-seg button[aria-selected=true] { background: var(--card-solid); color: var(--ink); box-shadow: 0 1px 3px var(--shadow), 0 0 0 .5px var(--line); } .ds-seg button:focus-visible { outline: 2px solid var(--indigo); outline-offset: 2px; }"
     },
     {
       "name": "Input",
       "kind": "input",
       "refersTo": "input",
-      "description": "Field with a muted label column; teal focus.",
-      "html": "<label class=\"ds-field\"><span>Package</span><input class=\"ds-input\" value=\"com.boltbetz.staging\"></label>",
-      "css": ".ds-field { display:grid; grid-template-columns:76px minmax(0,1fr); align-items:center; gap:10px; font:14px \"Segoe UI Variable Text\",\"Segoe UI\",system-ui,sans-serif; } .ds-field > span { color:var(--z7,#95979c); font-size:13px; } .ds-input { font:inherit; color:var(--z9,#eeeff0); background:var(--z1,#101112); border:1px solid var(--z5,#3a3b3f); border-radius:7px; height:32px; padding:0 9px; min-width:0; } .ds-input:hover { border-color:var(--z6,#5f6166); } .ds-input:focus-visible { outline:2px solid var(--teal,#3fd6b4); outline-offset:0; border-color:var(--teal,#3fd6b4); }"
+      "description": "Text field on a fill ground.",
+      "html": "<input class=\"ds-input\" placeholder=\"C:\\path\\app.apk\">",
+      "css": ".ds-input { height: 30px; padding: 0 10px; border: 1px solid transparent; border-radius: 8px; background: var(--fill); color: var(--ink); font: 13px var(--ui); } .ds-input::placeholder { color: var(--ink-3); } .ds-input:hover { border-color: var(--line-2); } .ds-input:focus-visible { outline: 2px solid var(--indigo); outline-offset: 0; }"
     },
     {
-      "name": "State Badge",
+      "name": "State Pill",
       "kind": "chip",
-      "refersTo": "badge",
-      "description": "Device state in reagent colour with a dot.",
-      "html": "<span class=\"ds-badge\">Empty</span> <span class=\"ds-badge ds-run\">Running</span> <span class=\"ds-badge ds-boot\">Booting</span> <span class=\"ds-badge ds-fail\">Failed</span>",
-      "css": ".ds-badge { font:600 12px Bahnschrift,\"DIN Alternate\",\"Segoe UI\",sans-serif; font-stretch:semi-condensed; letter-spacing:.03em; text-transform:uppercase; padding:0 8px; height:20px; display:inline-flex; align-items:center; gap:5px; border-radius:4px; color:var(--z7,#95979c); background:var(--z3,#1e1f22); } .ds-badge::before { content:\"\"; width:6px; height:6px; border-radius:50%; background:currentColor; } .ds-run { color:var(--teal,#3fd6b4); background:color-mix(in srgb, var(--teal,#3fd6b4) 12%, var(--z2,#161719)); } .ds-boot { color:var(--amber,#f4b73f); background:color-mix(in srgb, var(--amber,#f4b73f) 12%, var(--z2,#161719)); } .ds-fail { color:var(--red,#ff6f61); background:color-mix(in srgb, var(--red,#ff6f61) 13%, var(--z2,#161719)); }"
+      "refersTo": "label",
+      "description": "Dot plus label; dot colour carries state.",
+      "html": "<span style=\"display:flex;gap:14px\"><span class=\"ds-pill ds-run\">Running</span><span class=\"ds-pill ds-warm\">Warming up</span><span class=\"ds-pill ds-fail\">Failed</span></span>",
+      "css": ".ds-pill { display: inline-flex; align-items: center; gap: 5px; font: 560 11.5px var(--ui); color: var(--ink-2); } .ds-pill::before { content: \"\"; width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3); } .ds-run::before { background: var(--green); } .ds-warm::before { background: var(--amber); animation: ds-breathe 1.4s ease-in-out infinite alternate; } .ds-fail { color: var(--red); } .ds-fail::before { background: var(--red); } @keyframes ds-breathe { from { opacity: .35; } to { opacity: 1; } }"
     },
     {
-      "name": "Panel Section",
-      "kind": "nav",
-      "refersTo": "panel",
-      "description": "Collapsible side panel section with rotating chevron and aside.",
-      "html": "<details class=\"ds-sec\" open><summary><svg class=\"ds-chev\" width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\"><path d=\"m6 3.5 4.5 4.5L6 12.5\"/></svg>Start Devices<span class=\"ds-aside\">0 of 8 in use</span></summary><div class=\"ds-secbody\">Section body</div></details>",
-      "css": ".ds-sec { background:var(--z2,#161719); color:var(--z9,#eeeff0); border-bottom:1px solid var(--z4,#2a2b2e); font:14px \"Segoe UI Variable Text\",\"Segoe UI\",system-ui,sans-serif; } .ds-sec > summary { list-style:none; display:flex; align-items:center; gap:8px; padding:11px 14px; cursor:pointer; font:600 15px Bahnschrift,\"DIN Alternate\",sans-serif; } .ds-sec > summary::-webkit-details-marker { display:none; } .ds-sec > summary:hover { background:var(--z3,#1e1f22); } .ds-sec > summary:focus-visible { outline:2px solid var(--z9,#eeeff0); outline-offset:2px; } .ds-chev { color:var(--z7,#95979c); transition:transform .15s; } .ds-sec[open] .ds-chev { transform:rotate(90deg); } .ds-aside { margin-left:auto; font:400 12.5px \"Segoe UI Variable Text\",sans-serif; color:var(--z7,#95979c); } .ds-secbody { padding:4px 14px 16px; }"
+      "name": "Inspector Card",
+      "kind": "card",
+      "refersTo": "inspector",
+      "description": "Frosted card beside the focused phone.",
+      "html": "<div class=\"ds-card\"><h2>d3</h2><dl class=\"ds-facts\"><dt>Memory</dt><dd>612 MB</dd><dt>Up</dt><dd>14 min</dd></dl></div>",
+      "css": ".ds-card { width: 300px; padding: 18px; border-radius: 18px; background: var(--card); backdrop-filter: blur(20px) saturate(1.4); box-shadow: 0 0 0 .5px var(--line-2), 0 12px 34px -18px var(--shadow); color: var(--ink); } .ds-card h2 { margin: 0 0 12px; font: 650 24px/1.1 var(--disp); letter-spacing: -.02em; } .ds-facts { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; padding: 10px 12px; border-radius: 12px; background: var(--fill); font: 12px var(--ui); } .ds-facts dt { color: var(--ink-2); } .ds-facts dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }"
     },
     {
-      "name": "Well",
+      "name": "Phone on the Sweep",
       "kind": "custom",
-      "refersTo": "well",
-      "description": "Signature: tape row, phone recess with a reagent rim filling with boot progress, ghost action row.",
-      "html": "<article class=\"ds-well\" style=\"--p:62\"><div class=\"ds-tape\"><span class=\"ds-id\">d2</span><span class=\"ds-wbadge\">Booting</span><span class=\"ds-meta\"><b>612</b> MB</span></div><div class=\"ds-recess\"><div class=\"ds-rim\"></div><div class=\"ds-glass\"><div class=\"ds-veil\"><span class=\"ds-big\">Booting d2</span><span>62%</span></div></div></div></article>",
-      "css": ".ds-well { width:180px; display:grid; gap:4px; padding:8px; border-radius:14px; background:var(--z2,#161719); border:1px solid var(--z4,#2a2b2e); color:var(--z9,#eeeff0); font:13px \"Segoe UI Variable Text\",sans-serif; transition:transform .18s cubic-bezier(.2,.7,.2,1), box-shadow .18s; } .ds-well:hover { border-color:var(--z6,#5f6166); box-shadow:0 10px 28px -10px rgba(0,0,0,.8), 0 0 0 1px var(--z6,#5f6166); transform:translateY(-5px); } .ds-tape { display:flex; align-items:center; gap:6px; height:30px; } .ds-id { font:700 15px Bahnschrift,sans-serif; padding:0 8px; height:22px; display:inline-flex; align-items:center; border-radius:1px; background:var(--z8,#c4c6ca); color:var(--z1,#101112); } .ds-wbadge { font:600 12px Bahnschrift,sans-serif; text-transform:uppercase; letter-spacing:.03em; padding:0 8px; height:20px; display:inline-flex; align-items:center; border-radius:4px; color:var(--amber,#f4b73f); background:color-mix(in srgb, var(--amber,#f4b73f) 12%, var(--z2,#161719)); } .ds-meta { margin-left:auto; color:var(--z7,#95979c); font-variant-numeric:tabular-nums; } .ds-meta b { color:var(--z9,#eeeff0); } .ds-recess { position:relative; width:154px; height:335px; margin:4px; } .ds-glass { position:absolute; inset:0; border-radius:12.5% / 5.75%; background:var(--z0,#09090a); border:5px solid #030405; overflow:hidden; } .ds-rim { position:absolute; inset:-4px; border-radius:calc(12.5% + 2px) / calc(5.75% + 1px); padding:3px; background:linear-gradient(to top, var(--amber,#f4b73f) calc(var(--p) * 1%), var(--z4,#2a2b2e) calc(var(--p) * 1%)); -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite:xor; mask:linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); } .ds-veil { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; color:var(--z7,#95979c); } .ds-big { font:600 17px Bahnschrift,sans-serif; color:var(--z9,#eeeff0); }"
-    },
-    {
-      "name": "Host RAM Budget Bar",
-      "kind": "custom",
-      "refersTo": "top-bar",
-      "description": "Per-Device RAM segments with the 4000 MB free floor marked in red.",
-      "html": "<div class=\"ds-budget\"><div class=\"ds-bar\"><span class=\"ds-seg\" style=\"flex-basis:18%\"></span><span class=\"ds-seg\" style=\"flex-basis:14%\"></span><span class=\"ds-seg ds-booting\" style=\"flex-basis:9%\"></span><span class=\"ds-seg ds-shared\" style=\"flex-basis:12%\"></span><i class=\"ds-floor\" style=\"left:78%\"></i></div><div class=\"ds-cap\">Devices <b>2.1 GB</b> own + <b>0.8</b> shared <span>Host free <b>7.4 GB</b></span></div></div>",
-      "css": ".ds-budget { width:420px; display:grid; gap:4px; font:12px \"Segoe UI Variable Text\",sans-serif; } .ds-bar { position:relative; height:10px; border-radius:5px; background:var(--z1,#101112); border:1px solid var(--z4,#2a2b2e); display:flex; overflow:hidden; } .ds-seg { height:100%; background:var(--teal,#3fd6b4); border-right:1px solid var(--z2,#161719); transition:flex-basis .25s ease-out; } .ds-booting { background:var(--amber,#f4b73f); } .ds-shared { background:color-mix(in srgb, var(--teal,#3fd6b4) 45%, var(--z4,#2a2b2e)); } .ds-floor { position:absolute; top:-1px; bottom:-1px; width:2px; background:var(--red,#ff6f61); } .ds-cap { display:flex; gap:14px; color:var(--z7,#95979c); font-variant-numeric:tabular-nums; } .ds-cap b { color:var(--z9,#eeeff0); font-weight:600; }"
+      "refersTo": "glass",
+      "description": "Signature: phone object with bezel rings, contact shadow and caption; selected state lifts with an indigo ring.",
+      "html": "<div class=\"ds-tile\"><div class=\"ds-phone\"></div><div class=\"ds-cap\"><b>d3</b><span>Running</span></div></div>",
+      "css": ".ds-tile { width: 92px; display: grid; gap: 9px; } .ds-phone { aspect-ratio: 1320 / 2868; border-radius: 13% / 6%; background: var(--glass); box-shadow: 0 0 0 1px light-dark(rgb(0 0 0 / .55), rgb(255 255 255 / .10)), 0 0 0 3.5px light-dark(#2b2a28, #2c2c2f), 0 0 0 4.5px light-dark(rgb(0 0 0 / .25), rgb(255 255 255 / .14)), 0 14px 26px -12px var(--shadow), 0 26px 30px -26px var(--shadow); transition: transform .25s cubic-bezier(.2,.8,.2,1); } .ds-tile:hover .ds-phone { transform: translateY(-4px); box-shadow: 0 0 0 1px light-dark(rgb(0 0 0 / .55), rgb(255 255 255 / .10)), 0 0 0 3.5px light-dark(#2b2a28, #2c2c2f), 0 0 0 6.5px var(--indigo), 0 22px 34px -14px var(--shadow), 0 34px 36px -28px var(--shadow); } .ds-cap { display: flex; gap: 7px; align-items: center; font: 11.5px var(--ui); color: var(--ink-2); } .ds-cap b { font: 650 13.5px var(--disp); color: var(--ink); letter-spacing: -.01em; }"
     }
   ],
   "narrative": {
-    "northStar": "The Assay Plate",
-    "overview": "The Fleet is a lab plate on a graphite bench: eight fixed wells in two rows of four, each well a phone-shaped recess at true iPhone 17 Pro Max aspect (1320 x 2868). Every well is always present, empty or not, so the plate itself is the inventory; there is no instance table beside a single viewer. A well's state is read from its rim the way a reagent is read from a tube: dashed and colourless when empty, amber while booting, teal when running, red when failed.\n\nThe bench is dark, dense and neutral. All structure comes from one ten-step graphite ramp with near-zero chroma; hue is reserved for reagents, which carry state and nothing else. Labels are set like lab tape in Bahnschrift with tabular figures, so Device ids, RAM and frame counts line up and read as instrument output. The room is a working desk at 1920 and 2560 wide: the plate fills the height, the focused Device stands full height in the stage, and controls sit in a collapsible side panel.\n\nMotion is functional and short. Boot is a reagent fill rising up the well rim with progress, then a teal pulse when the Device is ready; the focused well lifts 5px while the others hold still. Reduced motion removes all of it.",
+    "northStar": "The Studio Sweep",
+    "overview": "The Fleet is a product shoot. Eight phones stand on a seamless cove that fades from a darker wall to a pale floor, each one a physical object: black glass in a thin bezel with a soft contact shadow under it, and a quiet caption under that. The focused phone stands large beside them, with a frosted inspector card at its side. By day the sweep is warm paper grey; by night it is deep graphite. Both themes come from the same tokens through `light-dark()`.\n\nEverything around the phones is quiet material: a translucent toolbar over the sweep, frosted cards, near-black ink pill buttons (white in dark mode). Hue appears only to report state (green running, amber warming, red fault) and in one reserved colour, indigo, for focus, selection and the thing your hand is on. The type is the system face, set with tight tracking and tabular figures.\n\nMotion is short and physical. A booting phone's glass warms up like studio lights coming on, through four phase marks, and gives one soft glint when it is ready. Buttons press in to 96.5%, the selected phone rises 4px, and popovers and toasts settle in over about 0.2s. Reduced motion removes all of it.",
     "keyCharacteristics": [
-      "Ten graphite steps for every neutral; hue only on reagents.",
-      "Phone-shaped recesses with a state rim are the core unit, at true device aspect.",
-      "Bahnschrift tape labels with tabular figures for ids, states and measurements.",
-      "Tonal layering for depth; shadow only on the lifted, focused well and floating panel.",
-      "Inline progress everywhere: busy buttons breathe a 2px bar, wells fill their rim."
+      "Seamless sweep ground: a vertical gradient plus a soft light pool behind the grid.",
+      "Phones are objects: black glass, layered bezel rings, two-part contact shadow, true 1320 x 2868 aspect.",
+      "Translucent and frosted surfaces (`backdrop-filter` blur) over the sweep, never opaque slabs.",
+      "Ink pill buttons; state colour only as a dot or text, never as a fill, except for the confirm step.",
+      "Indigo is reserved for focus, selection, drop targets and touch traces."
     ],
     "rules": [
-      { "name": "The Bench Ramp Rule", "body": "Every neutral is one of the ten graphite steps. Tints are made by `color-mix` of a reagent into a ramp step (12-13% for badges, 6% for a failed veil), never by a new hex.", "section": "colors" },
-      { "name": "The Reagent Means State Rule", "body": "Teal, amber and red appear only to report a Device state, a budget limit, or the action that changes one. Blue appears only while something is being dropped or swiped.", "section": "colors" },
-      { "name": "The Tape Rule", "body": "Anything that identifies or measures (Device id, state, RAM, fps, counts) is set in Bahnschrift or with `tabular-nums` so columns do not jitter while values update.", "section": "typography" },
-      { "name": "The One Lift Rule", "body": "Only the focused well lifts; the other seven hold their place. Selection is shown by lift and a `graphite-6` border, never by a reagent colour.", "section": "elevation" }
+      { "name": "The One Reserved Colour Rule", "body": "Indigo means \"this one, here, now\": focus, selection, a drop target, a touch. It is never used for state or decoration.", "section": "colors" },
+      { "name": "The State Dot Rule", "body": "Green, amber and red appear as a 7px dot, a text colour or a thin mark. The only solid red fill is the second click of a destructive action.", "section": "colors" },
+      { "name": "The Steady Figures Rule", "body": "Any number that updates (RAM, fps, counts, uptime, durations) uses `tabular-nums` so it does not jitter.", "section": "typography" },
+      { "name": "The Lit Object Rule", "body": "Phones and floating things cast soft shadows; chrome is frosted instead. Shadows are always soft and offset downward, never hard.", "section": "elevation" }
     ],
     "dos": [
-      "**Do** take every neutral from `graphite-0` to `graphite-9` and make tints with `color-mix` against a ramp step.",
-      "**Do** show a Device's state on its rim and badge in the reagent colour, and nowhere else.",
-      "**Do** keep all eight wells on the plate at all times, at true 1320 x 2868 aspect.",
-      "**Do** set ids, states and measurements in Bahnschrift or with tabular figures.",
-      "**Do** show slow work inline: the rising rim fill, the breathing 2px bar on a busy button, a status toast in the well.",
-      "**Do** keep one teal primary action per region, with Teal Ink text on it.",
-      "**Do** honour `prefers-reduced-motion` by removing transitions and animations."
+      "Do take every colour from the `:root` tokens and their `light-dark()` pairs, so both themes stay in step.",
+      "Do keep all eight phones on the sweep, at true 1320 x 2868 aspect, with bezel and contact shadow.",
+      "Do show state as a dot or text colour in green, amber or red.",
+      "Do use indigo only for focus, selection, drop targets and touch traces.",
+      "Do use ink pill buttons, one ink primary per region.",
+      "Do set changing numbers in tabular figures.",
+      "Do confirm destructive actions in place: red text first, solid red only on the second click.",
+      "Do honour `prefers-reduced-motion` by removing transitions and animations."
     ],
     "donts": [
-      "**Don't** add hue to the graphite ramp or introduce off-ramp neutrals.",
-      "**Don't** use teal, amber or red for decoration, selection or branding beyond the live dot.",
-      "**Don't** use blue for anything but drop targets and swipe traces.",
-      "**Don't** lift or shadow anything but the focused well and the floating panel.",
-      "**Don't** replace the plate with a table or list of Devices beside a single viewer.",
-      "**Don't** fill a destructive button red until the confirm step."
+      "Don't replace the phone grid with a table or list of Devices beside a single viewer.",
+      "Don't fill buttons or surfaces with state colours, except the confirm step.",
+      "Don't use indigo to show state or as decoration.",
+      "Don't use hard offset shadows; every shadow is soft and lit from above.",
+      "Don't put opaque slabs over the sweep; chrome is translucent or frosted."
     ]
   }
 }

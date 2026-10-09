@@ -1,54 +1,61 @@
 ---
 name: agent-emu
-description: Control panel for a Fleet of up to eight Android Devices, laid out as an assay plate on a graphite bench.
+description: Control panel for a Fleet of up to eight Android Devices, shot like phones standing on a seamless studio sweep.
 colors:
-  graphite-0: "#09090a"
-  graphite-1: "#101112"
-  graphite-2: "#161719"
-  graphite-3: "#1e1f22"
-  graphite-4: "#2a2b2e"
-  graphite-5: "#3a3b3f"
-  graphite-6: "#5f6166"
-  graphite-7: "#95979c"
-  graphite-8: "#c4c6ca"
-  graphite-9: "#eeeff0"
-  reagent-teal: "#3fd6b4"
-  reagent-teal-ink: "#032a21"
-  reagent-amber: "#f4b73f"
-  reagent-amber-ink: "#2a1d02"
-  reagent-red: "#ff6f61"
-  reagent-red-ink: "#2e0805"
-  transfer-blue: "#7fb2ff"
+  indigo: "light-dark(#4b44d6, #8f89ff)"
+  green: "light-dark(#18864b, #3fcf83)"
+  amber: "light-dark(#a86200, #f0b03f)"
+  red: "light-dark(#cc3326, #ff6d60)"
+  sweep-top: "light-dark(#d9d6d0, #1e1e21)"
+  sweep-mid: "light-dark(#e2dfda, #141416)"
+  sweep-floor: "light-dark(#f8f7f4, #0b0b0d)"
+  pool: "light-dark(rgb(255 255 255 / .75), rgb(255 255 255 / .045))"
+  ink: "light-dark(#1c1b19, #f2f1ee)"
+  ink-2: "light-dark(#5f5c56, #a6a39d)"
+  ink-3: "light-dark(#8d8982, #75726d)"
+  line: "light-dark(rgb(28 27 25 / .10), rgb(255 255 255 / .09))"
+  line-2: "light-dark(rgb(28 27 25 / .16), rgb(255 255 255 / .15))"
+  fill: "light-dark(rgb(28 27 25 / .05), rgb(255 255 255 / .06))"
+  fill-2: "light-dark(rgb(28 27 25 / .09), rgb(255 255 255 / .11))"
+  card: "light-dark(rgb(255 255 255 / .78), rgb(36 36 39 / .72))"
+  card-solid: "light-dark(#ffffff, #232326)"
+  bar: "light-dark(rgb(246 245 242 / .72), rgb(22 22 24 / .70))"
+  btn-ink: "light-dark(#1c1b19, #f2f1ee)"
+  btn-ink-text: "light-dark(#ffffff, #141414)"
+  glass: "#050506"
 typography:
   display:
-    fontFamily: "Bahnschrift, DIN Alternate, Segoe UI, system-ui, sans-serif"
+    fontFamily: "Segoe UI Variable Display, Segoe UI, system-ui, -apple-system, sans-serif"
     fontSize: "26px"
-    fontWeight: 700
-    lineHeight: 1.2
+    fontWeight: 650
+    lineHeight: 1.1
+    letterSpacing: "-0.02em"
   headline:
-    fontFamily: "Bahnschrift, DIN Alternate, Segoe UI, system-ui, sans-serif"
-    fontSize: "19px"
-    fontWeight: 700
-    letterSpacing: "0.01em"
+    fontFamily: "Segoe UI Variable Display, Segoe UI, system-ui, -apple-system, sans-serif"
+    fontSize: "24px"
+    fontWeight: 650
+    lineHeight: 1.1
+    letterSpacing: "-0.02em"
   title:
-    fontFamily: "Bahnschrift, DIN Alternate, Segoe UI, system-ui, sans-serif"
+    fontFamily: "Segoe UI Variable Display, Segoe UI, system-ui, -apple-system, sans-serif"
     fontSize: "15px"
-    fontWeight: 600
+    fontWeight: 650
+    letterSpacing: "-0.01em"
+  caption-name:
+    fontFamily: "Segoe UI Variable Display, Segoe UI, system-ui, -apple-system, sans-serif"
+    fontSize: "13.5px"
+    fontWeight: 650
+    letterSpacing: "-0.01em"
   body:
-    fontFamily: "Segoe UI Variable Text, Segoe UI, system-ui, sans-serif"
-    fontSize: "14px"
-    fontWeight: 400
-    lineHeight: 1.5
-  body-small:
-    fontFamily: "Segoe UI Variable Text, Segoe UI, system-ui, sans-serif"
-    fontSize: "12.5px"
+    fontFamily: "Segoe UI Variable Text, Segoe UI, system-ui, -apple-system, sans-serif"
+    fontSize: "13px"
     fontWeight: 400
     lineHeight: 1.45
+    letterSpacing: "-0.003em"
   label:
-    fontFamily: "Bahnschrift, DIN Alternate, Segoe UI, system-ui, sans-serif"
+    fontFamily: "Segoe UI Variable Text, Segoe UI, system-ui, -apple-system, sans-serif"
     fontSize: "12px"
-    fontWeight: 600
-    letterSpacing: "0.03em"
+    fontWeight: 560
     fontFeature: "tnum"
   mono:
     fontFamily: "Cascadia Mono, Consolas, ui-monospace, monospace"
@@ -56,244 +63,245 @@ typography:
     fontWeight: 400
     lineHeight: 1.45
 rounded:
-  tape: "1px"
-  badge: "4px"
-  toast: "6px"
-  control: "7px"
-  group: "8px"
-  well: "14px"
-  plate: "18px"
+  kbd: "5px"
+  seg-item: "7px"
+  field: "8px"
+  seg: "10px"
+  well: "12px"
+  sheet: "14px"
+  list: "16px"
+  panel: "18px"
+  pill: "999px"
 spacing:
-  hair: "4px"
-  well-pad: "8px"
-  well-gap: "10px"
-  pad: "14px"
-  gap: "14px"
-  tape: "30px"
-  acts: "36px"
-  top-bar: "52px"
+  hair: "6px"
+  gap: "8px"
+  inset: "18px"
+  grid: "18px"
+  page-y: "22px"
+  page-x: "28px"
+  column: "32px"
+  caption: "46px"
+  bar: "56px"
 components:
   button:
-    backgroundColor: "{colors.graphite-3}"
-    textColor: "{colors.graphite-9}"
-    rounded: "{rounded.control}"
-    height: "32px"
-    padding: "0 12px"
-  button-hover:
-    backgroundColor: "{colors.graphite-4}"
-  button-active:
-    backgroundColor: "{colors.graphite-5}"
-  button-primary:
-    backgroundColor: "{colors.reagent-teal}"
-    textColor: "{colors.reagent-teal-ink}"
-    rounded: "{rounded.control}"
-    height: "32px"
-    padding: "0 12px"
-  button-danger:
-    backgroundColor: "{colors.graphite-3}"
-    textColor: "{colors.reagent-red}"
-    rounded: "{rounded.control}"
-    height: "32px"
-    padding: "0 12px"
-  button-confirm:
-    backgroundColor: "{colors.reagent-red}"
-    textColor: "{colors.reagent-red-ink}"
-    rounded: "{rounded.control}"
-    height: "32px"
-  button-ghost:
+    backgroundColor: "{colors.fill-2}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.pill}"
+    height: "30px"
+    padding: "0 13px"
+  button-ink:
+    backgroundColor: "{colors.btn-ink}"
+    textColor: "{colors.btn-ink-text}"
+    rounded: "{rounded.pill}"
+    height: "30px"
+    padding: "0 13px"
+  button-quiet:
     backgroundColor: "transparent"
-    textColor: "{colors.graphite-8}"
-    rounded: "{rounded.control}"
-    height: "32px"
+    textColor: "{colors.ink-2}"
+    rounded: "{rounded.pill}"
+    height: "30px"
+  button-quiet-hover:
+    backgroundColor: "{colors.fill}"
+    textColor: "{colors.ink}"
+  button-danger:
+    backgroundColor: "{colors.fill-2}"
+    textColor: "{colors.red}"
+    rounded: "{rounded.pill}"
+    height: "30px"
+  button-confirm:
+    backgroundColor: "{colors.red}"
+    textColor: "#ffffff"
+    rounded: "{rounded.pill}"
+    height: "30px"
   button-small:
-    rounded: "{rounded.control}"
-    height: "28px"
-    padding: "0 9px"
+    rounded: "{rounded.pill}"
+    height: "26px"
+    padding: "0 10px"
   input:
-    backgroundColor: "{colors.graphite-1}"
-    textColor: "{colors.graphite-9}"
-    rounded: "{rounded.control}"
-    height: "32px"
-    padding: "0 9px"
-  tape-id:
-    backgroundColor: "{colors.graphite-8}"
-    textColor: "{colors.graphite-1}"
-    typography: "{typography.title}"
-    rounded: "{rounded.tape}"
-    height: "22px"
-    padding: "0 8px"
-  badge:
-    backgroundColor: "{colors.graphite-3}"
-    textColor: "{colors.graphite-7}"
-    typography: "{typography.label}"
-    rounded: "{rounded.badge}"
-    height: "20px"
-    padding: "0 8px"
-  well:
-    backgroundColor: "{colors.graphite-2}"
+    backgroundColor: "{colors.fill}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.field}"
+    height: "30px"
+    padding: "0 10px"
+  segmented:
+    backgroundColor: "{colors.fill-2}"
+    rounded: "{rounded.seg}"
+    padding: "3px"
+  segmented-selected:
+    backgroundColor: "{colors.card-solid}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.seg-item}"
+    height: "26px"
+  toolbar:
+    backgroundColor: "{colors.bar}"
+    height: "{spacing.bar}"
+    padding: "0 20px"
+  inspector:
+    backgroundColor: "{colors.card}"
+    rounded: "{rounded.panel}"
+    padding: "{spacing.inset}"
+  facts:
+    backgroundColor: "{colors.fill}"
     rounded: "{rounded.well}"
-    padding: "{spacing.well-pad}"
-  plate:
-    backgroundColor: "{colors.graphite-0}"
-    rounded: "{rounded.plate}"
-    padding: "6px"
-  panel:
-    backgroundColor: "{colors.graphite-2}"
-    rounded: "{rounded.well}"
-  top-bar:
-    backgroundColor: "{colors.graphite-2}"
-    height: "{spacing.top-bar}"
+    padding: "10px 12px"
+  popover:
+    backgroundColor: "{colors.card-solid}"
+    rounded: "{rounded.sheet}"
+    padding: "16px"
 ---
 
 # Design System: agent-emu
 
 ## Overview
 
-**Creative North Star: "The Assay Plate"**
+**Creative North Star: "The Studio Sweep"**
 
-The Fleet is a lab plate on a graphite bench: eight fixed wells in two rows of four, each well a phone-shaped recess at true iPhone 17 Pro Max aspect (1320 x 2868). Every well is always present, empty or not, so the plate itself is the inventory; there is no instance table beside a single viewer. A well's state is read from its rim the way a reagent is read from a tube: dashed and colourless when empty, amber while booting, teal when running, red when failed.
+The Fleet is a product shoot. Eight phones stand on a seamless cove that fades from a darker wall to a pale floor, each one a physical object: black glass in a thin bezel with a soft contact shadow under it, and a quiet caption under that. The focused phone stands large beside them, with a frosted inspector card at its side. By day the sweep is warm paper grey; by night it is deep graphite. Both themes come from the same tokens through `light-dark()`.
 
-The bench is dark, dense and neutral. All structure comes from one ten-step graphite ramp with near-zero chroma; hue is reserved for reagents, which carry state and nothing else. Labels are set like lab tape in Bahnschrift with tabular figures, so Device ids, RAM and frame counts line up and read as instrument output. The room is a working desk at 1920 and 2560 wide: the plate fills the height, the focused Device stands full height in the stage, and controls sit in a collapsible side panel.
+Everything around the phones is quiet material: a translucent toolbar over the sweep, frosted cards, near-black ink pill buttons (white in dark mode). Hue appears only to report state (green running, amber warming, red fault) and in one reserved colour, indigo, for focus, selection and the thing your hand is on. The type is the system face, set with tight tracking and tabular figures.
 
-Motion is functional and short. Boot is a reagent fill rising up the well rim with progress, then a teal pulse when the Device is ready; the focused well lifts 5px while the others hold still. Reduced motion removes all of it.
+Motion is short and physical. A booting phone's glass warms up like studio lights coming on, through four phase marks, and gives one soft glint when it is ready. Buttons press in to 96.5%, the selected phone rises 4px, and popovers and toasts settle in over about 0.2s. Reduced motion removes all of it.
 
 **Key Characteristics:**
-- Ten graphite steps for every neutral; hue only on reagents.
-- Phone-shaped recesses with a state rim are the core unit, at true device aspect.
-- Bahnschrift tape labels with tabular figures for ids, states and measurements.
-- Tonal layering for depth; shadow only on the lifted, focused well and floating panel.
-- Inline progress everywhere: busy buttons breathe a 2px bar, wells fill their rim.
+- Seamless sweep ground: a vertical gradient plus a soft light pool behind the grid.
+- Phones are objects: black glass, layered bezel rings, two-part contact shadow, true 1320 x 2868 aspect.
+- Translucent and frosted surfaces (`backdrop-filter` blur) over the sweep, never opaque slabs.
+- Ink pill buttons; state colour only as a dot or text, never as a fill, except for the confirm step.
+- Indigo is reserved for focus, selection, drop targets and touch traces.
 
 ## Colors
 
-A near-achromatic graphite bench with four saturated reagents that only ever mean state or action.
+A warm-neutral tonal family for the sweep and ink, three state colours, and one reserved indigo. Every token is a `light-dark()` pair.
 
 ### Primary
-- **Indicator Teal** (`reagent-teal`): running Devices (rim, badge, RAM budget segment), the one primary action per region (Start), checkbox accent, input focus ring, the live brand dot. Text on it is always **Teal Ink** (`reagent-teal-ink`).
+- **Studio Indigo** (`indigo`): the selected phone's ring, every focus outline, checkbox accent, text selection, APK drop targets, swipe traces, links inside notes, and the busy pulse on a caption dot. It never shows state.
 
 ### Secondary
-- **Boot Amber** (`reagent-amber`): booting, queued and stopping states; the rising rim fill; warnings in the budget caption and `W` log lines. Ink pair `reagent-amber-ink`.
-
-### Tertiary
-- **Fault Red** (`reagent-red`): failed wells (rim, veil tint, heading), destructive buttons (outline variant at rest, filled only for confirm), the 4000 MB host RAM floor marker, `E`/`F` log lines, app-side issues. Ink pair `reagent-red-ink`.
-- **Transfer Blue** (`transfer-blue`): drag-and-drop targets only (APK drop zone, a well accepting a drop) and the swipe touch trace. Never a state colour.
+- **Running Green** (`green`): the running dot on captions and in tables, the connected dot by the wordmark, passing counts in Test runs.
+- **Warm-up Amber** (`amber`): booting, queued and stopping dots (breathing), the boot phase marks, `W` log lines.
+- **Fault Red** (`red`): failed captions and glass headings, the host-RAM floor marker, `E`/`F` log lines, failed checks and counts, the danger button text, and the filled confirm button.
 
 ### Neutral
-- **Bench Black** (`graphite-0`): the plate tray, phone glass, log well.
-- **Bench** (`graphite-1`): page ground, input fields.
-- **Surface** (`graphite-2`): top bar, wells, stage, side panel.
-- **Raised** (`graphite-3`): resting buttons, hover rows, badge ground.
-- **Rule** (`graphite-4`): borders, dividers, empty rim, unfilled rim track.
-- **Stroke** (`graphite-5`): control borders, dashed empty-rim, pressed segment.
-- **Lift** (`graphite-6`): hover borders, selected well border.
-- **Muted Ink** (`graphite-7`): secondary text, captions, field labels, placeholders.
-- **Soft Ink** (`graphite-8`): ghost button text, log text, tape id ground.
-- **Ink** (`graphite-9`): primary text, focus outline, selected tape id.
+- **Sweep Wall / Mid / Floor** (`sweep-top`, `sweep-mid`, `sweep-floor`): the page gradient, top to bottom. **Light Pool** (`pool`) is the soft radial light behind the grid.
+- **Ink** (`ink`), **Ink 2** (`ink-2`), **Ink 3** (`ink-3`): primary text; secondary text and labels; idle dots, separators and placeholders.
+- **Line** (`line`), **Line 2** (`line-2`): hairline dividers; card edges, hover borders, dashed drop zones.
+- **Fill** (`fill`), **Fill 2** (`fill-2`): input and quiet-hover ground; default button and segmented-control ground.
+- **Card** (`card`): frosted inspector, run list and case list. **Card Solid** (`card-solid`): popovers, the selected segment, the current run.
+- **Bar** (`bar`): the translucent toolbar.
+- **Button Ink** (`btn-ink`) with **Button Ink Text** (`btn-ink-text`): the primary pill.
+- **Glass** (`glass`): the phone screen, the same in both themes.
 
 ### Named Rules
-**The Bench Ramp Rule.** Every neutral is one of the ten graphite steps. Tints are made by `color-mix` of a reagent into a ramp step (12-13% for badges, 6% for a failed veil), never by a new hex.
+**The One Reserved Colour Rule.** Indigo means "this one, here, now": focus, selection, a drop target, a touch. It is never used for state or decoration.
 
-**The Reagent Means State Rule.** Teal, amber and red appear only to report a Device state, a budget limit, or the action that changes one. Blue appears only while something is being dropped or swiped.
+**The State Dot Rule.** Green, amber and red appear as a 7px dot, a text colour or a thin mark. The only solid red fill is the second click of a destructive action.
 
 ## Typography
 
-**Display Font:** Bahnschrift (with DIN Alternate, Segoe UI, system-ui)
-**Body Font:** Segoe UI Variable Text (with Segoe UI, system-ui)
-**Label/Mono Font:** Cascadia Mono (with Consolas, ui-monospace)
+**Display Font:** Segoe UI Variable Display (with Segoe UI, system-ui, -apple-system, sans-serif)
+**Body Font:** Segoe UI Variable Text (with Segoe UI, system-ui, -apple-system, sans-serif)
+**Label/Mono Font:** Cascadia Mono (with Consolas, ui-monospace, monospace)
 
-**Character:** A condensed DIN face for everything that names or measures (ids, states, section titles), a quiet humanist sans for sentences, and a monospace for raw device output. All three ship with Windows, which the panel needs because it loads nothing from the network.
+**Character:** The Windows system faces in their optical sizes: Display for names and headings with negative tracking, Text for everything else, Cascadia for raw device output. The panel loads nothing from the network, so it uses what ships with the machine.
 
 ### Hierarchy
-- **Display** (700, 26px): the focused Device id in the stage sidebar.
-- **Headline** (700, 19px, 0.01em): the product name in the top bar.
-- **Title** (600-700, 15px): side panel section summaries, panel head, well tape ids; veil headings run at 17px/600.
-- **Body** (400, 14px, 1.5): default text and controls.
-- **Body small** (400, 12.5-13px, 1.45): notes, captions, facts lists, field labels, table cells.
-- **Label** (600, 12px, 0.03em, uppercase, semi-condensed): state badges and the app/system side tag (11.5px, 0.04em). Labels with figures use tabular numerals.
-- **Mono** (400, 11-12px, 1.45): log stream, raw error text in a failed veil, command output, `kbd`.
+- **Display** (650, 26px, 1.1, -0.02em): the run heading in Test runs; the big memory figure runs at 600/26px.
+- **Headline** (650, 24px, 1.1, -0.02em): the focused phone's id in the inspector.
+- **Title** (650, 15px, -0.01em): the wordmark, popover and section headings, the heading on a phone's glass. Run stats use 600/22px.
+- **Caption name** (650, 13.5px, -0.01em): the phone id under each phone.
+- **Body** (400, 13px, 1.45, -0.003em): default text and controls; button labels at 560.
+- **Label** (560, 11.5-12px): state pills, caption meta, small buttons, legends, notes; figures in tabular numerals.
+- **Mono** (400, 11-11.5px, 1.45-1.5): logs, command output, raw errors on the glass (10.5px), `kbd`.
 
 ### Named Rules
-**The Tape Rule.** Anything that identifies or measures (Device id, state, RAM, fps, counts) is set in Bahnschrift or with `tabular-nums` so columns do not jitter while values update.
+**The Steady Figures Rule.** Any number that updates (RAM, fps, counts, uptime, durations) uses `tabular-nums` so it does not jitter.
 
 ## Layout
 
-A full-viewport, three-column desk under a 52px top bar: the plate (max-content), the focus stage (fills), and the side panel (`clamp(360px, 18vw, 460px)`), separated by 14px gaps with 14px outer padding. The top bar holds the brand, the host RAM budget bar (up to 760px, segmented per Device with the 4000 MB floor marked), a live status line, and Start / Stop all / Focus view.
+A full-viewport desk under a 56px toolbar. The toolbar holds the wordmark with its connection dot, a centred Phones / Test runs segmented control, and on the right the memory meter, the Start split button and Stop all.
 
-The plate is a 4 x 2 grid of wells with 10px gaps. Phone height is derived from the viewport so two rows exactly fill the height under the top bar (minimum 250px); width follows at 1320/2868. Each well stacks a 30px tape row, the recess, and a 36px action row, with 8px inner padding. The stage centres one phone at full available height using a size container, with a 236px side column (196px under 2200px wide).
+The Phones view is two columns with a 32px gap and 22px / 28px page padding: a 4 x 2 grid of phones (18px gaps, each phone over a 46px caption) and the focus area. Phone height is derived from the container so two rows fill the height, capped so the grid takes at most about 60% of the width. The focus area holds the large phone, centred at full height, and the inspector (`clamp(300px, 22vw, 380px)`, 300px under 1280px wide) with 28px between them. Inside the inspector, content sits on an 18px inset.
 
-The panel collapses to a 48px icon rail; the stage can be hidden. Under 1500px wide the stage loses its side column and the open panel floats over the stage (fixed, 360px) instead of taking a column.
+Test runs is a 300px run list beside a scrolling detail column (24px gap): heading and stats, the case list, then a screenshot grid (min 150px cells, 16px gaps).
+
+Under 980px the page scrolls, the toolbar wraps, the grid drops to two columns of 300px phones, the large phone hides, and the inspector follows below.
 
 ## Elevation & Depth
 
-Depth is tonal: the plate tray sits darkest (`graphite-0`) with a faint inset shadow, wells and panels rise one step to `graphite-2`, controls to `graphite-3`. Shadows are reserved for things that are physically lifted out of the bench.
+A hybrid: frosted translucency for chrome, soft lit shadows for objects. The shadow colour is a token (`light-dark(rgb(40 34 24 / .16), rgb(0 0 0 / .55))`), warm by day.
 
 ### Shadow Vocabulary
-- **Tray inset** (`box-shadow: inset 0 1px 3px rgba(0,0,0,.6)`): the plate tray, so wells read as seated in it.
-- **Lifted well** (`box-shadow: 0 10px 28px -10px rgba(0,0,0,.8), 0 0 0 1px var(--z6)` with `translateY(-5px)`): the focused well only.
-- **Floating panel** (`box-shadow: 0 12px 24px -8px rgba(0,0,0,.8)`): the side panel when it overlays the stage on narrow windows.
-- **Ready pulse** (teal ring expanding 0 to 14px over 0.7s): once, when a Device becomes ready.
+- **Contact shadow** (`0 14px 26px -12px var(--shadow), 0 26px 30px -26px var(--shadow)`): every phone, with the bezel rings above it.
+- **Lifted phone** (`0 22px 34px -14px var(--shadow), 0 34px 36px -28px var(--shadow)` with `translateY(-4px)`): the selected phone.
+- **Card edge** (`0 0 0 .5px var(--line-2), 0 12px 34px -18px var(--shadow)`): the inspector; lists use the hairline alone.
+- **Raised chip** (`0 1px 3px var(--shadow), 0 0 0 .5px var(--line)`): the selected segment and the current run.
+- **Floating sheet** (`0 18px 50px -12px var(--shadow), 0 0 0 .5px var(--line-2)`): popovers.
+- **Toast** (`0 12px 30px -12px rgb(0 0 0 / .5)`): toasts over the page.
 
 ### Named Rules
-**The One Lift Rule.** Only the focused well lifts; the other seven hold their place. Selection is shown by lift and a `graphite-6` border, never by a reagent colour.
+**The Lit Object Rule.** Phones and floating things cast soft shadows; chrome is frosted instead. Shadows are always soft and offset downward, never hard.
 
 ## Shapes
 
-Soft-cornered instruments on a soft-cornered tray: controls at 7px, grouped controls at 8px, wells, stage and panel at 14px, the plate tray at 18px. Badges are 4px and tape ids are nearly square (1px), like a strip of label tape. The phone glass uses the device's own elliptical corner (`12.5% / 5.75%`) inside a 5px near-black bezel; the rim follows that shape 4px outside it. Empty and queued states swap the solid rim for a 1.5px dashed stroke, and the APK drop zone uses the same dashed stroke at 9px.
+Pills for anything you press (buttons, steppers, the memory meter, the glass HUD). Rounded rectangles grow with size: 7px segments, 8px fields, 10px segmented track, 12px wells and drop zones, 14px popovers, toasts and screenshot thumbs, 16px case list, 18px inspector and run list. The phone uses the device's elliptical corner (`13% / 6%`). Dots are circles; legend swatches are 2px squares. The APK drop zone is a 1.5px dashed `line-2` stroke.
 
 ## Components
 
 ### Buttons
-Quiet, tactile, one vocabulary everywhere.
-- **Shape:** gently rounded (7px), 32px tall, 12px side padding, 550 weight, 16px stroke icon with 6px gap.
-- **Default:** `graphite-3` ground with a `graphite-5` border; hover steps up one graphite step on both; press nudges 1px down onto `graphite-5`.
-- **Primary:** filled Indicator Teal with Teal Ink text. One per region: top bar Start, Start N, a well's Start.
-- **Danger:** default ground with red text; hover adds a red border and 12% red tint. **Confirm** is the filled red version, used only for the second click of a destructive action.
-- **Ghost:** transparent, Soft Ink text; used for icon rails, well action rows and toggles.
-- **Small / Icon:** 28px tall (9px padding), icon-only squares at 28 or 32px; well actions are 26px wide.
-- **Busy:** `aria-busy` draws a 2px breathing bar in the current colour along the bottom edge; the label stays readable.
-- **Disabled:** 42% opacity.
+Soft pills, one vocabulary everywhere.
+- **Shape:** full pill (999px), 30px tall, 13px side padding, 560 weight, 16px stroke icon with a 6px gap.
+- **Default:** `fill-2` ground with Ink text; hover mixes 6% ink in; press scales to 0.965.
+- **Ink (primary):** Button Ink with Button Ink Text; hover mixes 14% indigo in. One per region: Start, Start on the glass.
+- **Quiet:** transparent, Ink 2 text; hover fills `fill` and turns Ink.
+- **Danger:** default ground with red text. **Confirm** is solid red with white text, only for the second click.
+- **Small / Icon:** 26px tall, 10px padding, 12px text; icon squares at 30 or 26px.
+- **Busy:** a white sheen sweeps across the button and input is blocked.
+- **Disabled:** 38% opacity.
+- **Split:** Start and its menu chevron share one pill with a 1px seam.
 
 ### Chips
-- **State badge:** 20px tall, 4px radius, uppercase Bahnschrift label with a 6px dot in the current colour. Muted on `graphite-3` when empty; teal, amber or red text on a 12-13% reagent tint when running, booting/queued/stopping, or failed.
-- **Segmented toggle:** 4px-padded group with an 8px outline; the pressed segment fills `graphite-5`.
+- **State pill:** a 7px dot plus a 560-weight label in Ink 2. Dot is green running, breathing amber while warming or stopping, red (with red text) when failed, Ink 3 when off.
+- **Segmented control:** `fill-2` track, 3px padding, 10px radius; the selected item turns Card Solid with the raised-chip shadow.
 
 ### Cards / Containers
-- **Corner Style:** 14px.
-- **Background:** `graphite-2` on the `graphite-1` page.
-- **Shadow Strategy:** none at rest (see Elevation & Depth).
-- **Border:** 1px `graphite-4`.
-- **Internal Padding:** 14px for stage and panel sections, 8px inside wells.
+- **Corner Style:** 18px for the inspector and run list, 16px for the case list, 12px for inner wells (facts, drop zone).
+- **Background:** frosted Card (blur 20px) over the sweep; inner wells on `fill`.
+- **Shadow Strategy:** card edge (see Elevation & Depth).
+- **Border:** none; a 0.5px `line-2` ring drawn in the shadow.
+- **Internal Padding:** 18px; facts wells 10px / 12px.
 
 ### Inputs / Fields
-- **Style:** `graphite-1` ground, 1px `graphite-5` border, 7px radius, 32px tall, 9px side padding; placeholder in Muted Ink.
-- **Focus:** 2px teal outline with the border turning teal.
-- **Fields:** a 76px muted label column beside the control. Checkboxes are 16px with teal accent; the count stepper is a bordered 32px group with a Bahnschrift figure.
+- **Style:** `fill` ground, transparent 1px border, 8px radius, 30px tall, 10px padding; placeholder in Ink 3.
+- **Focus:** 2px indigo outline. Hover shows a `line-2` border.
+- **Fields:** a muted label column (92px in popovers, 62px in the inspector) beside the control. Checkboxes are 16px with indigo accent; the count stepper is a 30px pill.
 
 ### Navigation
-- **Side panel:** collapsible `details` sections with a Bahnschrift 15px summary, a chevron that rotates 90 degrees when open, a muted right-aligned aside naming the focused Device, and `graphite-3` on hover. Collapsed, the panel becomes a 48px rail of ghost icon buttons that open a section.
-- **Focus:** a global 2px Ink outline offset 2px; a focused phone canvas outlines its rim instead.
+- **Toolbar:** translucent Bar with `saturate(1.6) blur(18px)` and a hairline bottom edge.
+- **Views:** the centred segmented control switches Phones and Test runs.
+- **Popovers:** native `[popover]` sheets under the toolbar, 360px wide, 16px inner padding.
+- **Focus:** global 2px indigo outline, offset 2px; a focused phone canvas outlines 8px outside the bezel.
 
-### The Well (signature)
-A well is a tape row (id chip, state badge, tabular fps/RAM meta, crash link), a phone recess, and a ghost action row (back, home, recents | open app, screenshot | restart, stop). The recess holds the glass and a **rim** masked to a 3px ring: an amber linear fill rises from the bottom to the boot progress, then turns solid teal with a single ready pulse. Failed wells turn the rim red and tint the veil red. When there is no picture, a centred **veil** states what the well is doing in plain words with a Bahnschrift heading, one action, and raw error text in mono if any. Taps leave a fading Ink ring; swipes leave a blue one. Status toasts float over the bottom of the well and fade in and out.
+### The Phone (signature)
+Black glass at device aspect inside layered bezel rings (1px edge, 3.5px bezel, 4.5px outer hairline) with the contact shadow. Off phones show a faint diagonal reflection and a Start pill on the glass. While booting, a warm radial light brightens the glass with progress, four phase marks fill in amber (widths 1:2:4:1), and elapsed time sits beneath. On ready, one white glint sweeps across. When running, hovering the glass raises a frosted dark HUD pill at the bottom with system keys and Stop. Taps leave a fading white ring; swipes an indigo one. Selected: lifted 4px with a 6.5px indigo ring. Under the phone, the caption: Display-face id, state pill, and a tabular meta line separated by middots.
 
-### Host RAM Budget Bar
-A 10px bar on `graphite-1` with a `graphite-4` border: one teal segment per running Device (amber while booting), a mixed teal segment for shared memory, transparent free space, and a 2px red marker at the 4000 MB free floor. A tabular caption below reads Devices own + shared, Host free, and how many more fit; it turns amber when room is short.
+### Toasts
+Frosted dark pills (14px radius, blur 16px) centred near the bottom, white 12.5px text, sliding up 8px on entry; errors turn deep red.
 
 ## Do's and Don'ts
 
 ### Do:
-- **Do** take every neutral from `graphite-0` to `graphite-9` and make tints with `color-mix` against a ramp step.
-- **Do** show a Device's state on its rim and badge in the reagent colour, and nowhere else.
-- **Do** keep all eight wells on the plate at all times, at true 1320 x 2868 aspect.
-- **Do** set ids, states and measurements in Bahnschrift or with tabular figures.
-- **Do** show slow work inline: the rising rim fill, the breathing 2px bar on a busy button, a status toast in the well.
-- **Do** keep one teal primary action per region, with Teal Ink text on it.
+- **Do** take every colour from the `:root` tokens and their `light-dark()` pairs, so both themes stay in step.
+- **Do** keep all eight phones on the sweep, at true 1320 x 2868 aspect, with bezel and contact shadow.
+- **Do** show state as a dot or text colour in green, amber or red.
+- **Do** use indigo only for focus, selection, drop targets and touch traces.
+- **Do** use ink pill buttons, one ink primary per region.
+- **Do** set changing numbers in tabular figures.
+- **Do** confirm destructive actions in place: red text first, solid red only on the second click.
 - **Do** honour `prefers-reduced-motion` by removing transitions and animations.
 
 ### Don't:
-- **Don't** add hue to the graphite ramp or introduce off-ramp neutrals.
-- **Don't** use teal, amber or red for decoration, selection or branding beyond the live dot.
-- **Don't** use blue for anything but drop targets and swipe traces.
-- **Don't** lift or shadow anything but the focused well and the floating panel.
-- **Don't** replace the plate with a table or list of Devices beside a single viewer.
-- **Don't** fill a destructive button red until the confirm step.
+- **Don't** replace the phone grid with a table or list of Devices beside a single viewer.
+- **Don't** fill buttons or surfaces with state colours, except the confirm step.
+- **Don't** use indigo to show state or as decoration.
+- **Don't** use hard offset shadows; every shadow is soft and lit from above.
+- **Don't** put opaque slabs over the sweep; chrome is translucent or frosted.
