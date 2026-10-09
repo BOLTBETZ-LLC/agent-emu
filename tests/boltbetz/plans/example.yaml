@@ -1,0 +1,14 @@
+# Tiny plan: one item of each kind, 4 cases. python plan.py run plans/example.yaml --phones 2 --dry
+name: example
+items:
+  - cases: cases/L4-01-*                      # existing case file(s) by glob
+    priority: P0
+  - goal: "See my rewards and offers"         # Jev decide taps toward it, then a judge check
+    until_id: rewards-screen
+    requires_state: funded-25                 # catalog state: emulator lane_state per chunk (ticket 06)
+  - pict: matrix/models/home.pict             # PICT rows -> cases via matrix/gen.py
+    limit: 1
+  - flow: home                                # gen.py area x states x faults on a real row of its model
+    step: home_load
+    states: [zero_balance]                    # a model State value: the case seeds it itself
+    faults: [none]

@@ -281,6 +281,36 @@ Env: `AE_API` (daemon HTTP, default `http://127.0.0.1:7401`), `AE_RUNS_DIR` (res
 `AE_SANDBOX_NOTE` (test-card note for card cases, default `C:/dev/boltbetz-docs/70-ops/ops-sandbox-test-account.md`).
 Runs before 2026-10-09 stay in `.scratch/test-matrix/runner/results`.
 
+### Plans
+
+A test plan in, chunks dealt across N phones out: `tests/boltbetz/plan.py` (needs PyYAML, installed).
+```sh
+python plan.py run plans/example.yaml --phones 2 --dry   # cases, chunks, deal, est. wall time, critical chunk; starts nothing
+python plan.py run plans/example.yaml --phones 2         # boots missing phones, runs, stops the phones IT booted
+python plan.py run plans/example.yaml --phones 2 --keep  # leaves them running
+```
+- **Plan YAML** (`plans/<name>.yaml`, paths relative to `tests/boltbetz`): `items`, each one of
+  `pict: matrix/models/home.pict` (rows via `matrix/gen.py`), `cases: cases/L4-0*` (glob),
+  `goal: "plain words"` (Jev `decide` toward it, optional `until_id`, then a `judge` check; taps only, no typing),
+  `flow: <gen area>` + `step`, `states`, `faults` (cross product on the plainest real row of that model; fault `none`,
+  `synkros:<code>`, `<appfault>` or `<appfault>@<endpoint>`; values are checked against the model). Any item:
+  `priority` (P0 first, default P1), `requires_state`, `area`, `timeout_s`, `limit` (first N cases). A flow state that
+  is a model `State` value is seeded by the case itself; any other name becomes `requires_state`.
+  Free text or a PR diff is turned into this YAML by an agent first; plan.py never runs free text.
+- **Phones:** `--phones N` = the first N lanes.json phones (d0=L1, d1=L2, ...); N above the lane count is refused.
+  `--phones d0,d2` picks exact lane phones (when another agent holds one of the first N).
+  Missing phones boot 2 at a time (`slim5`, `iphone17promax-half`, `keep_data`). Refused when the boots need more than
+  (`available_mb` - 4000) / 750 MB; the message names the max N. Phones already up are used and never stopped.
+- **Chunks:** cases grouped by (`requires_state`, pinned lane), each group cut into equal chunks of at most ~8 min
+  (estimate = newest wall time in `results/`, else gen's estimate, else `timeout_s / 4`, plus ~4 s reset per case).
+  Phones pull chunks P0 first, longest first; a pinned chunk runs only on its lane's phone (no phone = SKIP).
+- **State per chunk:** before a chunk with a `requires_state`, the runner calls the emulator
+  `POST /admin/api/lanes/{lane}/state` (ticket 06). Until it exists (404/405) it logs `state op unavailable` once,
+  runs the cases on the per-case reset and marks each result `state_note: requires_state X not set`. Another error
+  FAILs the chunk's cases. Per case: run.py's reset + `run_case` (no retry in plan mode).
+- **Results:** same folder and `results.json`/`grid.md` as matrix mode, plus `plan.json` (chunks and deal);
+  each result carries `chunk`. Offline check: `python test_plan.py`.
+
 **Through MCP:** `run_case` `{"device":"d3","case":"L4-01"}` and `run_lanes` `{"phones":["d0","d1","d2","d3"],"lanes":["L4"]}`
 (`lanes` optional) run `run.py` from the MCP process and block until done. Reply: the PASS/FAIL grid, then
 `{"exit","passed","results","stderr"}` with `results` = the run's folder. The MCP finds `tests/boltbetz/run.py`
