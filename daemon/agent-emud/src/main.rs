@@ -879,11 +879,13 @@ async fn handle(st: &Arc<State>, conn: u64, req: &Value) -> R<Value> {
             return squeeze::squeeze(&d, &d.crosvm, pid, o).await;
         }
         "install_bundled" => {
-            // The image's own APK (apk.img on /dev/block/vdb, size in <run>/apk.size), over the console: no adb needed.
+            // The image's own APK (apk.img on /dev/block/vdb), over the console: no adb needed. Size from the Device
+            // dir's apk.size, linked at boot with its apk.img, so a swap (set-bundled-apk.ps1) never mismatches them.
             let name = st.devs.lock().unwrap().get(devid).and_then(|s| s.info["image_name"].as_str().map(str::to_string)).unwrap_or_default();
             let run = device::image(&name)?.0;
-            let size: u64 = std::fs::read_to_string(st.cfg.work.join(run).join("apk.size")).ok()
-                .and_then(|s| s.trim().parse().ok()).ok_or(format!("{run}/apk.size missing"))?;
+            let read = |p: std::path::PathBuf| std::fs::read_to_string(p).ok().and_then(|s| s.trim().parse::<u64>().ok());
+            let size = read(d.dir.join("apk.size")).or_else(|| read(st.cfg.work.join(run).join("apk.size")))
+                .ok_or(format!("{run}/apk.size missing"))?;
             let (o, _) = d.con.exec(&format!("head -c {size} /dev/block/vdb > /data/local/tmp/p.apk && chmod 644 /data/local/tmp/p.apk &&                 pm install -r /data/local/tmp/p.apk; rm -f /data/local/tmp/p.apk"), Duration::from_secs(300)).await?;
             if !o.contains("Success") {
                 return Err(format!("install: {o}"));

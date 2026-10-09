@@ -19,7 +19,7 @@ const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 // Read-only images every Device hard-links from run/ (one disk copy, one Windows file cache).
 const SHARED: &[&str] = &["kernel", "initrd.img", "kernel-dax", "initrd-dax-pmem.img", "initrd-dax-slim.img", "boot.img", "init_boot.img",
     "vendor_boot.img", "vbmeta.img", "vbmeta_system.img", "vbmeta_system_dlkm.img", "vbmeta_vendor_dlkm.img",
-    "super.img", "apk.img"];
+    "super.img", "apk.img", "apk.size"];
 const PARTS: &str = "misc:misc.img:writable frp:frp.img:writable boot_a:boot.img boot_b:boot.img \
     init_boot_a:init_boot.img init_boot_b:init_boot.img vendor_boot_a:vendor_boot.img vendor_boot_b:vendor_boot.img \
     vbmeta_a:vbmeta.img vbmeta_b:vbmeta.img vbmeta_system_a:vbmeta_system.img vbmeta_system_b:vbmeta_system.img \

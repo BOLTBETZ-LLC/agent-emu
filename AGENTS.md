@@ -129,6 +129,18 @@ than `status`/`stop` on a phone that is not up fail with `Device dN is still boo
   not a hang.
 - **Settings of a running phone** (image, screen, RAM) change only by `stop` then `start`.
 
+**Bundled APK** (what `install_bundled` and `fleet` install): EAS staging build `4cd7f3dc` (1.4.0, versionCode 22),
+kept at `C:\dev\agent-emu-work\apk\boltbetz-staging-4cd7f3dc.apk`. Previous one (2026-10-07) beside it as
+`boltbetz-staging-prev-2026-10-07.apk`.
+- **Rule: the bundled build's fingerprint must match today's staging OTA fingerprint.** Otherwise the app never
+  takes the staging OTA and the phone tests old JS. Check after an install + two launches:
+  `/data/data/com.boltbetz.staging/files/.expo-internal` is non-empty (the OTA was downloaded).
+- **Swap it:** put the new APK in `agent-emu-work\apk\`, then
+  `powershell -NoProfile -ExecutionPolicy Bypass -File daemon\set-bundled-apk.ps1 C:\dev\agent-emu-work\apk\<name>.apk`.
+  It writes `apk\<name>.img` (APK padded to 4 KiB) + `.size` and hard-links them as `apk.img`/`apk.size` into every
+  `run*` dir. Running phones keep their old APK (their Device dir holds its own links) and get the new one on their
+  next start. Then run `daemon\package.ps1` so the portable zip carries it.
+
 ## Read the screen
 
 1. **`ui_tree` first.** It is ~80 ms and gives exact ids. Each `<node>` carries `resource-id` (= the React Native

@@ -61,7 +61,7 @@ Put "$emu\source.properties" "emulator"
 foreach ($f in "adb.exe", "AdbWinApi.dll", "AdbWinUsbApi.dll", "libwinpthread-1.dll") { Put (Join-Path $Sdk "platform-tools\$f") "adb" }
 
 # 3. Images: run dir names come from device.rs image(); per run the files the daemon links into a Device dir
-#    (SHARED), its read-only pmems and apk.size.
+#    (SHARED, apk.img + apk.size included) and its read-only pmems.
 $src = Get-Content -Raw (Join-Path $PSScriptRoot "agent-emud\src\device.rs")
 $shared = [regex]::Matches([regex]::Match($src, '(?s)const SHARED: &\[&str\] = &\[(.*?)\];').Groups[1].Value, '"([^"]+)"') |
   ForEach-Object { $_.Groups[1].Value }
@@ -70,7 +70,7 @@ foreach ($name in $Images) {
   $m = [regex]::Match($src, "(?m)^\s*(?:""[^""]*""\s*\|\s*)*""$name""(?:\s*\|\s*""[^""]*"")*\s*=>\s*Ok\(\(""([^""]+)""")
   if (-not $m.Success) { throw "image $name not in device.rs image()" }
   $run = $m.Groups[1].Value
-  foreach ($f in @($shared) + @("system-pmem.img", "app-pmem.img", "system_ext-pmem.img", "product-pmem.img", "vendor-pmem.img", "apk.size")) {
+  foreach ($f in @($shared) + @("system-pmem.img", "app-pmem.img", "system_ext-pmem.img", "product-pmem.img", "vendor-pmem.img")) {
     $p = Join-Path $Work "$run\$f"
     if (Test-Path $p) { Put $p "images\$run" -Link }
   }
