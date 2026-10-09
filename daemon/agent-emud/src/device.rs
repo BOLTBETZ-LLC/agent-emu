@@ -397,6 +397,8 @@ use std::os::windows::process::CommandExt as _;
 
 /// Owns the guest console named pipe (crosvm accepts one client). Commands run one at a time.
 pub struct Console {
+    /// The pipe handle (adopt.rs parks a copy so the pipe outlives the daemon).
+    pub raw: isize,
     w: Mutex<WriteHalf<NamedPipeClient>>,
     buf: Arc<StdMutex<Vec<u8>>>,
     notify: Arc<Notify>,
@@ -414,6 +416,12 @@ impl Console {
                 Err(e) => return Err(format!("console pipe {name}: {e}")),
             }
         };
+        Ok(Console::from_pipe(pipe, log))
+    }
+
+    /// Console over an open pipe client (a fresh one, or one adopt.rs took over).
+    pub fn from_pipe(pipe: NamedPipeClient, log: PathBuf) -> Console {
+        let raw = std::os::windows::io::AsRawHandle::as_raw_handle(&pipe) as isize;
         let (mut r, w) = tokio::io::split(pipe);
         let (buf, notify, closed) = (Arc::new(StdMutex::new(Vec::new())), Arc::new(Notify::new()), Arc::new(AtomicBool::new(false)));
         let (b, n, c) = (buf.clone(), notify.clone(), closed.clone());
@@ -429,7 +437,7 @@ impl Console {
             c.store(true, Ordering::SeqCst);
             n.notify_waiters();
         });
-        Ok(Console { w: Mutex::new(w), buf, notify, closed, seq: AtomicU64::new(0) })
+        Console { raw, w: Mutex::new(w), buf, notify, closed, seq: AtomicU64::new(0) }
     }
 
     /// Run `cmd` as root in the guest shell; returns (stdout+stderr, exit code).
@@ -529,13 +537,13 @@ pub fn input_text_cmd(text: &str) -> String {
 pub struct Device {
     pub id: String,
     pub dir: PathBuf,
-    boot: Mutex<Option<Child>>,
+    pub(crate) boot: Mutex<Option<Child>>,
     pub con: Console,
     pub ready: AtomicBool,
-    last: StdMutex<Option<Vec<u8>>>,
-    gen: AtomicU64,
+    pub(crate) last: StdMutex<Option<Vec<u8>>>,
+    pub(crate) gen: AtomicU64,
     pub scale: StdMutex<f64>,
-    idx: u32,
+    pub(crate) idx: u32,
     pub input: OnceLock<Input>,
     pub fb: OnceLock<Arc<Fb>>,
     /// Crash/ANR events parsed from this boot's logcat.log (logs.rs).
@@ -567,6 +575,8 @@ pub struct Device {
     pub last_active_ms: AtomicU64,
     /// Open focused streams (/frames, or /mux `full`).
     pub focus: std::sync::atomic::AtomicU32,
+    /// Boot powershell (pid, start time) of a Device a previous daemon started (adopt.rs); None = `boot` holds it.
+    pub adopted: Option<(u32, u64)>,
 }
 
 /// A Device with input or a focused stream within this long is in use: its caps stay off.
@@ -630,7 +640,7 @@ impl Device {
         } else {
             cmd.env("AGENT_EMU_NO_NET", "1").env_remove("AGENT_EMU_ADB_PORT");
         }
-        let child = cmd
+        cmd
             .args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-File"]).arg(boot_script())
             // AE_XPARAMS / AE_XCROSVM: extra kernel cmdline / crosvm args for memory experiments (empty by default).
             .env("AE_PARAMS", format!("{DIET_PARAMS} {}", std::env::var("AE_XPARAMS").unwrap_or_default()).trim_end()).env("AE_SINKS", DIET_SINKS).env("AE_GPU_EXTRA", DIET_GPU)
@@ -646,7 +656,9 @@ impl Device {
             .env("AE_KERNEL", if is_phone(image_name) { "kernel" } else { "kernel-dax" })
             .env("AE_CROSVM", win(&crosvm)).env("AE_WORK", win(&cfg.work)) // boot-device.ps1 reads stage1/unpack from it
             .stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null())
-            .creation_flags(CREATE_NO_WINDOW).spawn().map_err(|e| format!("spawn boot: {e}"))?;
+            .creation_flags(CREATE_NO_WINDOW | crate::adopt::DETACH);
+        // Detached so the phone outlives the daemon (adopt.rs); a job that forbids breakaway refuses that flag.
+        let child = cmd.spawn().or_else(|_| cmd.creation_flags(CREATE_NO_WINDOW | 0x200).spawn()).map_err(|e| format!("spawn boot: {e}"))?;
         let con = match Console::open(&format!(r"\\.\pipe\agentemu-console-{idx}"), dir.join("console.log"), Duration::from_secs(60)).await {
             Ok(c) => c,
             Err(e) => {
@@ -660,7 +672,7 @@ impl Device {
             idx, input: OnceLock::new(), fb: OnceLock::new(), events: crate::logs::Events::spawn(dir.join("logcat.log")), net, phone: is_phone(image_name), density: dpi, crosvm, browser,
             headroom_mb: AtomicU64::new(0), headroom_in_mb: AtomicU64::new(0), balloon_base_mb: AtomicU64::new(0),
             caps: StdMutex::new(None), capped: AtomicBool::new(false), pids: StdMutex::new(vec![]), last_active_ms: AtomicU64::new(0),
-            focus: Default::default(),
+            focus: Default::default(), adopted: None,
         }))
     }
 
@@ -762,7 +774,7 @@ impl Device {
 
     /// pid of the boot powershell, the parent of this Device's crosvm broker.
     pub async fn boot_pid(&self) -> Option<u32> {
-        self.boot.lock().await.as_ref().and_then(|c| c.id())
+        self.boot.lock().await.as_ref().and_then(|c| c.id()).or(self.adopted.map(|a| a.0))
     }
 
     /// Kills the Device and returns only once its boot powershell, crosvm broker and every helper have
@@ -773,9 +785,12 @@ impl Device {
         if self.ready.swap(false, Ordering::SeqCst) {
             let _ = self.con.exec("sync", Duration::from_secs(15)).await;
         }
+        let _ = std::fs::remove_file(crate::adopt::path(&self.dir));
         let boot = self.boot.lock().await.take();
         let mut pids: Vec<u32> = self.pids.lock().unwrap().iter().map(|p| p.0).collect();
-        if let Some(bp) = boot.as_ref().and_then(|c| c.id()) {
+        // An adopted Device's boot process, only while it is still that process (never a reused pid).
+        let bp = boot.as_ref().and_then(|c| c.id()).or(self.adopted.filter(|a| crate::adopt::alive(a.0, a.1)).map(|a| a.0));
+        if let Some(bp) = bp {
             pids.push(bp);
             match crate::squeeze::procs(bp).await {
                 Ok(p) => pids.extend(p.iter().map(|p| p.pid)),
@@ -786,8 +801,8 @@ impl Device {
         pids.dedup();
         // Handles first, so a pid reused after the kill is never mistaken for ours.
         let hs = open_procs(&pids);
-        if let Some(c) = &boot {
-            kill_tree(c.id()).await;
+        if bp.is_some() {
+            kill_tree(bp).await;
         }
         let alive = tokio::task::spawn_blocking(move || wait_procs(hs, STOP_WAIT)).await.map_err(|e| e.to_string())?;
         *self.pids.lock().unwrap() = alive.iter().map(|&p| (p, false)).collect();

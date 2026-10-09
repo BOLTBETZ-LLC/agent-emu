@@ -58,6 +58,15 @@ The body is `{"call": "<name>", "device": "d0", ...}`. The reply is `{"ok": true
 | `squeeze` | `balloon_mb, cap_main_mb, cap_helper_mb` | balloon plus working-set caps |
 | `deep_link`, `set_location`, `clock`, `permission`, `shell`, `ui_tree`, `lease`, `release`, `fleet`, `fleet_stop` | | as on the agent API |
 | `quit` | | stops every Device and exits the daemon |
+| `quit` + `keep_devices: true` | | exits, phones keep running; the next daemon on the same agent address adopts them. Refused while a Device is still booting |
+| `restart` | `exe` (optional: the build to run next, default this exe) | saves every Device, starts the next daemon with the same arguments, exits. The next one waits for this one to exit, binds the ports and adopts the phones: same boot, `phase` `ready`, fast input and frames, logs and `crash_events` cursors still valid. Refused while a Device is still booting |
+
+**Phones outlive the daemon.** Each Device's crosvm runs detached (own process group, out of the daemon's job),
+and the daemon parks a copy of its console, touch and keyboard pipe handles in the Device's boot powershell, so
+crosvm's pipes stay connected while no daemon runs. `fleet\dNdopt.json` records the boot process (pid + start
+time), those handles, the agent address and the `start` options. At startup a daemon adopts every phone recorded
+for its own agent address (a crashed daemon's too); a record whose boot process is gone or whose pid was reused is
+deleted, one owned by another live daemon or address is left alone. `stop`, plain `quit` and failed boots delete it.
 
 `render`: `gfxstream` (default) draws on the host GPU: crosvm from `crosvm-gpu` (`AE_CROSVM_GPU`) with the Android
 SDK emulator's `lib64\libgfxstream_backend.dll` (`AE_SDK_EMULATOR`, default `%LOCALAPPDATA%\Android\Sdk\emulator`),

@@ -3,6 +3,7 @@
 //   agent-emud mcp     [--addr 127.0.0.1:7400]   MCP stdio server forwarding to the daemon
 // Request:  {"id":1,"call":"tap","device":"d0","x":100,"y":200}
 // Reply:    {"id":1,"ok":true,"ms":12,...} or {"id":1,"ok":false,"error":"..."}
+mod adopt;
 mod controls;
 mod device;
 mod fast;
@@ -82,6 +83,7 @@ fn main() {
     if args.get(1).map(String::as_str) == Some("mcp") {
         return mcp::run(&addr);
     }
+    adopt::wait_for_predecessor(); // `restart`: the old daemon frees the ports first
     tokio::runtime::Runtime::new().unwrap().block_on(serve(addr));
 }
 
@@ -93,6 +95,8 @@ async fn serve(addr: String) {
     tokio::spawn(ui::serve(st.clone(), ui_addr));
     let l = TcpListener::bind(&addr).await.expect("bind");
     eprintln!("agent-emud listening on {addr}");
+    let _ = adopt::ADDR.set(addr.clone());
+    adopt::adopt_all(&st, &addr).await;
     let conns = AtomicU64::new(1);
     loop {
         tokio::select! {
@@ -332,6 +336,9 @@ async fn start_device(st: &State, idx: u32, req: &Value) -> R<(Arc<Device>, f64)
         }
     }
     phase("ready");
+    if let Err(e) = adopt::save(st, &id, Some(req), adopt::addr()).await {
+        eprintln!("{id}: not adoptable by a later daemon: {e}");
+    }
     Ok((d, t0.elapsed().as_secs_f64()))
 }
 
@@ -786,6 +793,7 @@ async fn handle(st: &Arc<State>, conn: u64, req: &Value) -> R<Value> {
             return Ok(json!({"ok": true, "device": d.id, "ready_s": ready_s, "available_mb_before": avail, "dir": d.dir}));
         }
         "fleet" => return fleet(st, req).await,
+        "restart" => return adopt::restart(st, req, adopt::addr()).await,
         "fleet_stop" => {
             // Raise the flag first: a running fleet must not boot another Device after this stop.
             st.fleet_stop.store(true, Ordering::SeqCst);

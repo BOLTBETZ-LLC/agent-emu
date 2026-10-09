@@ -275,6 +275,17 @@ async fn conn(st: &Arc<State>, mut sock: TcpStream) -> R<()> {
                 });
                 return send(&mut sock, 202, "application/json", rep.to_string().as_bytes(), c).await;
             }
+            if r["call"] == json!("quit") && r["keep_devices"] == json!(true) {
+                // Exit, phones keep running; the next daemon on the same agent address adopts them.
+                let kept = crate::adopt::save_all(st, crate::adopt::addr()).await;
+                let rep = json!({"ok": kept.is_ok(), "kept": kept.as_ref().ok(), "error": kept.as_ref().err()});
+                send(&mut sock, 200, "application/json", rep.to_string().as_bytes(), c).await?;
+                if kept.is_ok() {
+                    eprintln!("quit from the panel; kept {kept:?} running");
+                    std::process::exit(0);
+                }
+                return Ok(());
+            }
             if r["call"] == json!("quit") {
                 send(&mut sock, 200, "application/json", br#"{"ok":true}"#, c).await?;
                 let stopped = crate::stop_all(st).await;

@@ -67,6 +67,8 @@ pub fn linux_key(keycode: &str) -> Option<u16> {
 }
 
 pub struct Input {
+    /// (touch, keyboard) pipe handles (adopt.rs parks copies so the pipes outlive the daemon).
+    pub raw: [isize; 2],
     touch: Mutex<NamedPipeClient>,
     kbd: Mutex<NamedPipeClient>,
     next_id: AtomicU64,
@@ -75,7 +77,13 @@ pub struct Input {
 impl Input {
     pub fn open(idx: u32) -> R<Input> {
         let o = |n: String| ClientOptions::new().open(&n).map_err(|e| format!("input pipe {n}: {e}"));
-        Ok(Input { touch: Mutex::new(o(touch_pipe(idx))?), kbd: Mutex::new(o(kbd_pipe(idx))?), next_id: AtomicU64::new(1) })
+        Ok(Input::from_pipes(o(touch_pipe(idx))?, o(kbd_pipe(idx))?))
+    }
+
+    pub fn from_pipes(touch: NamedPipeClient, kbd: NamedPipeClient) -> Input {
+        use std::os::windows::io::AsRawHandle;
+        let raw = [touch.as_raw_handle() as isize, kbd.as_raw_handle() as isize];
+        Input { raw, touch: Mutex::new(touch), kbd: Mutex::new(kbd), next_id: AtomicU64::new(1) }
     }
 
     async fn send(p: &mut NamedPipeClient, b: &[u8]) -> R<()> {
