@@ -15,7 +15,7 @@ Talks to the daemon's HTTP mirror (POST $AE_API/api, default http://127.0.0.1:74
 $AE_RUNS_DIR (default results/ beside this file). Port 7400 is newline-delimited JSON
 over raw TCP, which urllib cannot speak; every 7400 call is also on 7401 /api (API.md).
 """
-import json, os, re, sys, threading, time, urllib.request
+import atexit, json, os, re, signal, sys, threading, time, urllib.request
 from pathlib import Path
 
 API = os.environ.get("AE_API", "http://127.0.0.1:7401").rstrip("/")
@@ -62,6 +62,21 @@ def wait_for(device, keys, timeout_s=15):
         hit = next(filter(None, (find(ns, k) for k in keys)), None)
         if hit or time.time() > end:
             return hit, ns
+
+
+def wait_idle(device, timeout_s=8, ns=None):
+    """The app's qa-idle node (QA builds with the idle signal): content-desc "idle 0" or "busy <pending>".
+    Returns (state, ns): True idle, False still busy at timeout, None no node (older build: keep the old waits)."""
+    end = time.time() + timeout_s
+    while True:
+        ns = nodes(device) if ns is None else ns
+        n = find(ns, "qa-idle")
+        if n is None or (n.get("content-desc") or "").startswith("idle"):
+            return (None if n is None else True), ns
+        if time.time() > end:
+            return False, ns
+        time.sleep(0.1)
+        ns = None
 
 
 _scale = {}
@@ -114,8 +129,14 @@ def do_step(device, step, ctx=None):
             if step.get("optional"):
                 return
             raise RuntimeError(f"tap_id {step['tap_id']}: not on screen")
+        idle, ns = wait_idle(device, step.get("idle_s", 5))
+        if idle:  # the screen may have moved while it settled: tap where the node is now
+            n = find(ns, step["tap_id"]) or n
         x, y = n["center"]
         call(device, "tap", x=x, y=y, device_px=True, screenshot=False)
+    elif "wait_idle" in step:  # {"wait_idle": true, "wait_s": 10}: no-op on a build without the qa-idle node
+        if wait_idle(device, step.get("wait_s", 10))[0] is False:
+            raise RuntimeError("wait_idle: app still busy")
     elif "wait_id" in step:
         if not wait_for(device, step["wait_id"] if isinstance(step["wait_id"], list) else [step["wait_id"]],
                         step.get("wait_s", 15))[0]:
@@ -191,7 +212,9 @@ def do_step(device, step, ctx=None):
             step.update({k: round(v * f) for k, v in step.items() if k in ("x", "y", "x1", "y1", "x2", "y2")})
         call(device, name, **step)
         if name == "deep_link":  # the intent lands asynchronously; give the app time to act on it
-            time.sleep(0.8)
+            time.sleep(0.3)
+            if wait_idle(device)[0] is None:  # no idle signal: the old fixed pause
+                time.sleep(0.5)
 
 
 def do_check(device, chk, ctx, shot_dir, case_id):
@@ -247,7 +270,8 @@ def do_check(device, chk, ctx, shot_dir, case_id):
         return True, f"{chk['ui']} ok"
     if "judge" in chk:  # {"judge": "Home shows a $25.00 card balance"}: model verdict on the ui_tree (decide.py)
         import decide
-        time.sleep(chk.get("settle_s", 1))  # let the screen finish loading before one look
+        if wait_idle(device)[0] is None:
+            time.sleep(chk.get("settle_s", 1))  # let the screen finish loading before one look
         v, e = decide.judge(chk["judge"], nodes(device), ctx["decisions"])
         if v is None:
             return False, f"judge unsure ({e.get('reason')}, p_true={e.get('p_true')}), agent takes over"
@@ -332,6 +356,11 @@ def for_lane(case, lane):
     return json.loads(re.sub(r"\{lane\.(\w+)\}", sub, json.dumps(case)))
 
 
+def screen_print(device):
+    return [(n.get("resource-id"), n.get("text"), n.get("content-desc")) for n in nodes(device)
+            if n.get("resource-id") not in ("qa-state", "qa-idle")]
+
+
 def run_case(device, case, shot_dir, lane=None, hard=False, say=True):
     """lane: whose account data fills {lane.x} (default the case's lane). hard: case timeout_s is a hard limit."""
     t0 = time.time()
@@ -357,6 +386,10 @@ def run_case(device, case, shot_dir, lane=None, hard=False, say=True):
             ok, detail = do_check(device, c, ctx, shot_dir, case["id"])
             res["checks"].append({"check": c, "ok": ok, "detail": detail})
         res["status"] = "PASS" if all(c["ok"] for c in res["checks"]) else "FAIL"
+        if res["status"] == "FAIL":  # same screen twice, 1.5 s apart: a settled screen, so a retry would see it again
+            a = screen_print(device)
+            time.sleep(1.5)
+            res["stable_screen"] = a == screen_print(device)
     except (Exception, SystemExit) as e:  # a step error is a FAIL, not a crash of the runner (SystemExit once killed a lane silently)
         res["status"], res["error"] = "FAIL", str(e) or type(e).__name__
     if hard:  # screenshot, logs and cleanup get their own 30 s past the case's limit
@@ -389,6 +422,25 @@ def run_case(device, case, shot_dir, lane=None, hard=False, say=True):
 
 
 # ---------- matrix mode: a work queue over N phones ----------
+
+# Errors a retry cannot fix: an unresolved {lane.x}, a testID that never showed up, an unknown check.
+CASE_ERROR = re.compile(r"lanes\.json has no|not on screen|: timed out$|unknown check")
+
+
+def no_retry_reason(res):
+    e = res.get("error") or ""
+    if CASE_ERROR.search(e):
+        return "case/setup error"
+    if not e and res.get("stable_screen"):
+        return "expectation mismatch on a settled screen"
+    return None
+
+
+def fail_sig(res):
+    """Same signature = same failure: the error text, else the failing checks; digits folded."""
+    t = res.get("error") or "; ".join(json.dumps(c["check"], sort_keys=True) for c in res.get("checks", []) if not c["ok"])
+    return re.sub(r"\d+", "#", t)[:160]
+
 
 FULL_CWA = 2_500_000  # $25.00 in millicents: every lane player starts each case with this
 
@@ -472,6 +524,7 @@ class Matrix:
         self.q = {p: [] for p in phones}
         self.last = {p: [] for p in phones}  # "last": true cases (sign-out): run once nothing else is left
         self.retry, self.busy, self.retired, self.results = [], {}, set(), []
+        self.sigs = {}  # (area, fail_sig) -> first-attempt failures seen
         self.util = {p: 0.0 for p in phones}
         self.total = len(cases)
         lane_phone = {l: p for p, l in phone_lane.items()}
@@ -543,7 +596,16 @@ class Matrix:
             self.busy.pop(phone, None)
             c, attempt, first = job
             others = [p for p in self.phones if p != phone and p not in self.retired]
-            if res["status"] == "FAIL" and attempt == 1 and pinned_lane(c) is None and others:
+            why = None
+            if res["status"] == "FAIL" and attempt == 1:
+                key = (c["_area"], fail_sig(res))
+                self.sigs[key] = self.sigs.get(key, 0) + 1
+                why = no_retry_reason(res)
+                if why:
+                    res["no_retry"] = why
+                elif key[1] and self.sigs[key] >= 2:  # 2 cases in this area failed this way: not a flake, stop paying for retries
+                    why = res["repeat_fail"] = True
+            if res["status"] == "FAIL" and attempt == 1 and pinned_lane(c) is None and others and not why:
                 self.retry.append((c, 2, res))
                 print(f"RETRY {c['id']} failed on {phone} ({res.get('error', 'checks failed')[:100]}); retrying on another phone", flush=True)
             else:
@@ -555,20 +617,21 @@ class Matrix:
 
     def final(self, res):  # caller holds the lock
         self.results.append(res)
-        tag = "FLAKY" if res.get("flaky") else res["status"]
+        tag = "FLAKY" if res.get("flaky") else "REPEAT-FAIL" if res.get("repeat_fail") else res["status"]
         el = round(time.time() - self.t0)
         print(f"[{len(self.results)}/{self.total}] {tag} {res['id']} on {res.get('device')} {round(res.get('wall_s') or 0, 1)}s"
               f"{' reset ' + str(res['reset_s']) + 's' if 'reset_s' in res else ''} | {el}s elapsed"
               f"{' | ' + res['error'][:120] if res.get('error') else ''}", flush=True)
         self.save()
 
-    def save(self, finished=False):  # caller holds the lock (or threads are done)
+    def save(self, finished=False, interrupted=False):  # caller holds the lock (or threads are done)
         wall = round(time.time() - self.t0, 1)
-        doc = {"mode": "matrix", "running": not finished, "deal": {self.phone_lane[p]: p for p in self.phones},
+        doc = {"mode": "matrix", "running": not finished, **({"interrupted": True} if interrupted else {}), "deal": {self.phone_lane[p]: p for p in self.phones},
                "total_wall_s": wall, "progress": {"done": len(self.results), "total": self.total, "busy": dict(self.busy)},
                "utilization": {p: {"lane": self.phone_lane[p], "busy_s": round(self.util[p], 1),
                                    "pct": round(100 * self.util[p] / wall) if wall else 0} for p in self.phones},
                "flaky": [r["id"] for r in self.results if r.get("flaky")],
+               "repeat_fail": [r["id"] for r in self.results if r.get("repeat_fail")],
                "results": sorted(self.results, key=lambda r: r["id"])}
         tmp = self.out / "results.json.tmp"
         tmp.write_text(json.dumps(doc, indent=2))
@@ -600,6 +663,24 @@ def matrix_main(phones, root, areas, shard, pick):
     m = Matrix(phones, {p: phone_lane[p] for p in phones}, cases, wall_history(), out)
     with m.cv:
         m.save()
+    closed = []
+
+    def on_exit():  # Ctrl-C, SIGTERM or a crash: results.json must not keep saying "running": true
+        if closed:
+            return
+        closed.append(1)
+        got = m.cv.acquire(timeout=2)  # a dying worker may hold it; write anyway
+        try:
+            m.save(finished=True, interrupted=True)
+        finally:
+            if got:
+                m.cv.release()
+    atexit.register(on_exit)
+    if threading.current_thread() is threading.main_thread():
+        for sig in (signal.SIGTERM, getattr(signal, "SIGBREAK", None)):
+            if sig is not None:
+                signal.signal(sig, lambda *_: sys.exit(130))
+    m.on_exit = on_exit
     print(f"matrix: {len(cases)} cases on {len(phones)} phones -> {out}", flush=True)
 
     def worker(phone):
@@ -632,9 +713,11 @@ def matrix_main(phones, root, areas, shard, pick):
                 m.retire(phone, "phone retired: 3 resets failed in a row")
                 break
 
-    ts = [threading.Thread(target=worker, args=(p,)) for p in phones]
+    # daemon threads: an interrupt ends the run now instead of waiting out every phone's case
+    ts = [threading.Thread(target=worker, args=(p,), daemon=True) for p in phones]
     for t in ts: t.start()
-    for t in ts: t.join()
+    while any(t.is_alive() for t in ts):  # not join(): a blocked join() does not see Ctrl-Break on Windows
+        time.sleep(0.2)
     with m.cv:  # anything never run (retry with no phone left, queue of a dead phone) is a FAIL, never a gap
         for c, _, first in m.retry:
             first.setdefault("error", "failed; no other phone left to retry on")
@@ -645,6 +728,7 @@ def matrix_main(phones, root, areas, shard, pick):
                 m.final(Matrix.stub(c, phone_lane[p], "FAIL", "never ran (no phone left)"))
             m.q[p], m.last[p] = [], []
         m.save(finished=True)
+        closed.append(1)
     return matrix_report(m, out)
 
 
@@ -669,7 +753,8 @@ def matrix_report(m, out):
         g.append("\n## Failures")
         for r in fails:
             bad = [c["detail"] for c in r.get("checks", []) if not c["ok"]]
-            g.append(f"- **{r['id']}** on {r.get('device')}: {(r.get('error') or '; '.join(map(str, bad)) or '?')[:200]}")
+            tag = " (repeat-fail)" if r.get("repeat_fail") else f" (no retry: {r['no_retry']})" if r.get("no_retry") else ""
+            g.append(f"- **{r['id']}**{tag} on {r.get('device')}: {(r.get('error') or '; '.join(map(str, bad)) or '?')[:200]}")
             shot = next((s for s in r.get("shots", []) if s.endswith("-FAIL.png")), None)
             if shot:
                 g.append(f"  - screenshot: {Path(shot).name}")
