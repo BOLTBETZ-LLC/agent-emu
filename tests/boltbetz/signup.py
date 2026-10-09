@@ -12,7 +12,8 @@ Flow: Create account -> Home (no ID check yet) -> Deposit (guarded: opens the ID
 the app's licence scanner -> Type It Instead -> Plaid Link -> "Successfully verified" -> Finish -> Choose Your Venue
 -> Close -> Wallet -> Home tab.
 
-Plaid's WebView often exposes no accessibility tree, so Plaid pages are driven by coordinates (1320x2868 screen).
+Plaid's WebView often exposes no accessibility tree, so Plaid pages are driven by coordinates, written for 1320 px wide
+and scaled to the phone (half-screen phones are 656 wide). SIGNUP_RESUME=plaid starts at Plaid's first page.
 Masked fields drop or reorder digits when typed fast: one digit at a time, 1.5 s apart, 1 s after focusing.
 Plaid with three phones at once ran fine; at 1 GB guest RAM the app can be killed mid-Plaid (d3) or the VM can die
 (d0). If the app was killed: relaunch it, tap Deposit, then "Check again" (id-check-check-again-button); Plaid
@@ -39,8 +40,15 @@ def tap(dev, key, wait_s=30):
     call(dev, "tap", x=n["center"][0], y=n["center"][1], device_px=True, screenshot=False)
 
 
+_scale = {}
+
+
 def xy(dev, p, after=1.0):
-    call(dev, "tap", x=p[0], y=p[1], device_px=True, screenshot=False)
+    """p is in native 1320 px; scaled to the phone's real width (half-screen phones are 656 wide)."""
+    if dev not in _scale:
+        _scale[dev] = next(d["screen"]["width"] for d in call(dev, "status")["devices"] if d["id"] == dev) / 1320
+    k = _scale[dev]
+    call(dev, "tap", x=round(p[0] * k), y=round(p[1] * k), device_px=True, screenshot=False)
     time.sleep(after)
 
 
@@ -65,6 +73,8 @@ def next_page(dev, wait=6):
 
 def run(dev, first, last):
     ssn4 = os.environ["PLAID_SSN4"]
+    if os.environ.get("SIGNUP_RESUME") == "plaid":  # app steps done, Plaid's first page is on screen
+        return plaid(dev, first, last, ssn4)
     call(dev, "permission", pkg="com.boltbetz.staging", perm="android.permission.CAMERA", action="grant")
     if find(nodes(dev), "no-account-create"):
         tap(dev, "no-account-create")
@@ -77,6 +87,10 @@ def run(dev, first, last):
     tap(dev, "affirmations-continue")
     tap(dev, "license-scan-type")
     time.sleep(20)  # Plaid Link WebView load
+    return plaid(dev, first, last, ssn4)
+
+
+def plaid(dev, first, last, ssn4):
     next_page(dev)                                   # intro
     next_page(dev)                                   # country: United States
     xy(dev, FIELD1); digits(dev, "2345678909")       # phone

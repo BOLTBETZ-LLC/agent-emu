@@ -417,7 +417,7 @@ typed-question API (`tests/boltbetz/decide.py`):
 opening and the cleanup, then run it alone (`--case <id>`) twice; both PASS and the screenshots show what the
 note claims. Cases read but never change money or limits.
 
-Other runner tools: `signin.py` (sign-in by emailed code), `signup.py` (new account + Plaid sandbox ID check),
+Other runner tools: `signin.py` (sign-in: QA session route for password QA accounts, emailed code for lanes 1-4), `signup.py` (new account + Plaid sandbox ID check),
 `emu.py` (Synkros emulator admin: `overview`, `feed EMU-L3`, `end EMU-L3`, `player <id>`).
 
 ## Accounts and sign-in
@@ -425,7 +425,24 @@ Other runner tools: `signin.py` (sign-in by emailed code), `signup.py` (new acco
 Phones d0-d3 run on `keep_data` disks and are already signed in (lanes 1-4, ID check passed, venue card linked,
 $25.00 card balance). Sign in only when `ui_tree` shows `start-screen` or `login-screen`.
 
-Sign-in is by emailed code (Auth0 passwordless). Codes land in Aaron's inbox (`aaron@boltbetz.com`, plus-addressed),
+**No-Gmail sign-in (default for password QA accounts).** `python signin.py session d3 L4` (from `tests/boltbetz/`).
+It reads the lane's email from the emulator lane registry, asks the sidecar QA session route
+(`POST /api/ext/qa/accounts/:id/session`) for tokens, force-stops the app and sends the
+`boltbetz-staging://e2e-session?accessToken=...` link (the app takes it only at cold start, in hook mode). Prints
+`signed in L4 <email> on d3 -> home-screen` and exits 0, else exits 1. Verified 2026-10-09 on d0: route, link and
+in-app sign-in work.
+- Works only for a **password** QA account the sidecar provisioned (`aaronjlilla+qa-<label>-<hex>@gmail.com`) that has
+  a backend account. **Lanes L1-L4 are still emailed-code `aaron+laneN@boltbetz.com` accounts: sign them in with the
+  Gmail fallback below.** The sidecar refuses BoltBetz addresses on purpose, and emailed-code accounts answer 409
+  `not_password_account`.
+- **Do not run `lane_state <lane> fresh` on a working lane.** It retires the lane's backend account (anonymized,
+  inactive; the card stays tied to it) and the new password account cannot reach Home: creating its backend account
+  needs a real Plaid ID check (the backend checks the session with Plaid), and `kyc-passed` only sets the sidecar state.
+  The app also sends a session-injected account without a backend account to the old phone-code sign-up.
+- QA token: env `EXT_QA_TOKEN`, else asm-exec resolves `boltbetz/v2/staging/ext-admin-token`. Never printed. Each call
+  resets the account's password, which can end that account's earlier sessions.
+
+**Fallback: emailed code (Gmail).** Codes land in Aaron's inbox (`aaron@boltbetz.com`, plus-addressed),
 are valid 3 minutes, and only the newest code works.
 
 1. `python signin.py send d3 aaron+lane4@boltbetz.com` (Start -> Log In -> email -> Send code). Prints the screen ids.
@@ -443,7 +460,7 @@ New account + ID check: `signup.py` docstring (Plaid sandbox identities; SSN las
 
 - Backend: staging (`staging.bbapp01.com`, sidecar `ext-staging.bbapp01.com`, Auth0 `boltbetz-v2-staging`).
 - Staging's Synkros (casino system) is the **Synkros emulator** at `https://synkros-emu.bbapp01.com` (mode
-  `emulator`, set 2026-10-09). Lane players `Lane1..Lane4 QA` (9000003..9000006), cards 97000003..97000006,
+  `emulator`, set 2026-10-09). Lane players `Lane1..Lane4 QA` (L1 9000012 / card 97000012 since 2026-10-09; L2-L4 9000004..9000006 / cards 97000004..97000006),
   machines `EMU-L1..EMU-L4`.
 - **Never switch the staging Synkros mode without asking Aaron.** The switch bumps a flag epoch that signs every
   open app out, on every phone and every tester's device, and parks player links.
