@@ -56,6 +56,27 @@ def feed(asset):
     return req("GET", f"/machine/{asset}/feed")
 
 
+def clear_errors_for(player, card=None):
+    """Drop the error injections armed for one player/card (a case that never reached Synkros leaves its times=1
+    injection armed, and the lane's next case eats it). The emulator only clears all at once, so: clear all, then
+    re-arm everyone else's. Returns how many were dropped.
+    ponytail: GET-then-DELETE race; another lane arming in that ~100 ms window loses its injection. A per-player
+    DELETE on the emulator removes it."""
+    armed = req("GET", "/admin/api/overview").get("injectedErrors") or []
+    mine = [i for i in armed if i.get("playerId") == player or (card and i.get("cardId") == card)]
+    if not mine:
+        return 0
+    req("DELETE", "/admin/api/errors")
+    for i in armed:
+        if i in mine:
+            continue
+        body = {k: i[k] for k in ("operation", "errorCode", "status", "errorReason", "playerId", "cardId", "timing",
+                                  "delayMs", "respond") if i.get(k) not in (None, "", 0)}
+        body["times"] = i.get("remaining", 1)
+        req("POST", "/admin/api/errors", body)
+    return len(mine)
+
+
 def end_session(asset):
     return req("POST", f"/admin/api/machines/{asset}/end-session")
 

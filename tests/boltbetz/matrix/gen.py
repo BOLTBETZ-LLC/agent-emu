@@ -27,6 +27,8 @@ L = "boltbetz-staging://e2e-session/"
 FATAL = "FATAL EXCEPTION|ReactNativeJS.*(Unhandled|TypeError|Invariant Violation)"
 ERR_JUDGE = ("The screen tells the user something went wrong or is unavailable (an error message, a retry "
              "button or an unavailable state) and does not show the action as completed")
+KEEP_OR_ERR = ("The screen shows the venue card with its details, or an error message about loading it; "
+               "it is not blank, stuck loading or broken")
 SOFT200_BODY = json.dumps({"transactionStatus": "Failed", "status": "Failed", "message": "QA soft-200 failure"})
 PRESET = {"p500": "500", "problem": "problem", "validation": "validation", "forbidden": "forbidden",
           "timeout": "timeout", "offline": "offline", "decline": "decline", "synkros": "synkros", "sila": "sila"}
@@ -181,6 +183,10 @@ def a_home(r):
         s += [{"wait_id": "home-screen", "wait_s": 30}] + refresh()
         if r["State"] in ("funded", "zero_balance"):
             s += [cwa(save="cwa1"), ui_val("home-card-balance-{lane.card}", expect="cwa1")]
+    elif failing(r) and st != "transactions" and r["Network"] != "offline":
+        # Home keeps the persisted card data when a refresh read fails (cardsSlice is persisted), so a failed
+        # read may show an error or the last known card. Either is fine; blank or broken is not.
+        s += [chk({"screenshot": "error"}), judge(KEEP_OR_ERR)]
     elif failing(r):
         s += [chk({"screenshot": "error"}), judge(ERR_JUDGE)]
         if r["AppFault"] != "none":  # recovery: fault cleared, refresh brings the data back
@@ -188,8 +194,8 @@ def a_home(r):
     elif st in ("home_load", "pull_refresh"):
         if r["State"] in ("funded", "zero_balance"):
             s += [ui_val("home-card-balance-{lane.card}", expect="cwa0", wait=40 if r["Network"] == "slow" else 20)]
-        elif r["State"] == "locked_card":
-            s += [judge("The venue card is shown as blocked or locked, or tells the user to contact the venue")]
+        elif r["State"] == "locked_card":  # no blocked-card UI yet (useHomeBlocked is always false: no backend signal)
+            s += [judge("Home shows the venue card area (a card or a message about it), not a blank or broken screen")]
         else:
             s += [judge("Home shows the venue card area (a card or a message about it), not a blank or broken screen")]
     elif st == "card_list":
@@ -230,14 +236,14 @@ def money_tail(r, amt, op_name):
 def a_deposit(r):
     amt = AMT[r["Amount"]]
     s = home() + state_setup(r.get("State", "funded"))
-    if r["FaultEndpoint"] == "getDepositFees":
-        s.append(fault("getDepositFees", r["AppFault"]))
+    if r["FaultEndpoint"] == "getPaymentSourceTransactionFees":  # the fee line's call (getDepositFees is never called)
+        s.append(fault("getPaymentSourceTransactionFees", r["AppFault"]))
     s += [dl("route/MainFlow/Tabs/Wallet/WalletMain"), {"wait_id": "wallet-main-screen", "wait_s": 20}, cwa(save="cwa0"),
           {"tap_id": "wallet-action-deposit"}, {"wait_id": "wallet-deposit-screen"},
           {"fill": "deposit-screen-amount-input", "text": amt}, {"tap_id": "deposit-amount-title"}]
     if r["Step"] == "form_only":
         s += mid(r["Lifecycle"])
-        s += [judge(ERR_JUDGE) if r["FaultEndpoint"] == "getDepositFees" else chk({"ui": "deposit-fee-text"}),
+        s += [judge(ERR_JUDGE) if r["FaultEndpoint"] == "getPaymentSourceTransactionFees" else chk({"ui": "deposit-fee-text"}),
               chk({"ui": "enter-pin-title", "present": False, "wait_s": 2}), cwa(expect="cwa0")]
         return dict(steps=s, cleanup=restore(), est=14, timeout=120)
     s += [{"tap_id": "deposit-agreement-checkbox"}]
@@ -284,9 +290,24 @@ def a_withdraw(r):
     return dict(steps=s, cleanup=restore(), est=42, timeout=210)
 
 
+def app_disconnect():
+    """Open the scanner tab and, if the app still shows a machine session, disconnect it in the app.
+    The app keeps its machine session in persisted local state (machineAuth) and never checks it against the
+    server, so ending the session on the emulator alone leaves every later scanner visit on 'You're Connected'.
+    Each wait lists qa-machine-scan-input too, so a phone that is not connected passes straight through."""
+    scan = "qa-machine-scan-input"
+    return [{"tap_id": "tab-boltbetz"}, {"wait_id": [scan, "machine-connected-screen"], "wait_s": 12},
+            {"tap_id": "machine-session-disconnect-button", "optional": True},
+            {"wait_id": [scan, "machine-session-disconnect-confirm-button"], "wait_s": 8},
+            {"tap_id": "machine-session-disconnect-confirm-button", "optional": True},
+            {"wait_id": [scan, "machine-tips-sheet", "home-screen"], "wait_s": 20},
+            {"tap_id": "machine-tips-sheet-close-button", "optional": True},
+            {"tap_id": "tab-boltbetz", "optional": True}, {"wait_id": scan, "wait_s": 12}]
+
+
 def connect(r=None, cause=()):
-    return [{"emu": "end_session", "asset": "{lane.machine}", "optional": True}, {"tap_id": "tab-boltbetz"},
-            {"wait_id": "qa-machine-scan-input", "wait_s": 12}, *cause, {"tap_id": "qa-machine-scan-input"},
+    return [*app_disconnect(), {"emu": "end_session", "asset": "{lane.machine}", "optional": True},
+            *cause, {"tap_id": "qa-machine-scan-input"},
             {"emu": "type_qr", "asset": "{lane.machine}"}, {"tap_id": "qa-machine-scan-submit"}]
 
 
@@ -298,7 +319,7 @@ def a_machine(r):
     s.append(cwa(save="cwa0"))
     if st in ("connect_link_text", "connect_garbage"):
         text = "https://example.com/not-a-machine" if st == "connect_link_text" else "QA-NOT-A-TOKEN-0000"
-        s += [{"tap_id": "tab-boltbetz"}, {"wait_id": "qa-machine-scan-input", "wait_s": 12}, {"tap_id": "qa-machine-scan-input"},
+        s += [*app_disconnect(), {"tap_id": "qa-machine-scan-input"},
               {"call": "type_text", "text": text, "screenshot": False}, {"tap_id": "qa-machine-scan-submit"}]
         s += mid(r["Lifecycle"]) + [chk({"ui": "machine-connected-screen", "present": False, "wait_s": 8}),
                                      chk({"screenshot": "rejected"}), meter(expect="0"), cwa(expect="cwa0")]

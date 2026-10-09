@@ -1,0 +1,213 @@
+{
+ "id": "M-home-038-cardlist-zerobalance-getconnectionview-problem-killmid",
+ "lane": "any",
+ "timeout_s": 150,
+ "preconditions": {
+  "signed_in": true,
+  "kyc": true,
+  "venue_card": true
+ },
+ "matrix": {
+  "area": "home",
+  "row": {
+   "Step": "card_list",
+   "State": "zero_balance",
+   "FaultEndpoint": "getConnectionView",
+   "AppFault": "problem",
+   "SynkrosErr": "none",
+   "Network": "normal",
+   "Lifecycle": "kill_mid"
+  },
+  "expect": "error",
+  "est_s": 29
+ },
+ "steps": [
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/hooks?on=1"
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  },
+  {
+   "tap_id": "tab-home",
+   "optional": true,
+   "wait_s": 2
+  },
+  {
+   "wait_id": "home-screen",
+   "wait_s": 20
+  },
+  {
+   "emu": "set_cwa",
+   "player": "{lane.player}",
+   "dollars": 0
+  },
+  {
+   "check": {
+    "value": {
+     "emu": "/admin/api/players/{lane.player}",
+     "field": "cwaAvailable",
+     "scale": 100000
+    },
+    "save": "cwa0"
+   }
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/fault?endpoint=getConnectionView&preset=problem"
+  },
+  {
+   "call": "swipe",
+   "x1": 660,
+   "y1": 600,
+   "x2": 660,
+   "y2": 1900,
+   "device_px": true,
+   "screenshot": false
+  },
+  {
+   "sleep_ms": 2500
+  },
+  {
+   "tap_id": "home-all-cards-button",
+   "wait_s": 15
+  },
+  {
+   "sleep_ms": 1500
+  },
+  {
+   "decide": "Open the list of all my venue cards",
+   "until_id": "card-list-screen",
+   "max_steps": 3
+  },
+  {
+   "call": "shell",
+   "cmd": "am force-stop com.boltbetz.staging"
+  },
+  {
+   "call": "app",
+   "launch": "com.boltbetz.staging"
+  },
+  {
+   "wait_id": [
+    "home-screen",
+    "tab-home"
+   ],
+   "wait_s": 40
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/hooks?on=1"
+  },
+  {
+   "wait_id": "home-screen",
+   "wait_s": 30
+  },
+  {
+   "call": "swipe",
+   "x1": 660,
+   "y1": 600,
+   "x2": 660,
+   "y2": 1900,
+   "device_px": true,
+   "screenshot": false
+  },
+  {
+   "sleep_ms": 2500
+  },
+  {
+   "check": {
+    "value": {
+     "emu": "/admin/api/players/{lane.player}",
+     "field": "cwaAvailable",
+     "scale": 100000
+    },
+    "save": "cwa1"
+   }
+  },
+  {
+   "check": {
+    "value": {
+     "ui": "home-card-balance-{lane.card}"
+    },
+    "expect": "cwa1",
+    "wait_s": 20
+   }
+  }
+ ],
+ "checks": [
+  {
+   "no_crash": "com.boltbetz.staging"
+  },
+  {
+   "logs_lack": "FATAL EXCEPTION|ReactNativeJS.*(Unhandled|TypeError|Invariant Violation)",
+   "filter": "com.boltbetz.staging"
+  },
+  {
+   "ui": "fatal-error-screen",
+   "present": false,
+   "wait_s": 1
+  }
+ ],
+ "cleanup": [
+  {
+   "tap_id": "enter-pin-close-button",
+   "optional": true
+  },
+  {
+   "tap_id": "wallet-modal-close",
+   "optional": true
+  },
+  {
+   "tap_id": "voucher-modal-close-button",
+   "optional": true
+  },
+  {
+   "tap_id": "tip-close-button",
+   "optional": true
+  },
+  {
+   "tap_id": "machine-tips-sheet-close-button",
+   "optional": true
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/fault?clear=1"
+  },
+  {
+   "emu": "req",
+   "method": "POST",
+   "path": "/admin/api/cards/{lane.card}/lock",
+   "body": {
+    "locked": false
+   },
+   "optional": true
+  },
+  {
+   "emu": "req",
+   "method": "PUT",
+   "path": "/admin/api/players/{lane.player}",
+   "body": {
+    "cwaEnabled": true
+   },
+   "optional": true
+  },
+  {
+   "emu": "end_session",
+   "asset": "{lane.machine}",
+   "optional": true
+  },
+  {
+   "emu": "set_cwa",
+   "player": "{lane.player}",
+   "dollars": 25
+  },
+  {
+   "call": "deep_link",
+   "uri": "boltbetz-staging://e2e-session/route/MainFlow/Tabs/Home"
+  }
+ ],
+ "note": "PICT row 38 of matrix/models/home.pict: Step=card_list, State=zero_balance, FaultEndpoint=getConnectionView, AppFault=problem, SynkrosErr=none, Network=normal, Lifecycle=kill_mid"
+}

@@ -14,3 +14,5 @@ IF [Step] = "redeem" THEN [Offers] <> "none";
 IF [FaultEndpoint] = "acceptPlayerOffer" THEN [Step] = "redeem";
 # offer-notifications (35-002) is the list read; award-selections (35-001/3/4) the redeem
 IF [SynkrosErr] IN {"35-001", "35-003", "35-004"} THEN [Step] = "redeem";
+# acceptplayeroffer fails with a status (catalog C-18), never a soft-200
+IF [FaultEndpoint] = "acceptPlayerOffer" THEN [AppFault] <> "soft200";

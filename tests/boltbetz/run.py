@@ -441,6 +441,9 @@ def reset(device, lane, emu_ok):
             except RuntimeError:
                 pass  # no open session
         if L.get("player"):
+            n = emu.clear_errors_for(L["player"], L.get("card"))
+            if n:
+                notes.append(f"{n} leftover Synkros injection(s) cleared")
             cwa = emu.req("GET", f"/admin/api/players/{L['player']}").get("cwaAvailable")
             if cwa != FULL_CWA:
                 emu.req("PUT", f"/admin/api/players/{L['player']}", {"cwaAvailable": FULL_CWA})

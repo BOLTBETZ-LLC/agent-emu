@@ -50,16 +50,54 @@
    }
   },
   {
-   "emu": "end_session",
-   "asset": "{lane.machine}",
+   "tap_id": "tab-boltbetz"
+  },
+  {
+   "wait_id": [
+    "qa-machine-scan-input",
+    "machine-connected-screen"
+   ],
+   "wait_s": 12
+  },
+  {
+   "tap_id": "machine-session-disconnect-button",
    "optional": true
   },
   {
-   "tap_id": "tab-boltbetz"
+   "wait_id": [
+    "qa-machine-scan-input",
+    "machine-session-disconnect-confirm-button"
+   ],
+   "wait_s": 8
+  },
+  {
+   "tap_id": "machine-session-disconnect-confirm-button",
+   "optional": true
+  },
+  {
+   "wait_id": [
+    "qa-machine-scan-input",
+    "machine-tips-sheet",
+    "home-screen"
+   ],
+   "wait_s": 20
+  },
+  {
+   "tap_id": "machine-tips-sheet-close-button",
+   "optional": true
+  },
+  {
+   "tap_id": "tab-boltbetz",
+   "optional": true
   },
   {
    "wait_id": "qa-machine-scan-input",
    "wait_s": 12
+  },
+  {
+   "emu": "end_session",
+   "asset": "{lane.machine}",
+   "optional": true
   },
   {
    "tap_id": "qa-machine-scan-input"
