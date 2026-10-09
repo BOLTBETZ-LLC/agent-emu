@@ -1,6 +1,7 @@
 {
  "id": "L2-03-withdraw-renders",
  "lane": "L2",
+ "portable": true,
  "timeout_s": 90,
  "preconditions": {
   "signed_in": true,

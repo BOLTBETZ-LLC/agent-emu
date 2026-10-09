@@ -1,6 +1,7 @@
 {
  "id": "L3-01-scanner-opens-hook-mode",
  "lane": "L3",
+ "portable": true,
  "timeout_s": 90,
  "preconditions": {
   "signed_in": true,

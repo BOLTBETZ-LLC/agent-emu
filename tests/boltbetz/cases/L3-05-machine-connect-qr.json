@@ -1,17 +1,18 @@
 {
  "id": "L3-05-machine-connect-qr",
  "lane": "L3",
+ "portable": true,
  "timeout_s": 120,
  "preconditions": {
   "signed_in": true,
   "kyc": true,
   "venue_card": true,
-  "emulator_machine": "EMU-L3"
+  "emulator_machine": "{lane.machine}"
  },
  "steps": [
   {
    "emu": "end_session",
-   "asset": "EMU-L3",
+   "asset": "{lane.machine}",
    "optional": true
   },
   {
@@ -52,7 +53,7 @@
   },
   {
    "emu": "type_qr",
-   "asset": "EMU-L3"
+   "asset": "{lane.machine}"
   },
   {
    "tap_id": "qa-machine-scan-submit"
@@ -140,7 +141,7 @@
  "cleanup": [
   {
    "emu": "end_session",
-   "asset": "EMU-L3"
+   "asset": "{lane.machine}"
   },
   {
    "call": "deep_link",

@@ -1,6 +1,7 @@
 {
  "id": "L4-02-rewards-tab",
  "lane": "L4",
+ "portable": true,
  "timeout_s": 90,
  "preconditions": {
   "signed_in": true,

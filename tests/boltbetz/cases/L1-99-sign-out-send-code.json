@@ -1,6 +1,7 @@
 {
  "id": "L1-99-sign-out-send-code",
  "lane": "L1",
+ "last": true,
  "timeout_s": 150,
  "preconditions": {
   "signed_in": true
@@ -95,7 +96,7 @@
   },
   {
    "call": "type_text",
-   "text": "aaron+lane1@boltbetz.com",
+   "text": "{lane.email}",
    "screenshot": false
   },
   {

@@ -1,6 +1,7 @@
 {
  "id": "L4-05-home-cards-fault",
  "lane": "L4",
+ "portable": true,
  "timeout_s": 90,
  "preconditions": {
   "signed_in": true,

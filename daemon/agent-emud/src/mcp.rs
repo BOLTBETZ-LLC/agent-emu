@@ -85,6 +85,11 @@ fn tools() -> Value {
             in parallel. Returns the PASS/FAIL grid, exit code and results folder. One run per phone at a time.",
             "inputSchema": {"type": "object", "required": ["phones"], "properties": {"phones": ids.clone(),
                 "lanes": {"type": "array", "items": {"type": "string"}, "description": "only these lanes, e.g. [\"L2\",\"L4\"]; default all"}}}}),
+        json!({"name": "run_matrix", "description": "Run a BoltBetz case matrix as a work queue over the phones: portable cases run on any phone             (each phone with its own lane account from lanes.json), longest first, work stealing, reset before every case,             one retry of a failure on another phone (pass = flaky). Returns the area x outcome grid, exit code and results folder.",
+            "inputSchema": {"type": "object", "required": ["phones"], "properties": {"phones": ids.clone(),
+                "matrix": {"type": "string", "description": "cases folder, default cases/matrix (relative to tests/boltbetz)"},
+                "areas": {"type": "array", "items": {"type": "string"}, "description": "only these area subfolders"},
+                "shard": {"type": "string", "description": "i/n, 1-based: run every n-th case starting at i"}}}}),
     ]);
     v
 }
@@ -105,6 +110,13 @@ fn runner_args(name: &str, a: &Value) -> Result<Vec<String>, String> {
     let list = |k: &str| a[k].as_array().map(|v| v.iter().filter_map(Value::as_str).collect::<Vec<_>>().join(","));
     match name {
         "run_case" => Ok(vec!["--phones".into(), s("device")?, "--case".into(), s("case")?]),
+        "run_matrix" => {
+            let phones = list("phones").filter(|p| !p.is_empty()).ok_or("phones required")?;
+            let mut v = vec!["--phones".into(), phones, "--matrix".into(), a["matrix"].as_str().unwrap_or("cases/matrix").into()];
+            if let Some(l) = list("areas").filter(|l| !l.is_empty()) { v.extend(["--areas".into(), l]); }
+            if let Some(sh) = a["shard"].as_str().filter(|x| !x.is_empty()) { v.extend(["--shard".into(), sh.into()]); }
+            Ok(v)
+        }
         _ => {
             let phones = list("phones").filter(|p| !p.is_empty()).ok_or("phones required")?;
             let mut v = vec!["--phones".into(), phones];
@@ -184,7 +196,7 @@ pub fn run(addr: &str) {
                 "capabilities": {"tools": {}}, "serverInfo": {"name": "agent-emu", "version": env!("CARGO_PKG_VERSION")}})),
             "ping" => Ok(json!({})),
             "tools/list" => Ok(json!({"tools": tools()})),
-            "tools/call" if matches!(p["name"].as_str(), Some("run_case" | "run_lanes")) => {
+            "tools/call" if matches!(p["name"].as_str(), Some("run_case" | "run_lanes" | "run_matrix")) => {
                 Ok(run_tests(p["name"].as_str().unwrap(), &p["arguments"]))
             }
             "tools/call" => {
@@ -235,14 +247,14 @@ mod tests {
     #[test]
     fn every_tool_takes_device() {
         for t in tools().as_array().unwrap() {
-            if ["fleet", "fleet_stop", "status", "start_many", "stop_many", "run_lanes"].contains(&t["name"].as_str().unwrap()) {
+            if ["fleet", "fleet_stop", "status", "start_many", "stop_many", "run_lanes", "run_matrix"].contains(&t["name"].as_str().unwrap()) {
                 continue;
             }
             assert_eq!(t["inputSchema"]["required"][0], "device", "{}", t["name"]);
         }
         let names: Vec<_> = tools().as_array().unwrap().iter().map(|t| t["name"].clone()).collect();
         for n in ["fleet", "fleet_stop", "status", "start", "stop", "start_many", "stop_many", "install_bundled", "issues", "shell",
-            "run_case", "run_lanes"] {
+            "run_case", "run_lanes", "run_matrix"] {
             assert!(names.contains(&json!(n)), "{n}");
         }
     }
@@ -254,5 +266,7 @@ mod tests {
             ["--phones", "d0,d1", "--lanes", "L2"]);
         assert!(runner_args("run_lanes", &json!({"phones": []})).is_err());
         assert!(runner_args("run_case", &json!({"device": "d3"})).is_err());
+        assert_eq!(runner_args("run_matrix", &json!({"phones": ["d0", "d1"], "areas": ["wallet"], "shard": "1/2"})).unwrap(),
+            ["--phones", "d0,d1", "--matrix", "cases/matrix", "--areas", "wallet", "--shard", "1/2"]);
     }
 }

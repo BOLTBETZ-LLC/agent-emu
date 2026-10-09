@@ -6,7 +6,7 @@
   "signed_in": true,
   "kyc": true,
   "venue_card": true,
-  "emulator_player": 9000004,
+  "emulator_player": "{lane.player}",
   "saved_card": true
  },
  "steps": [

@@ -1,12 +1,13 @@
 {
  "id": "L1-20-scanner-tips-persist",
  "lane": "L1",
+ "portable": true,
  "timeout_s": 180,
  "preconditions": {
   "signed_in": true,
   "kyc": true,
   "venue_card": true,
-  "emulator_player": 9000003
+  "emulator_player": "{lane.player}"
  },
  "steps": [
   {

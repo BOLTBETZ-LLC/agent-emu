@@ -1,6 +1,7 @@
 {
  "id": "L1-10-limits-read-fault",
  "lane": "L1",
+ "portable": true,
  "timeout_s": 90,
  "preconditions": {
   "signed_in": true,

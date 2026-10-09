@@ -6,7 +6,7 @@
   "signed_in": true,
   "kyc": true,
   "venue_card": true,
-  "emulator_player": 9000004,
+  "emulator_player": "{lane.player}",
   "saved_card": true
  },
  "steps": [
@@ -55,7 +55,7 @@
   {
    "check": {
     "value": {
-     "emu": "/admin/api/players/9000004",
+     "emu": "/admin/api/players/{lane.player}",
      "field": "cwaAvailable",
      "scale": 100000
     },
@@ -95,7 +95,7 @@
   },
   {
    "emu": "pin",
-   "player": 9000004
+   "player": "{lane.player}"
   },
   {
    "wait_id": "wallet-modal-title",
@@ -147,7 +147,7 @@
   {
    "check": {
     "value": {
-     "emu": "/admin/api/players/9000004",
+     "emu": "/admin/api/players/{lane.player}",
      "field": "cwaAvailable",
      "scale": 100000
     },
@@ -182,7 +182,7 @@
  "cleanup": [
   {
    "emu": "set_cwa",
-   "player": 9000004,
+   "player": "{lane.player}",
    "dollars": 25
   },
   {

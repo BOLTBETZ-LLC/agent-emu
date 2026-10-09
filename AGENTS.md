@@ -219,8 +219,8 @@ ls -lt --time-style=+%H:%M C:/dev/agent-emu/tests/boltbetz/results | sed -n 2p  
 ls C:/dev/agent-emu/tests/boltbetz/results/<that folder>                       # results.json there = finished
 powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name='python.exe'\" | ? CommandLine -match 'run.py' | select ProcessId,CommandLine"
 ```
-A newest folder under 10 minutes old without `results.json`, or any `run.py` process, means a run is live: wait, or use
-only phones it does not hold.
+A newest folder under 10 minutes old without `results.json` (or whose `results.json` says `"running": true`, matrix
+mode), or any `run.py` process, means a run is live: wait, or use only phones it does not hold.
 
 **Run** (from `tests/boltbetz/`):
 ```sh
@@ -234,6 +234,36 @@ Before the first case of a lane the runner waits for phase `ready`, grants POST_
 denied (user-fixed: a live camera gets the app low-memory-killed), launches the app and waits for Home.
 Exit code 0 = no FAIL.
 
+**Lane data.** Cases use `{lane.player}`, `{lane.card}`, `{lane.machine}`, `{lane.email}`, `{lane.id}` instead of a
+lane's literal ids; `tests/boltbetz/lanes.json` fills them (in every mode) and names each lane's phone. A new lane = one
+entry there (`phone`, `email`, `player`, `card`, `machine`).
+
+**Matrix mode** (a work queue for many cases on many phones):
+```sh
+python run.py --phones d0,d1,d2,d3 --matrix cases/matrix                    # every case under cases/matrix
+python run.py --phones d0,d1,d2,d3 --matrix cases/matrix --areas wallet,rewards
+python run.py --phones d0,d1,d2,d3 --matrix cases/matrix --shard 1/2        # every 2nd case from the 1st (split runs)
+python run.py --phones d0,d1,d2,d3 --matrix cases --areas L1,L2,L3,L4       # the lane cases as a matrix
+```
+- Area = the case's subfolder under the matrix dir (files directly in it: their lane). `--case` filters ids here too.
+- **Portable vs pinned.** A case with no `lane` (or `"lane": "any"`, or `"portable": true`) runs on any phone, with that
+  phone's lane account (lanes.json `phone`). A case with a lane and no `portable` runs only on that lane's phone, in id
+  order (L2-10 before L2-12). `"last": true` (L1-99 signs out) runs after everything else on its phone; the phone then
+  takes no more work. Matrix cases must use `{lane.*}`, never a literal player, card or machine.
+- **Scheduling.** Cases are dealt longest first (wall time from earlier runs in `results/`, else `timeout_s / 4`)
+  onto per-phone queues; a phone whose queue empties steals the longest portable case from the busiest phone.
+- **Reset before every case** (~3 s): end the lane machine's session, put the lane player's CWA back to $25 if it is
+  off, force-stop + launch the app, hooks on, faults cleared, route Home, wait for `home-screen` (signed out = FAIL).
+  CAMERA is denied on every phone. Three failed resets in a row retire that phone for the run.
+- `timeout_s` is a hard limit: every daemon call fails once it passes (cleanup gets 30 s more).
+- **Retry:** a failed portable case runs once more on another phone; PASS then = `flaky: true`. Pinned cases are not
+  retried (no other phone has their account).
+- **Live:** `results.json` is rewritten after every case (`running`, `progress`, results so far), so the dashboard's
+  Test runs view fills in as it goes; stdout prints `[n/N] PASS|FLAKY|FAIL <id> on <phone> ...`.
+- **Output:** `grid.md` = area x PASS/FLAKY/FAIL/SKIP, total wall time, per-phone busy time and utilization, flaky
+  list, failures with error, FAIL screenshot and app error log lines (also `logs` in results.json).
+- Offline self-check of the scheduler (no phones): `python test_matrix.py`.
+
 Env: `AE_API` (daemon HTTP, default `http://127.0.0.1:7401`), `AE_RUNS_DIR` (results root, default
 `tests/boltbetz/results`, gitignored), `ASM_EXEC` (asm-exec script, default `C:/dev/dev-harness/tools/asm-exec.ps1`),
 `AE_SANDBOX_NOTE` (test-card note for card cases, default `C:/dev/boltbetz-docs/70-ops/ops-sandbox-test-account.md`).
@@ -243,7 +273,8 @@ Runs before 2026-10-09 stay in `.scratch/test-matrix/runner/results`.
 (`lanes` optional) run `run.py` from the MCP process and block until done. Reply: the PASS/FAIL grid, then
 `{"exit","passed","results","stderr"}` with `results` = the run's folder. The MCP finds `tests/boltbetz/run.py`
 above its exe (`AE_TESTS_DIR` overrides; `AE_PYTHON` picks the interpreter, default `python`). Same rules as the CLI:
-check for a live run first, one run per phone.
+check for a live run first, one run per phone. `run_matrix` `{"phones":["d0","d1","d2","d3"],"matrix":"cases/matrix",
+"areas":["wallet"],"shard":"1/2"}` runs matrix mode (`matrix` default `cases/matrix`; `areas`, `shard` optional).
 
 **Results:** `tests/boltbetz/results/<yyyymmdd-hhmmss>/`: `results.json` (deal, total wall time, every check with detail,
 errors), `grid.md` (case x lane PASS/FAIL/SKIP + wall s), one PNG per screenshot check, `<case>-FAIL.png` on failure.
@@ -377,10 +408,10 @@ tool_timeout_sec = 900   # start blocks ~2 min; Codex's default is 60
 Other folders: `codex mcp add agent-emu -- C:\dev\agent-emu\daemon\target-mcp\release\agent-emud.exe mcp --addr 127.0.0.1:7400`
 (then raise `tool_timeout_sec` in `~/.codex/config.toml`). Check: `codex mcp get agent-emu`.
 
-**Tools** (30): `status`, `start`, `stop`, `start_many`, `stop_many`, `install_bundled`, `app`, `ui_tree`,
+**Tools** (31): `status`, `start`, `stop`, `start_many`, `stop_many`, `install_bundled`, `app`, `ui_tree`,
 `screenshot`, `tap`, `swipe`, `type_text`, `key`, `deep_link`, `permission`, `clock`, `set_location`, `shell`,
 `logs`, `issues`, `crash_events`, `memory`, `squeeze`, `lease`, `release`, `inject_camera_image`, `fleet`,
-`fleet_stop`, `run_case`, `run_lanes` (the last two run the test runner: [Test runner](#test-runner)).
+`fleet_stop`, `run_case`, `run_lanes`, `run_matrix` (the last three run the test runner: [Test runner](#test-runner)).
 MCP replies with a frame become an image block: pass `"screenshot": false` on inputs to keep context small.
 
 ## Gotchas

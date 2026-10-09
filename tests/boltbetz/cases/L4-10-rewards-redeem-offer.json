@@ -1,21 +1,22 @@
 {
  "id": "L4-10-rewards-redeem-offer",
  "lane": "L4",
+ "portable": true,
  "timeout_s": 180,
  "preconditions": {
   "signed_in": true,
   "kyc": true,
   "venue_card": true,
-  "emulator_player": 9000006
+  "emulator_player": "{lane.player}"
  },
  "steps": [
   {
    "emu": "clear_offers",
-   "player": 9000006
+   "player": "{lane.player}"
   },
   {
    "emu": "offer",
-   "player": 9000006,
+   "player": "{lane.player}",
    "name": "QA Lane4 Offer",
    "freeplay": 5
   },
@@ -103,7 +104,7 @@
   {
    "check": {
     "value": {
-     "emu": "/admin/api/players/9000006",
+     "emu": "/admin/api/players/{lane.player}",
      "field": "offers.0.redeemed"
     },
     "expect": "1",
@@ -166,7 +167,7 @@
   },
   {
    "emu": "clear_offers",
-   "player": 9000006
+   "player": "{lane.player}"
   },
   {
    "call": "deep_link",

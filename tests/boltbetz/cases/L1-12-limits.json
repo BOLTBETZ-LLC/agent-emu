@@ -1,6 +1,7 @@
 {
  "id": "L1-12-limits",
  "lane": "L1",
+ "portable": true,
  "timeout_s": 90,
  "preconditions": {
   "signed_in": true,

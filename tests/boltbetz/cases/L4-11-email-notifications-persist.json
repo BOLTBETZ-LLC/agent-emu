@@ -1,12 +1,13 @@
 {
  "id": "L4-11-email-notifications-persist",
  "lane": "L4",
+ "portable": true,
  "timeout_s": 240,
  "preconditions": {
   "signed_in": true,
   "kyc": true,
   "venue_card": true,
-  "emulator_player": 9000006
+  "emulator_player": "{lane.player}"
  },
  "steps": [
   {

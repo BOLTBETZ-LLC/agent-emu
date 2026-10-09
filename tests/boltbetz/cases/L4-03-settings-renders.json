@@ -1,6 +1,7 @@
 {
  "id": "L4-03-settings-renders",
  "lane": "L4",
+ "portable": true,
  "timeout_s": 90,
  "preconditions": {
   "signed_in": true,

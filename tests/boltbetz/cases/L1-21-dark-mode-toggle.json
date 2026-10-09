@@ -1,12 +1,13 @@
 {
  "id": "L1-21-dark-mode-toggle",
  "lane": "L1",
+ "portable": true,
  "timeout_s": 150,
  "preconditions": {
   "signed_in": true,
   "kyc": true,
   "venue_card": true,
-  "emulator_player": 9000003
+  "emulator_player": "{lane.player}"
  },
  "steps": [
   {

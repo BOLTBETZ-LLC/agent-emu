@@ -1,0 +1,6 @@
+{
+  "L1": {"phone": "d0", "email": "aaron+lane1@boltbetz.com", "player": 9000003, "card": 97000003, "machine": "EMU-L1"},
+  "L2": {"phone": "d1", "email": "aaron+lane2@boltbetz.com", "player": 9000004, "card": 97000004, "machine": "EMU-L2"},
+  "L3": {"phone": "d2", "email": "aaron+lane3@boltbetz.com", "player": 9000005, "card": 97000005, "machine": "EMU-L3"},
+  "L4": {"phone": "d3", "email": "aaron+lane4@boltbetz.com", "player": 9000006, "card": 97000006, "machine": "EMU-L4"}
+}

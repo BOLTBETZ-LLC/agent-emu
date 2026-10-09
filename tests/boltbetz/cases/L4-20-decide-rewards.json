@@ -1,6 +1,7 @@
 {
  "id": "L4-20-decide-rewards",
  "lane": "L4",
+ "portable": true,
  "timeout_s": 90,
  "preconditions": {
   "signed_in": true,

@@ -1,6 +1,7 @@
 {
  "id": "L4-21-decide-responsible-gaming",
  "lane": "L4",
+ "portable": true,
  "timeout_s": 90,
  "preconditions": {
   "signed_in": true,

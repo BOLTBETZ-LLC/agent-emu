@@ -1,6 +1,7 @@
 {
  "id": "L3-02-qa-paste-box-present",
  "lane": "L3",
+ "portable": true,
  "timeout_s": 90,
  "preconditions": {
   "signed_in": true,

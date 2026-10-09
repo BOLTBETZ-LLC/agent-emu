@@ -1,13 +1,14 @@
 {
  "id": "L3-11-machine-tip-voucher",
  "lane": "L3",
+ "portable": true,
  "timeout_s": 240,
  "preconditions": {
   "signed_in": true,
   "kyc": true,
   "venue_card": true,
-  "emulator_player": 9000005,
-  "emulator_machine": "EMU-L3"
+  "emulator_player": "{lane.player}",
+  "emulator_machine": "{lane.machine}"
  },
  "steps": [
   {
@@ -27,12 +28,12 @@
   },
   {
    "emu": "end_session",
-   "asset": "EMU-L3",
+   "asset": "{lane.machine}",
    "optional": true
   },
   {
    "emu": "set_cwa",
-   "player": 9000005,
+   "player": "{lane.player}",
    "dollars": 25
   },
   {
@@ -72,7 +73,7 @@
   },
   {
    "emu": "type_qr",
-   "asset": "EMU-L3"
+   "asset": "{lane.machine}"
   },
   {
    "tap_id": "qa-machine-scan-submit"
@@ -84,7 +85,7 @@
   {
    "check": {
     "value": {
-     "emu": "/admin/api/players/9000005",
+     "emu": "/admin/api/players/{lane.player}",
      "field": "cwaAvailable",
      "scale": 100000
     },
@@ -94,7 +95,7 @@
   {
    "check": {
     "value": {
-     "emu": "/admin/api/players/9000005",
+     "emu": "/admin/api/players/{lane.player}",
      "field": "vouchers"
     },
     "save": "v0"
@@ -124,7 +125,7 @@
   },
   {
    "emu": "pin",
-   "player": 9000005
+   "player": "{lane.player}"
   },
   {
    "wait_id": "wallet-modal-title",
@@ -150,7 +151,7 @@
   {
    "check": {
     "value": {
-     "emu": "/admin/api/players/9000005",
+     "emu": "/admin/api/players/{lane.player}",
      "field": "cwaAvailable",
      "scale": 100000
     },
@@ -161,7 +162,7 @@
   {
    "check": {
     "value": {
-     "emu": "/admin/api/players/9000005",
+     "emu": "/admin/api/players/{lane.player}",
      "field": "vouchers"
     },
     "expect": "v0 + 1",
@@ -268,12 +269,12 @@
   },
   {
    "emu": "end_session",
-   "asset": "EMU-L3",
+   "asset": "{lane.machine}",
    "optional": true
   },
   {
    "emu": "set_cwa",
-   "player": 9000005,
+   "player": "{lane.player}",
    "dollars": 25
   },
   {

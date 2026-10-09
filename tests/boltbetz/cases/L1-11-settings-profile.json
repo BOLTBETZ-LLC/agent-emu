@@ -1,6 +1,7 @@
 {
  "id": "L1-11-settings-profile",
  "lane": "L1",
+ "portable": true,
  "timeout_s": 90,
  "preconditions": {
   "signed_in": true,
