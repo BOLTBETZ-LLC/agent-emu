@@ -47,8 +47,14 @@ const SETUP: &str = "settings put global hide_error_dialogs 1; \
     svc power stayon true; input keyevent KEYCODE_WAKEUP; wm dismiss-keyguard; \
     settings put secure immersive_mode_confirmations confirmed; \
     service call SurfaceFlinger 1008 i32 1; \
+    if [ -e /sys/class/net/buried_eth0 ]; then \
     ip link set buried_eth0 up; ip addr add 10.0.2.15/24 dev buried_eth0; \
-    ip route add 10.0.2.0/24 dev buried_eth0 table legacy_system";
+    ip route add 10.0.2.0/24 dev buried_eth0 table legacy_system; \
+    else for i in 1 2 3 4 5 6 7 8 9 10; do ip -4 addr show eth0 | grep -q inet && break; sleep 1; done; \
+    ip addr add 10.0.2.15/24 dev eth0; fi";
+// slim5 has no buried_eth0: Android's Ethernet service takes eth0 and DHCP gives it 10.0.2.4, so nothing
+// answered at 10.0.2.15 and every host adb (app install) saw the phone offline (2026-10-09). Add 10.0.2.15
+// to eth0 after DHCP so IpClient's address flush at start does not drop it.
 
 // Lean images only (one app + Firefox): disable the system apps nothing here uses and unload the modules
 // for hardware the VM does not have (kunit tests, USB NICs, CAN, PPP, 802.15.4, Wi-Fi dongles, kheaders).
