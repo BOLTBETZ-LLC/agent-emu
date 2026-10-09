@@ -166,7 +166,7 @@ def do_step(device, step, ctx=None):
         if txt:
             call(device, "type_text", text=txt, screenshot=False)
         time.sleep(0.3)
-    elif "emu" in step:  # Synkros emulator admin API; key via asm-exec env (see withkey.py)
+    elif "emu" in step:  # Synkros emulator admin API; key: see emu._key()
         import emu
         if step["emu"] == "pin":  # PIN sheet: set a fresh random PIN on the player, type it, Continue. Never stored.
             import random
@@ -308,8 +308,14 @@ NOTE = Path(os.environ.get("AE_SANDBOX_NOTE", "C:/dev/boltbetz-docs/70-ops/ops-s
 
 
 def secret(key):
-    """Test card from the sandbox note, read at run time; never written to a case, result or log."""
+    """Test card, read at run time; never written to a case, result or log. Env AE_TEST_CARD
+    ("number|MMYY|CVV|name on card", the app stores it) first, else the sandbox note (this PC)."""
+    if key.startswith("card.") and os.environ.get("AE_TEST_CARD"):
+        pan, exp, cvv, name = (p.strip() for p in os.environ["AE_TEST_CARD"].split("|", 3))
+        return {"pan": pan.replace(" ", ""), "exp": exp.replace("/", ""), "cvv": cvv, "name": name}[key[5:]]
     if key.startswith("card."):
+        if not NOTE.is_file():
+            raise RuntimeError("no test card: enter it in the agent-emu app (Setup > Secrets) or set AE_TEST_CARD")
         blk = NOTE.read_text(encoding="utf-8").split("## Deposit card", 1)[1].split("```")[1]
         mm, yy = re.search(r"Exp\s+(\d\d)/(\d\d)", blk).groups()
         return {"pan": re.search(r"\b(\d{4} ?\d{4} ?\d{4} ?\d{4})\b", blk).group(1).replace(" ", ""),

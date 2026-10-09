@@ -11,7 +11,7 @@ from pathlib import Path
 
 # Name in the app -> names the runner reads.
 ALIASES = {"AE_SIDECAR_KEY": ["AE_SIDECAR_KEY", "SYNKROS_API_KEY"], "TYPESAFE_API_KEY": ["TYPESAFE_API_KEY"],
-           "EXT_QA_TOKEN": ["EXT_QA_TOKEN"]}
+           "EXT_QA_TOKEN": ["EXT_QA_TOKEN"], "AE_TEST_CARD": ["AE_TEST_CARD"]}
 
 
 class _Blob(ctypes.Structure):

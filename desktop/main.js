@@ -15,6 +15,7 @@ const SECRETS_INFO = {
   AE_SIDECAR_KEY: { label: "Synkros emulator key (casino system: players, wallets, machines)", alias: ["SYNKROS_API_KEY"] },
   EXT_QA_TOKEN: { label: "Sidecar QA token (creates and signs in test accounts, no Gmail)", alias: [] },
   TYPESAFE_API_KEY: { label: "TypeSafe key (optional: plain-English decide/judge test steps)", alias: [] },
+  AE_TEST_CARD: { label: "Deposit test card, as number|MMYY|CVV|name (optional: only the add-card case)", alias: [] },
 };
 const SECRET_NAMES = Object.keys(SECRETS_INFO);
 const RES = app.isPackaged ? path.join(process.resourcesPath, "agent-emu") : path.join(__dirname, "..", "dist", "agent-emu");
