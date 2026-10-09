@@ -2,9 +2,10 @@
 
   python signin.py send dN <email>                      # Login -> email -> Send code
   (tap code-input) python signin.py code dN <code>      # lands on "No account for <email>"
-  PLAID_SSN4=<last 4 of the sandbox SSN> python signup.py dN <First> <Last>
+  python signup.py dN <First> <Last>             # PLAID_SSN4 overrides the SSN last 4
 
-SSN last 4: ops-dev-kyc-walkthrough.md (bb-infra/docs/70-ops). Plaid asks for the LAST 4 only; typing 9 digits keeps
+SSN last 4: Plaid's public sandbox user Leslie Knope, SSN 123-45-6789 (plaid.com/docs/identity-verification/testing),
+so the default is 6789. Plaid asks for the LAST 4 only; typing 9 digits keeps
 the first 4, which is wrong. Names: Leslie Knope or a Plaid Dashboard sandbox identity (Ethan Hunt, Jack Reacher,
 John Dutton, Tony Soprano, Jackie Chan); all share Leslie's DOB, phone, address and SSN.
 
@@ -72,7 +73,7 @@ def next_page(dev, wait=6):
 
 
 def run(dev, first, last, street="123 Main St."):
-    ssn4 = os.environ["PLAID_SSN4"]
+    ssn4 = os.environ.get("PLAID_SSN4", "6789")  # public Plaid sandbox data, not a secret
     if os.environ.get("SIGNUP_RESUME") == "plaid":  # app steps done, Plaid's first page is on screen
         return plaid(dev, first, last, ssn4, street)
     call(dev, "permission", pkg="com.boltbetz.staging", perm="android.permission.CAMERA", action="grant")
