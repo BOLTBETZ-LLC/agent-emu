@@ -388,8 +388,8 @@ const BROWSER_HEADROOM_MB: u64 = 256;
 const REINFLATE_AFTER: Duration = Duration::from_secs(10);
 
 /// Watches which app is in front (`wm_set_resumed_activity` lines in the host's copy of logcat, so the guest
-/// pays nothing for the watch). Holds the browser headroom in the balloon except while `browser` is in front
-/// or a camera is open.
+/// pays nothing for the watch). Holds the browser headroom in the balloon except while `browser` is in front,
+/// a camera is open, or the Device is in use.
 /// Runs until the Device stops.
 async fn browser_balloon(d: &Device, browser: &str, ev: &tokio::sync::broadcast::Sender<Value>) {
     let pipe = format!(r"\\.\pipe\ae-vm-{}", d.idx());
@@ -411,10 +411,12 @@ async fn browser_balloon(d: &Device, browser: &str, ev: &tokio::sync::broadcast:
     let mut cursor = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
     // The headroom is out of the balloon while the browser is in front or the camera is open (the scanner's
     // camera buffers took the guest's last ~90 MB, 2026-10-08: MemAvailable 0, lmkd thrashing kills).
-    let (mut front_browser, mut camera, mut since) = (false, false, Instant::now());
+    // Also while the Device is in use (input in the last IDLE_MS or a focused stream): with the headroom held, a
+    // test run left the app ~50 MB resident with 330 MB in zram and lmkd killed it in front (2026-10-08: 4 kills
+    // in 3 runs; 0 with the headroom out).
+    let (mut front_browser, mut camera, mut was, mut since) = (false, false, false, Instant::now());
     while d.ready.load(Ordering::SeqCst) {
         tokio::time::sleep(Duration::from_secs(1)).await;
-        let was = front_browser || camera;
         if let Ok(mut f) = std::fs::File::open(&path) {
             use std::io::{Read, Seek};
             let mut buf = String::new();
@@ -428,9 +430,9 @@ async fn browser_balloon(d: &Device, browser: &str, ev: &tokio::sync::broadcast:
                 }
             }
         }
-        let need = front_browser || camera;
+        let need = front_browser || camera || d.in_use();
         if need != was {
-            since = Instant::now();
+            (was, since) = (need, Instant::now());
         }
         let on = d.headroom_on.load(Ordering::SeqCst);
         if need && on {

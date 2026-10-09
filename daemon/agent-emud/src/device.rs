@@ -37,7 +37,10 @@ const PARTS: &str = "misc:misc.img:writable frp:frp.img:writable boot_a:boot.img
 // rx and tx interrupts/s each), which cost the host ~1 core per idle Device (2026-10-08: 1.07 -> 0.04 cores;
 // BoltBetz launched after, no ANR or crash). renice alone left the vsock storm. Never `ctl.stop
 // vendor.ril-daemon`: com.android.phone then hangs waiting for the radio HAL and ANR-restarts every ~45 s.
+// lmkd swap_compression_ratio 0: lmkd capped free swap at free RAM (~5 MB) though zram had 400 MB free, called
+// swap "low" and killed the app in front (2026-10-08).
 const SETUP: &str = "settings put global hide_error_dialogs 1; \
+    setprop persist.device_config.lmkd_native.swap_compression_ratio 0; setprop lmkd.reinit 1; \
     am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS; setprop log.tag.RIL S; kill -STOP $(pidof libcuttlefish-rild) 2>/dev/null; \
     cmd connectivity airplane-mode enable; settings put global window_animation_scale 0; \
     settings put global transition_animation_scale 0; settings put global animator_duration_scale 0; \
