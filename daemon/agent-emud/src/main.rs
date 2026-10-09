@@ -4,6 +4,7 @@
 // Request:  {"id":1,"call":"tap","device":"d0","x":100,"y":200}
 // Reply:    {"id":1,"ok":true,"ms":12,...} or {"id":1,"ok":false,"error":"..."}
 mod adopt;
+mod apps;
 mod bugs;
 mod controls;
 mod device;
@@ -339,6 +340,12 @@ async fn start_device(st: &State, idx: u32, req: &Value) -> R<(Arc<Device>, f64)
             let (d2, ev) = (d.clone(), st.events.clone());
             tokio::spawn(async move { browser_balloon(&d2, &pkg, &ev).await });
         }
+    }
+    // Wiped disks: install the image's default app (set_default_app) before Ready. Images without one skip it.
+    if req["keep_data"] != json!(true) && apps::image_apk_size(&d) > 0 {
+        phase("app");
+        let r = apps::install_image_apk(&d, apps::image_apk_size(&d)).await;
+        emit(st, json!({"type": "device", "device": id, "default_app": if r.is_ok() { "installed" } else { "failed" }, "error": r.err()}));
     }
     phase("ready");
     if let Err(e) = adopt::save(st, &id, Some(req), adopt::addr()).await {
@@ -777,6 +784,9 @@ async fn handle(st: &Arc<State>, conn: u64, req: &Value) -> R<Value> {
     if bugs::CALLS.contains(&call) {
         return bugs::handle(st, call, req);
     }
+    if apps::CALLS.contains(&call) {
+        return apps::handle(st, call, req).await;
+    }
     let mut r = if ops::CALLS.contains(&call) { ops::handle(st, call, req).await? } else { handle_call(st, conn, req).await? };
     if let Some(w) = warn {
         r["warning"] = json!(w);
@@ -908,20 +918,10 @@ async fn handle_call(st: &Arc<State>, conn: u64, req: &Value) -> R<Value> {
             return squeeze::squeeze(&d, &d.crosvm, pid, o).await;
         }
         "install_bundled" => {
-            // The image's own APK (apk.img on /dev/block/vdb), over the console: no adb needed. Size from the Device
-            // dir's apk.size, linked at boot with its apk.img, so a swap (set-bundled-apk.ps1) never mismatches them.
-            let name = st.devs.lock().unwrap().get(devid).and_then(|s| s.info["image_name"].as_str().map(str::to_string)).unwrap_or_default();
-            let run = device::image(&name)?.0;
-            let read = |p: std::path::PathBuf| std::fs::read_to_string(p).ok().and_then(|s| s.trim().parse::<u64>().ok());
-            let size = read(d.dir.join("apk.size")).or_else(|| read(st.cfg.work.join(run).join("apk.size")))
-                .ok_or(format!("{run}/apk.size missing"))?;
-            let (o, _) = d.con.exec(&format!("head -c {size} /dev/block/vdb > /data/local/tmp/p.apk && chmod 644 /data/local/tmp/p.apk &&                 pm install -r /data/local/tmp/p.apk; rm -f /data/local/tmp/p.apk"), Duration::from_secs(300)).await?;
-            if !o.contains("Success") {
-                return Err(format!("install: {o}"));
-            }
-            // DAX images: bind the app's code from pmem1 over the fresh install (vendor appdax.rc; no-op elsewhere).
-            d.con.exec("setprop sys.agentemu.appdax 0; setprop sys.agentemu.appdax 1", Duration::from_secs(10)).await?;
-            return Ok(json!({"ok": true, "out": o.trim()}));
+            // The image's default app (apk.img on /dev/block/vdb, set_default_app), over the console: no adb needed.
+            // Size from the Device dir's apk.size, linked at boot with its apk.img, so a swap never mismatches them.
+            let o = apps::install_image_apk(&d, apps::image_apk_size(&d)).await?;
+            return Ok(json!({"ok": true, "out": o}));
         }
         "crash_events" => {
             // Long poll: events after seq `after`, waiting up to wait_ms for the first one.

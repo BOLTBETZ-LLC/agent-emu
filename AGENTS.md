@@ -84,7 +84,9 @@ HTTP 200 either way: always read `ok`.
 | `start_many` | `{"call":"start_many","devices":["d0","d1"],"image":"slim5","screen":"iphone17promax-half","keep_data":true}` | up to 4 boot at once |
 | `stop` | `{"call":"stop","device":"d3"}` | syncs the guest first, so `keep_data` can reuse the disks |
 | `stop_many` | `{"call":"stop_many","devices":["d0","d1"]}` | no `devices` = every phone |
-| `install_bundled` | `{"call":"install_bundled","device":"d3"}` | the image's BoltBetz staging APK |
+| `install_bundled` | `{"call":"install_bundled","device":"d3"}` | the image's default app (on this PC the BoltBetz staging APK) |
+| `install_app` | `{"call":"install_app","devices":["d3"],"source":"https://expo.dev/artifacts/eas/<x>.apk"}` | any build, see [The app under test](#the-app-under-test) |
+| `set_default_app` | `{"call":"set_default_app","source":"C:/builds/app.apk"}` | the app new phones install at boot |
 | `app` | `{"call":"app","device":"d3","launch":"com.boltbetz.staging"}` | one of `install` (host APK path), `uninstall`, `clear`, `launch` |
 | `ui_tree` | `{"call":"ui_tree","device":"d3"}` | `xml`: uiautomator dump, ~80 ms |
 | `screenshot` | `{"call":"screenshot","device":"d3","size":"360x780"}` | `frame.jpeg` base64; MCP returns an image block |
@@ -137,7 +139,28 @@ than `status`/`stop` on a phone that is not up fail with `Device dN is still boo
 - **Golden snapshots.** Each lane phone has `L<n>-golden` (signed in, Home): `snapshot` makes one, `restore` puts a
   broken phone (signed out, bad data) back. Expected staging runtime for the health warning: `C:\dev\agent-emu-work\expected-runtime.txt`.
 
-**Bundled APK** (what `install_bundled` and `fleet` install): EAS staging build `4cd7f3dc` (1.4.0, versionCode 22),
+### The app under test
+
+Any Android build plugs in. `install_app` puts it on running phones now; `set_default_app` makes it the app every phone
+started later without `keep_data` installs at boot (and what `install_bundled`/`fleet` install). Both take one
+`source`, and anything that names a build works:
+
+| Source | Example |
+| --- | --- |
+| local APK | `C:\builds\app-staging.apk` |
+| any https APK URL | `https://expo.dev/artifacts/eas/PrDreXFiALCuSSTALkhmPQvdrc-OwQNJ9stUadTzgN0.apk` |
+| expo.dev build page | `https://expo.dev/accounts/boltbetz/projects/<project>/builds/4cd7f3dc-7570-4c66-b85f-349fe5b5e3a9` |
+| EAS build id | `4cd7f3dc-7570-4c66-b85f-349fe5b5e3a9` |
+
+- Build pages and ids go through the logged-in `eas` CLI (`eas build:view <id> --json`), which must run inside some Expo
+  project folder: pass `eas_project` or set `AE_EAS_PROJECT_DIR` (on this PC `C:\dev\v2-React-Native`). Not logged in = a
+  clear error; the artifact URL works without eas.
+- The reply names `package`, `version_name`, `version_code`, Expo `runtime` and `channel`, read from the APK itself.
+- `.aab` (store builds) is refused: phones need an APK (EAS profile with `android.buildType: "apk"`).
+- Installer builds of agent-emu ship base images with no app at all; until `set_default_app` runs, `install_bundled`
+  errors and wiped phones boot without an app.
+
+**Bundled APK on this PC** (the default app here; what `install_bundled` and `fleet` install): EAS staging build `4cd7f3dc` (1.4.0, versionCode 22),
 kept at `C:\dev\agent-emu-work\apk\boltbetz-staging-4cd7f3dc.apk`. Previous one (2026-10-07) beside it as
 `boltbetz-staging-prev-2026-10-07.apk`.
 - **Rule: the bundled build's fingerprint must match today's staging OTA fingerprint.** Otherwise the app never
@@ -500,7 +523,7 @@ tool_timeout_sec = 900   # start blocks ~2 min; Codex's default is 60
 Other folders: `codex mcp add agent-emu -- C:\dev\agent-emu\daemon\target-mcp\release\agent-emud.exe mcp --addr 127.0.0.1:7400`
 (then raise `tool_timeout_sec` in `~/.codex/config.toml`). Check: `codex mcp get agent-emu`.
 
-**Tools** (37): `bugs`, `claim`, `unclaim`, `health`, `snapshot`, `restore`, `status`, `start`, `stop`, `start_many`, `stop_many`, `install_bundled`, `app`, `ui_tree`,
+**Tools** (40): `install_app`, `set_default_app`, `default_app`, `bugs`, `claim`, `unclaim`, `health`, `snapshot`, `restore`, `status`, `start`, `stop`, `start_many`, `stop_many`, `install_bundled`, `app`, `ui_tree`,
 `screenshot`, `tap`, `swipe`, `type_text`, `key`, `deep_link`, `permission`, `clock`, `set_location`, `shell`,
 `logs`, `issues`, `crash_events`, `memory`, `squeeze`, `lease`, `release`, `inject_camera_image`, `fleet`,
 `fleet_stop`, `run_case`, `run_lanes`, `run_matrix` (the last three run the test runner: [Test runner](#test-runner)).

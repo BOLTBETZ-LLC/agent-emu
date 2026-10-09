@@ -416,7 +416,7 @@ pub fn meta_data(b: &[u8]) -> BTreeMap<String, String> {
     out
 }
 
-fn string_pool(b: &[u8], pos: usize, hs: usize) -> Option<Vec<String>> {
+pub fn string_pool(b: &[u8], pos: usize, hs: usize) -> Option<Vec<String>> {
     let u32_at = |p: usize| b.get(p..p + 4).map(|s| u32::from_le_bytes([s[0], s[1], s[2], s[3]]) as usize);
     let (n, flags, start) = (u32_at(pos + 8)?, u32_at(pos + 16)?, u32_at(pos + 20)?);
     let utf8 = flags & 0x100 != 0;

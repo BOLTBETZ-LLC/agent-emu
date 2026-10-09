@@ -19,6 +19,6 @@
     "electron-builder": "26.15.3"
   },
   "agentEmu": {
-    "imageManifest": ""
+    "feed": "https://d2pe4tj8fdcb6a.cloudfront.net/feed/v1/manifest.json"
   }
 }

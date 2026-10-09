@@ -12,7 +12,6 @@ const { pipeline } = require("stream/promises");
 
 const SECRET_NAMES = ["AE_SIDECAR_KEY", "TYPESAFE_API_KEY"];
 const RES = app.isPackaged ? path.join(process.resourcesPath, "agent-emu") : path.join(__dirname, "..", "dist", "agent-emu");
-const PY_SRC = app.isPackaged ? path.join(RES, "python") : path.join(__dirname, "payload", "python");
 const userData = app.getPath("userData");
 const CONFIG = path.join(userData, "config.json");
 const SECRETS = path.join(userData, "secrets.json");
@@ -37,6 +36,7 @@ const ROOT = cfg.root;
 const URL_UI = `http://127.0.0.1:${cfg.port}/`;
 const MCP_EXE = path.join(ROOT, "bin", "agent-emud-mcp.exe");
 const PY_EXE = path.join(ROOT, "python", "python.exe");
+const PICT = path.join(ROOT, "bin", "pict.exe");
 
 function log(m) {
   const line = `${new Date().toISOString()} ${m}`;
@@ -95,7 +95,6 @@ async function importEnvSecrets() {
 async function stepSetup() {
   const r = await ps(path.join(RES, "setup.ps1"), ["-Root", ROOT, "-Port", cfg.port, "-AgentPort", cfg.agentPort, "-NoShortcuts", "-NoMcp", "-NoStart"].map(String));
   if (r.code !== 0) return { ok: false, whp: /Hypervisor Platform is off/.test(r.out) };
-  if (fs.existsSync(PY_SRC) && !fs.existsSync(PY_EXE)) fs.cpSync(PY_SRC, path.join(ROOT, "python"), { recursive: true });
   // Separate MCP exe: MCP clients hold it open; refresh only when not locked.
   try { fs.mkdirSync(path.dirname(MCP_EXE), { recursive: true }); fs.copyFileSync(path.join(ROOT, "agent-emud.exe"), MCP_EXE); }
   catch (e) { log(`skip  MCP exe in use, kept the old copy (${e.code})`); }
@@ -110,13 +109,14 @@ async function fixWhp() {
 }
 
 const imagesPresent = () => fs.existsSync(path.join(ROOT, "images", "browser", "browser.img"));
-async function extractZip(zip) {
+const FEED = (PKG.agentEmu && PKG.agentEmu.feed) || "";
+async function extractZip(zip, dest = path.join(ROOT, "images")) {
   const first = (await run("tar.exe", ["-tf", zip], { echo: false })).out.split(/\r?\n/)[0] || "";
-  fs.mkdirSync(path.join(ROOT, "images"), { recursive: true });
-  // Portable zip (agent-emu/images/...) or an image pack (paths relative to images\).
+  fs.mkdirSync(dest, { recursive: true });
+  // The portable zip (agent-emu/images/...) or a pack (paths relative to dest).
   const args = first.startsWith("agent-emu/")
     ? ["-xf", zip, "-C", ROOT, "--strip-components=1", "agent-emu/images"]
-    : ["-xf", zip, "-C", path.join(ROOT, "images")];
+    : ["-xf", zip, "-C", dest];
   log(`Unpacking ${path.basename(zip)}...`);
   return (await run("tar.exe", args)).code === 0;
 }
@@ -125,41 +125,57 @@ async function sha256(file) {
   await pipeline(fs.createReadStream(file), h);
   return h.digest("hex");
 }
-// Resumable: a partial file continues with a Range request; every file is sha256-checked before unpacking.
-async function downloadImages(manifestUrl) {
-  const m = await (await fetch(manifestUrl)).json();
-  const dir = path.join(ROOT, "downloads");
-  fs.mkdirSync(dir, { recursive: true });
-  for (const f of m.files) {
-    const dest = path.join(dir, path.basename(f.name));
-    let have = fs.existsSync(dest) ? fs.statSync(dest).size : 0;
-    if (have > f.size) { fs.rmSync(dest); have = 0; }
-    if (have < f.size) {
-      const res = await fetch(new URL(f.url || f.name, manifestUrl), { headers: have ? { Range: `bytes=${have}-` } : {} });
-      if (have && res.status !== 206) { have = 0; }
-      if (!res.ok) throw new Error(`${f.name}: HTTP ${res.status}`);
-      let got = have, lastPct = -1;
-      const body = Readable.fromWeb(res.body);
-      body.on("data", (c) => { got += c.length; const p = Math.floor((got * 20) / f.size) * 5; if (p !== lastPct) { lastPct = p; log(`download ${f.name} ${p}%`); } });
-      await pipeline(body, fs.createWriteStream(dest, { flags: have ? "a" : "w" }));
-    }
-    if ((await sha256(dest)) !== f.sha256) { fs.rmSync(dest); throw new Error(`${f.name}: sha256 mismatch, deleted; run again`); }
-    log(`ok    ${f.name} sha256 matches`);
-    if (!(await extractZip(dest))) throw new Error(`unpack ${f.name} failed`);
-    fs.rmSync(dest);
+// Resumable: a partial file continues with a Range request; sha256-checked before it is used.
+async function fetchFile(url, dest, size, want) {
+  let have = fs.existsSync(dest) ? fs.statSync(dest).size : 0;
+  if (have > size) { fs.rmSync(dest); have = 0; }
+  if (have < size) {
+    const res = await fetch(url, { headers: have ? { Range: `bytes=${have}-` } : {} });
+    if (!res.ok) throw new Error(`${path.basename(dest)}: HTTP ${res.status}`);
+    if (have && res.status !== 206) have = 0;
+    let got = have, lastPct = -1;
+    const body = Readable.fromWeb(res.body);
+    body.on("data", (c) => { got += c.length; const p = Math.floor((got * 20) / size) * 5; if (p !== lastPct) { lastPct = p; log(`download ${path.basename(dest)} ${p}%`); } });
+    await pipeline(body, fs.createWriteStream(dest, { flags: have ? "a" : "w" }));
   }
-  fs.writeFileSync(path.join(ROOT, "images.version"), String(m.version));
+  if ((await sha256(dest)) !== want) { fs.rmSync(dest); throw new Error(`${path.basename(dest)}: sha256 mismatch, deleted; run again`); }
+  log(`ok    ${path.basename(dest)} sha256 matches`);
 }
-async function stepImages() {
-  if (imagesPresent()) { log("ok    phone images present"); return { ok: true }; }
-  const url = PKG.agentEmu && PKG.agentEmu.imageManifest;
-  if (!url) { log("WARN  no image feed configured in this build. Use 'Use a local zip' to add images. Phones cannot start until then."); return { ok: true, warn: true }; }
-  try { await downloadImages(url); return { ok: imagesPresent() }; } catch (e) { log(`FAIL  ${e.message}`); return { ok: false }; }
+// Everything the installer leaves out comes from the feed manifest: Python, PyYAML, pict.exe, phone base images.
+// A component is done when <root>\.feed\<name> holds its sha256; Repair clears those marks.
+async function stepDownloads() {
+  if (!FEED) { log("WARN  no download feed in this build; use 'Use a local zip' for images"); return { ok: imagesPresent(), warn: true }; }
+  const m = await (await fetch(FEED)).json();
+  const marks = path.join(ROOT, ".feed"), dl = path.join(ROOT, "downloads");
+  fs.mkdirSync(marks, { recursive: true }); fs.mkdirSync(dl, { recursive: true });
+  for (const c of m.components) {
+    const mark = path.join(marks, c.name);
+    if (fs.existsSync(mark) && fs.readFileSync(mark, "utf8") === c.sha256) { log(`ok    ${c.name} present`); continue; }
+    const file = path.join(dl, c.file);
+    await fetchFile(new URL(c.file, FEED).href, file, c.size, c.sha256);
+    const dest = path.join(ROOT, c.dest);
+    if (c.unpack === "zip") { if (!(await extractZip(file, dest))) throw new Error(`unpack ${c.file} failed`); }
+    else { fs.mkdirSync(path.dirname(dest), { recursive: true }); fs.copyFileSync(file, dest); }
+    if (c.name === "python") {
+      // Embeddable Python: its ._pth fixes sys.path; add vendored packages and the runner folder.
+      const pth = fs.readdirSync(dest).find((f) => /^python\d+\._pth$/.test(f));
+      fs.appendFileSync(path.join(dest, pth), "\r\nLib\\site-packages\r\n..\\tests\\boltbetz\r\n");
+    }
+    fs.rmSync(file);
+    fs.writeFileSync(mark, c.sha256);
+    log(`ok    ${c.name} installed`);
+  }
+  fs.writeFileSync(path.join(ROOT, "feed.version"), String(m.version));
+  return { ok: imagesPresent() && fs.existsSync(PY_EXE) };
+}
+async function repair() {
+  fs.rmSync(path.join(ROOT, ".feed"), { recursive: true, force: true });
+  openWizard();
 }
 
 async function startDaemon() {
   if (await health()) { log(`ok    daemon already answers on ${URL_UI} (attached)`); return true; }
-  const env = { ...process.env, ...(await secretEnv()), AE_HOME: ROOT, AE_WORK: path.join(ROOT, "images"), AE_PYTHON: PY_EXE };
+  const env = { ...process.env, ...(await secretEnv()), AE_HOME: ROOT, AE_WORK: path.join(ROOT, "images"), AE_PYTHON: PY_EXE, PICT };
   // agent-emu.cmd starts agent-emud hidden with Start-Process: not a child of this app, so it outlives it.
   // stdio ignored: the daemon would inherit our pipes and "close" would never fire.
   await run("cmd.exe", ["/d", "/c", path.join(ROOT, "agent-emu.cmd"), "--no-open"], { env, cwd: ROOT, stdio: "ignore" });
@@ -187,7 +203,7 @@ function codexStrip(text) { return text.replace(new RegExp(`\\r?\\n?${BEGIN}[\\s
 async function stepMcp() {
   const addr = `127.0.0.1:${cfg.agentPort}`;
   await claude(["mcp", "remove", cfg.mcpName, "-s", "user"]);
-  const add = await claude(["mcp", "add", "-s", "user", cfg.mcpName, "-e", `AE_PYTHON=${PY_EXE}`, "--", MCP_EXE, "mcp", "--addr", addr]);
+  const add = await claude(["mcp", "add", "-s", "user", cfg.mcpName, "-e", `AE_PYTHON=${PY_EXE}`, "-e", `PICT=${PICT}`, "--", MCP_EXE, "mcp", "--addr", addr]);
   if (!add) log("skip  Claude Code not found; register later from Setup");
   else if (add.code === 0) { log(`ok    Claude Code: MCP ${cfg.mcpName} (user scope)`); log((await claude(["mcp", "get", cfg.mcpName])).out.split(/\r?\n/).slice(0, 6).join(" | ")); }
   else log(`WARN  claude mcp add failed: ${add.out.trim()}`);
@@ -195,7 +211,7 @@ async function stepMcp() {
   if (!fs.existsSync(path.dirname(toml))) { log("skip  Codex not found (~/.codex missing)"); return { ok: true }; }
   const lit = (s) => `'${s}'`; // TOML literal string: backslashes kept as-is
   const block = [BEGIN, `[mcp_servers.${cfg.mcpName}]`, `command = ${lit(MCP_EXE)}`, `args = ["mcp", "--addr", "${addr}"]`,
-    "startup_timeout_sec = 20", "tool_timeout_sec = 900", `[mcp_servers.${cfg.mcpName}.env]`, `AE_PYTHON = ${lit(PY_EXE)}`, END].join("\n");
+    "startup_timeout_sec = 20", "tool_timeout_sec = 900", `[mcp_servers.${cfg.mcpName}.env]`, `AE_PYTHON = ${lit(PY_EXE)}`, `PICT = ${lit(PICT)}`, END].join("\n");
   const old = fs.existsSync(toml) ? fs.readFileSync(toml, "utf8") : "";
   fs.writeFileSync(toml, codexStrip(old).replace(/\s*$/, "\n\n") + block + "\n");
   log(`ok    Codex: [mcp_servers.${cfg.mcpName}] in ${toml}`);
@@ -236,6 +252,7 @@ async function makeTray() {
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: "Open dashboard", click: openDashboard },
     { label: "Setup and doctor", click: openWizard },
+    { label: "Repair / re-download", click: repair },
     { label: "Logs folder", click: () => shell.openPath(path.join(ROOT, "logs")) },
     { type: "separator" },
     { label: "Quit (stops phones and daemon)", click: quitAll },
@@ -249,7 +266,7 @@ ipcMain.handle("step", async (_e, name) => {
   try {
     switch (name) {
       case "setup": return await stepSetup();
-      case "images": return await stepImages();
+      case "downloads": return await stepDownloads();
       case "secrets": return { ok: await importEnvSecrets() };
       case "daemon": return { ok: await startDaemon() };
       case "mcp": return await stepMcp();

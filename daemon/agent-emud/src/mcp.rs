@@ -47,7 +47,16 @@ fn tools() -> Value {
                 "mem": num, "cpus": num, "render": {"type": "string", "description": "gfxstream (default) | software"},
                 "auto_squeeze": {"type": "boolean"}, "boot_cap_mb": num, "idle_cap_mb": num}), &[], false),
         tool("stop", "Stop the Device (syncs the guest first so keep_data can reuse its disks).", json!({}), &[], false),
-        tool("install_bundled", "Install the image's own APK (BoltBetz staging) over the console; no adb needed.", json!({}), &[], false),
+        tool("install_bundled", "Install the image's default app (set_default_app; on this PC the BoltBetz staging build) over the console; no adb needed.", json!({}), &[], false),
+        json!({"name": "install_app", "description": format!("Install ANY Android app build on one or more running Devices and report             package, version_name/version_code and Expo runtime/channel. Accepts anything that names a build: {}. Downloads are cached.             An .aab is refused with how to get an APK.", crate::apps::SOURCES),
+            "inputSchema": {"type": "object", "required": ["source"], "properties": {"source": {"type": "string",
+                "description": "path, https URL, expo.dev link or EAS build id"}, "device": dev.clone(), "devices": ids.clone(),
+                "eas_project": {"type": "string", "description": "folder of any Expo project of the EAS account (only for EAS build ids)"}}}}),
+        json!({"name": "set_default_app", "description": format!("Make a build the default app: phones started later without keep_data install it             at boot, and install_bundled/fleet install it. Same sources as install_app: {}. Running phones keep theirs until restarted.", crate::apps::SOURCES),
+            "inputSchema": {"type": "object", "required": ["source"], "properties": {"source": {"type": "string"},
+                "eas_project": {"type": "string"}}}}),
+        json!({"name": "default_app", "description": "The current default app (package, version, runtime, source), or null when none is set.",
+            "inputSchema": {"type": "object", "properties": {}}}),
         tool("issues", "E and F logcat lines since boot, grouped and counted (app vs system), most frequent first.",
             json!({"filter": {"type": "string", "description": "package, e.g. com.boltbetz.staging"}, "top": num}), &[], false),
         tool("shell", "Root shell command in the guest (console). Reply: out, code.",
@@ -260,7 +269,7 @@ mod tests {
     #[test]
     fn every_tool_takes_device() {
         for t in tools().as_array().unwrap() {
-            if ["fleet", "fleet_stop", "status", "start_many", "stop_many", "run_lanes", "run_matrix", "bugs"].contains(&t["name"].as_str().unwrap()) {
+            if ["fleet", "fleet_stop", "status", "start_many", "stop_many", "run_lanes", "run_matrix", "bugs", "install_app", "set_default_app", "default_app"].contains(&t["name"].as_str().unwrap()) {
                 continue;
             }
             assert_eq!(t["inputSchema"]["required"][0], "device", "{}", t["name"]);
