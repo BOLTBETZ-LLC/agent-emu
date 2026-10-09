@@ -14,6 +14,7 @@ import java.lang.reflect.Method;
  *
  * Protocol (FIFOs in /data/local/tmp): write a line to ae.req; read "ok" (or "err ...") from ae.res; the
  * dump is in ae.xml. Run with CLASSPATH=<this dex>:/system/framework/uiautomator.jar via app_process.
+ * Optional arg: exit after that many seconds without a request (the daemon starts it again on the next one).
  *
  * Build (JDK 17, SDK build-tools 36), in this dir, then bump DEX_PATH in src/uidump.rs:
  *   javac --release 11 -cp $SDK/platforms/android-36/android.jar -d out AeDump.java
@@ -22,6 +23,8 @@ import java.lang.reflect.Method;
  */
 public class AeDump {
     static final String D = "/data/local/tmp/";
+    static final Object lock = new Object();
+    static long last = System.nanoTime();
 
     public static void main(String[] args) throws Throwable {
         Class<?> w = Class.forName("com.android.uiautomator.core.UiAutomationShellWrapper");
@@ -40,11 +43,30 @@ public class AeDump {
         new File(D + "ae.req").delete();
         Os.mkfifo(D + "ae.res", 0600);
         Os.mkfifo(D + "ae.req", 0600); // last: the daemon waits for this one
+        long idleNs = args.length > 0 ? Long.parseLong(args[0]) * 1_000_000_000L : 0;
+        if (idleNs > 0) {
+            Thread t = new Thread(() -> {
+                while (true) {
+                    try { Thread.sleep(1000); } catch (InterruptedException e) { }
+                    synchronized (lock) {
+                        if (System.nanoTime() - last < idleNs) continue;
+                        // FIFOs first: a request after this fails fast and the daemon starts a new dumper.
+                        new File(D + "ae.req").delete();
+                        new File(D + "ae.res").delete();
+                        Runtime.getRuntime().halt(0);
+                    }
+                }
+            });
+            t.setDaemon(true);
+            t.start();
+        }
         while (true) {
             try (BufferedReader r = new BufferedReader(new FileReader(D + "ae.req"))) {
                 if (r.readLine() == null) continue;
             }
             String res;
+            synchronized (lock) {
+            last = System.nanoTime();
             try {
                 AccessibilityNodeInfo root = ua.getRootInActiveWindow();
                 if (root == null) throw new IllegalStateException("null root node");
@@ -60,6 +82,8 @@ public class AeDump {
             }
             try (FileWriter o = new FileWriter(D + "ae.res")) {
                 o.write(res + "\n");
+            }
+            last = System.nanoTime();
             }
         }
     }

@@ -8,17 +8,25 @@ use std::time::Duration;
 
 const DEX: &[u8] = include_bytes!("../aedump/aedump.dex");
 /// Bump the name when AeDump.java changes, so a guest with the old dex gets the new one.
-const DEX_PATH: &str = "/data/local/tmp/aedump2.dex";
+const DEX_PATH: &str = "/data/local/tmp/aedump3.dex";
+/// The dumper exits after this many seconds without a request (~42 MB PSS while it lives); the next ui_tree
+/// starts it again (~0.5 s). AE_UI_DUMPER_IDLE_S overrides; 0 keeps it alive.
+fn idle_s() -> u64 {
+    std::env::var("AE_UI_DUMPER_IDLE_S").ok().and_then(|v| v.parse().ok()).unwrap_or(30)
+}
 
+/// No boot image (-Ximage at a missing file): outside the zygote, ART copies the boot image into ~33 MB of private
+/// memory; without it the dumper loads only the classes it uses (anon 42.6 -> 16.9 MB, same XML, start ~0.4 s).
 /// One console round trip: start the dumper if it isn't running, ask for a dump, print it.
 /// Exit 90 = dex missing in the guest, 91 = dumper did not come up, 92 = no answer / error answer.
 fn dump_cmd() -> String {
+    let idle = idle_s();
     format!("D=/data/local/tmp; \
-        if ! pidof aedump >/dev/null; then \
+        if ! {{ pidof aedump >/dev/null && [ -p $D/ae.req ]; }}; then \
           [ -f {DEX_PATH} ] || exit 90; rm -f $D/ae.req $D/ae.res; \
           p=$(pidof system_server); for v in $(tr '\\0' '\\n' < /proc/$p/environ | grep CLASSPATH=); do export \"$v\"; done; \
           setsid nsenter -m -t $p -- sh -c 'CLASSPATH={DEX_PATH}:/system/framework/uiautomator.jar \
-            exec app_process /system/bin --nice-name=aedump AeDump' </dev/null >$D/aedump.log 2>&1 & \
+            exec app_process -Ximage:/aedump-no-boot-image -Xnoimage-dex2oat /system/bin --nice-name=aedump AeDump {idle}' </dev/null >$D/aedump.log 2>&1 & \
           i=0; while [ ! -p $D/ae.req ]; do i=$((i+1)); [ $i -gt 100 ] && exit 91; sleep 0.1; done; \
         fi; \
         r=$(timeout 5 sh -c 'echo d > /data/local/tmp/ae.req && head -n 1 /data/local/tmp/ae.res'); \
@@ -47,6 +55,10 @@ pub async fn fast(d: &Device) -> R<String> {
     let (mut o, mut code) = d.con.exec(&cmd, Duration::from_secs(20)).await?;
     if code == 90 {
         upload_dex(d).await?;
+        (o, code) = d.con.exec(&cmd, Duration::from_secs(20)).await?;
+    }
+    if code == 92 {
+        // The dumper may have hit its idle exit just as this request came in: once more starts a new one.
         (o, code) = d.con.exec(&cmd, Duration::from_secs(20)).await?;
     }
     if code != 0 {
