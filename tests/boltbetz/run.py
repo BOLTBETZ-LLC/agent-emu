@@ -981,6 +981,9 @@ def main(argv):
             print(f"{resume}: no argv.json (run started before --resume existed?)", flush=True)
             return 2
         argv = json.loads((resume / "argv.json").read_text(encoding="utf-8"))
+        if argv[:1] == ["plan.py"]:  # a plan run: plan.py owns the resume
+            import plan
+            return plan.main(["--resume", str(resume)])
         if "--restore" in argv:  # the golden disks predate any app update made during the pause
             j = argv.index("--restore")
             print(f"resume: skipping --restore {argv[j + 1]}", flush=True)

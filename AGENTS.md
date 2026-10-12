@@ -283,7 +283,9 @@ Exit code 0 = no FAIL.
 
 **Resume.** Every run writes `argv.json` into its results folder. `python run.py --resume results/<stamp>` reruns the
 same command into the same folder: finished cases (PASS/FAIL/FLAKY/SKIP) are kept, the rest run. `--restore` is skipped
-on resume. Plan runs (`plan.py`) cannot resume yet. `session.py save|resume` pauses and resumes phones + runs together
+on resume. Plan runs resume too: their `argv.json` starts with `plan.py`, so `run.py --resume` hands over to
+`python plan.py --resume results/<stamp>` (same folder, finished cases kept, phones already up are not rebooted; a killed
+run leaves `results.json` consistent with `running: false`). `session.py save|resume` pauses and resumes phones + runs together
 (the desktop app uses it around updates).
 
 **Snapshots and claims in a run.** `--restore {lane}-golden` restores every phone first; `--golden {lane}-golden` restores a

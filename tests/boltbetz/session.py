@@ -100,8 +100,7 @@ def save(snapshot=False):
     FILE.write_text(json.dumps(sess, indent=2))  # first, so a crash below still leaves a resumable record
     for p in procs:
         subprocess.run(["taskkill", "/PID", str(p["pid"]), "/T", "/F"], capture_output=True)
-        # ponytail: plan.py has no --resume yet; its run is stopped and must be started again by hand.
-        say(f"stopped test run pid {p['pid']}" + (" (plan run: NOT resumable, start it again)" if "plan.py" in p["cmd"] else ""))
+        say(f"stopped test run pid {p['pid']}")
     if snapshot:
         for ph in phones:
             r = call("snapshot", device=ph["id"], name=f"session-{stamp}", timeout=900)

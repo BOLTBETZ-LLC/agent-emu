@@ -93,7 +93,7 @@ From `%LOCALAPPDATA%\agent-emu\app\tests\boltbetz` with `..\..\python\python.exe
 - `session.py busy`: JSON of running phones, live test runs, claims, Appium sessions; exit 3 = busy.
 - `session.py save [--snapshot]`: records phones and live runs, stops the runs and phones (disks kept).
 - `session.py resume`: boots the same phones, restores claims, reopens the app in front, continues each run with
-  `run.py --resume <results folder>` (finished cases kept). Phones cold-boot: apps open on their start screen.
+  `run.py --resume <results folder>` (finished cases kept; plan runs too, via `plan.py --resume`). Phones cold-boot: apps open on their start screen.
 The desktop app does save/resume around updates. Never pause someone else's work without asking the person.
 
 ## Gotchas

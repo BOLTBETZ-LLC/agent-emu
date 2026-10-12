@@ -61,3 +61,16 @@ assert abs(load["d0"] - load["d1"]) <= max(ch["est_s"] for ch in chunks)
 _, _, _, skipped = plan.deal(chunks, {"d0": "L1"})
 assert skipped == ["C01"]
 print("test_plan: all asserts passed")
+
+# resume: finished cases leave their chunks (ids stay), empty chunks go; NOT_RUN stubs are rerun
+done = [{"id": c["id"], "status": "PASS"} for c in chunks[0]["cases"]]
+left = plan.drop_done(chunks, done)
+assert len(left) == len(chunks) - 1 and [ch["id"] for ch in left] == [ch["id"] for ch in chunks[1:]]
+one = plan.drop_done(chunks, done[:1] + [{"id": chunks[1]["cases"][0]["id"], "status": "FAIL"}])
+assert sum(len(ch["cases"]) for ch in one) == sum(len(ch["cases"]) for ch in chunks) - (len(chunks[0]["cases"]) > 0) - 1
+d = plan.run.Path(os.environ["AE_RUNS_DIR"]) / "r"; d.mkdir()
+(d / "results.json").write_text('{"results":[{"id":"a","status":"PASS"},{"id":"b","status":"FAIL","error":"never ran (no phone left)"},{"id":"c","status":"FAIL","error":"x"}]}')
+assert [r["id"] for r in plan.run.run_dir(["plan.py"], d)[1]] == ["a", "c"]
+a, _ = plan.run.run_dir(["plan.py", "run", "x.yaml"])
+assert plan.json.loads((a / "argv.json").read_text())[0] == "plan.py"
+print("test_plan: resume asserts passed")

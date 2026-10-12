@@ -255,9 +255,20 @@ def lane_state(lane, state):
 
 # ---------- run ----------
 
-def execute(chunks, phones, phone_lane, out):
+def drop_done(chunks, prior):
+    """Chunks (same ids as the first run) minus the cases already finished in `prior`; empty chunks go."""
+    kept = {r["id"] for r in prior}
+    out = [dict(ch, cases=[c for c in ch["cases"] if c["id"] not in kept]) for ch in chunks]
+    return [ch for ch in out if ch["cases"]]
+
+def execute(chunks, phones, phone_lane, out, prior=()):
     m = run.Matrix(phones, phone_lane, [], {}, out)
-    m.total = sum(len(ch["cases"]) for ch in chunks)
+    m.results[:0] = prior
+    chunks = drop_done(chunks, prior)
+    m.total = len(prior) + sum(len(ch["cases"]) for ch in chunks)
+    with m.cv:
+        m.save()  # running: true from the start, so a kill before the first case still leaves a resumable folder
+    closed = run.save_on_exit(m.cv, lambda: m.save(finished=True, interrupted=True))
     queue, lock = list(chunks), threading.Lock()
     emu_ok = True
     try:
@@ -326,15 +337,28 @@ def execute(chunks, phones, phone_lane, out):
 
     ts = [threading.Thread(target=worker, args=(p,), daemon=True) for p in phones]
     for t in ts: t.start()
-    for t in ts: t.join()
+    while any(t.is_alive() for t in ts):  # not join(): a blocked join() does not see Ctrl-Break on Windows
+        time.sleep(0.2)
     for ch in queue:  # nobody could take it (its phone died): a FAIL, never a gap
         fail_rest(ch["cases"], None, ch["lane"], "never ran (no phone left)")
     with m.cv:
         m.save(finished=True)
+        closed.append(1)
     return run.matrix_report(m, out)
 
 
 def main(argv):
+    resume = None
+    if argv[:1] == ["--resume"]:  # same folder, same args (argv.json), unfinished cases only
+        resume = Path(argv[1]) if Path(argv[1]).exists() else HERE / argv[1]
+        try:
+            saved = json.loads((resume / "argv.json").read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            saved = []
+        if saved[:1] != ["plan.py"]:
+            print(f"{resume}: no argv.json of a plan run", flush=True)
+            return 2
+        argv = saved[1:]
     if len(argv) < 2 or argv[0] != "run":
         print(__doc__)
         return 2
@@ -377,14 +401,15 @@ def main(argv):
           + (f"; SKIP (no phone for their lane): {', '.join(skipped)}" if skipped else ""), flush=True)
     if dry:
         return 0
-    out = Path(run.os.environ.get("AE_RUNS_DIR") or HERE / "results") / time.strftime("%Y%m%d-%H%M%S")
-    out.mkdir(parents=True)
+    out, prior = run.run_dir(["plan.py", *argv], resume)
+    if resume:
+        print(f"resume {out.name}: {len(prior)} done, {len(cases) - len(prior)} to run", flush=True)
     (out / "plan.json").write_text(json.dumps({"plan": str(path), "phones": phone_lane, "chunks": [
         {k: v for k, v in ch.items() if k != "cases"} | {"cases": [c["id"] for c in ch["cases"]]} for ch in chunks]}, indent=1))
     started = []
     try:
         boot(list(phone_lane), started)
-        return execute(chunks, list(phone_lane), phone_lane, out)
+        return execute(chunks, list(phone_lane), phone_lane, out, prior)
     finally:
         if started and not keep:
             print(f"stopping {','.join(started)} (booted by this run; --keep leaves them)", flush=True)
