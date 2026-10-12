@@ -7,6 +7,7 @@ python run.py --phones d0,d1,d2,d3 --matrix cases/matrix [--areas a,b] [--shard 
 python run.py --phones d1 --lanes L2 --restore {lane}-golden    # put snapshot "L2-golden" back on d1 first
 python run.py --phones d0,d1 --golden {lane}-golden             # a phone left signed out gets its golden snapshot back
 python run.py --post-bugs results/<stamp>                        # re-send a recorded run's FAILs to the bug feed
+python run.py --resume results/<stamp>                           # same args (argv.json), same folder, unfinished cases only
   (names: {phone} and {lane} are filled in per phone; snapshots are made with the daemon's `snapshot` call)
 
 The run claims its phones (owner run.py-<pid>) and drops the claims at the end.
@@ -690,16 +691,62 @@ class Matrix:
                "flaky": [r["id"] for r in self.results if r.get("flaky")],
                "repeat_fail": [r["id"] for r in self.results if r.get("repeat_fail")],
                "results": sorted(self.results, key=lambda r: r["id"])}
-        tmp = self.out / "results.json.tmp"
-        tmp.write_text(json.dumps(doc, indent=2))
-        for _ in range(20):  # the dashboard may be reading it
-            try:
-                return os.replace(tmp, self.out / "results.json")
-            except PermissionError:
-                time.sleep(0.05)
+        write_results(self.out, doc)
 
 
-def matrix_main(phones, root, areas, shard, pick, golden=None):
+def write_results(out, doc):
+    tmp = out / "results.json.tmp"
+    tmp.write_text(json.dumps(doc, indent=2))
+    for _ in range(20):  # the dashboard may be reading it
+        try:
+            return os.replace(tmp, out / "results.json")
+        except PermissionError:
+            time.sleep(0.05)
+
+
+NOT_RUN = ("never ran", "lane thread died")  # FAIL stubs for cases that never started: a resume runs them
+
+
+def run_dir(argv, resume=None):
+    """(out dir, results kept from before). New run: a fresh stamp + argv.json, so --resume can rebuild the command.
+    Resume: the same dir; every case with a final PASS/FAIL/SKIP (FLAKY = PASS) is kept, everything else runs."""
+    if not resume:
+        out = Path(os.environ.get("AE_RUNS_DIR") or HERE / "results") / time.strftime("%Y%m%d-%H%M%S")
+        out.mkdir(parents=True)
+        (out / "argv.json").write_text(json.dumps(list(argv)))
+        return out, []
+    try:
+        rs = json.loads((resume / "results.json").read_text(encoding="utf-8")).get("results", [])
+    except FileNotFoundError:
+        rs = []
+    return resume, [r for r in rs if r.get("status") in ("PASS", "FAIL", "SKIP")
+                    and not str(r.get("error") or "").startswith(NOT_RUN)]
+
+
+def save_on_exit(lock, save):
+    """Ctrl-C, SIGTERM, Ctrl-Break or a crash: results.json must not keep saying "running": true.
+    Returns `closed`: append to it once the normal end has saved."""
+    closed = []
+
+    def on_exit():
+        if closed:
+            return
+        closed.append(1)
+        got = lock.acquire(timeout=2)  # a dying worker may hold it; write anyway
+        try:
+            save()
+        finally:
+            if got:
+                lock.release()
+    atexit.register(on_exit)
+    if threading.current_thread() is threading.main_thread():
+        for sig in (signal.SIGTERM, getattr(signal, "SIGBREAK", None)):
+            if sig is not None:
+                signal.signal(sig, lambda *_: sys.exit(130))
+    return closed
+
+
+def matrix_main(phones, root, areas, shard, pick, golden=None, argv=(), resume=None):
     phone_lane = {v["phone"]: k for k, v in LANES.items() if "phone" in v}
     if missing := [p for p in phones if p not in phone_lane]:
         print(f"{','.join(missing)}: no lane in lanes.json (add {{\"phone\": ...}} to a lane)", flush=True)
@@ -708,8 +755,11 @@ def matrix_main(phones, root, areas, shard, pick, golden=None):
     if not cases:
         print(f"no cases under {root}" + (f" for areas {sorted(areas)}" if areas else ""), flush=True)
         return 2
-    out = Path(os.environ.get("AE_RUNS_DIR") or HERE / "results") / time.strftime("%Y%m%d-%H%M%S")
-    out.mkdir(parents=True)
+    out, prior = run_dir(argv, resume)
+    kept = {r["id"] for r in prior}
+    todo = [c for c in cases if c["id"] not in kept]
+    if resume:
+        print(f"resume {out.name}: {len(prior)} done, {len(todo)} to run", flush=True)
     emu_ok = True
     try:
         import emu
@@ -717,27 +767,11 @@ def matrix_main(phones, root, areas, shard, pick, golden=None):
     except Exception as e:
         emu_ok = False
         print(f"WARNING: Synkros emulator unreachable ({e}); resets skip the session end and $25 restore", flush=True)
-    m = Matrix(phones, {p: phone_lane[p] for p in phones}, cases, wall_history(), out)
+    m = Matrix(phones, {p: phone_lane[p] for p in phones}, todo, wall_history(), out)
+    m.results[:0], m.total = prior, m.total + len(prior)
     with m.cv:
         m.save()
-    closed = []
-
-    def on_exit():  # Ctrl-C, SIGTERM or a crash: results.json must not keep saying "running": true
-        if closed:
-            return
-        closed.append(1)
-        got = m.cv.acquire(timeout=2)  # a dying worker may hold it; write anyway
-        try:
-            m.save(finished=True, interrupted=True)
-        finally:
-            if got:
-                m.cv.release()
-    atexit.register(on_exit)
-    if threading.current_thread() is threading.main_thread():
-        for sig in (signal.SIGTERM, getattr(signal, "SIGBREAK", None)):
-            if sig is not None:
-                signal.signal(sig, lambda *_: sys.exit(130))
-    m.on_exit = on_exit
+    closed = save_on_exit(m.cv, lambda: m.save(finished=True, interrupted=True))
     print(f"matrix: {len(cases)} cases on {len(phones)} phones -> {out}", flush=True)
 
     def worker(phone):
@@ -939,6 +973,18 @@ def post_bugs(run_dir):
 def main(argv):
     if argv[:1] == ["--post-bugs"]:
         return post_bugs(argv[1])
+    resume = None
+    if "--resume" in argv:
+        i = argv.index("--resume")
+        resume = Path(argv[i + 1]) if Path(argv[i + 1]).exists() else HERE / argv[i + 1]
+        if not (resume / "argv.json").exists():
+            print(f"{resume}: no argv.json (run started before --resume existed?)", flush=True)
+            return 2
+        argv = json.loads((resume / "argv.json").read_text(encoding="utf-8"))
+        if "--restore" in argv:  # the golden disks predate any app update made during the pause
+            j = argv.index("--restore")
+            print(f"resume: skipping --restore {argv[j + 1]}", flush=True)
+            argv = argv[:j] + argv[j + 2:]
     phones, only, pick, cases_dir = ["d0"], None, None, HERE / "cases"
     matrix, areas, shard, first, golden = None, None, None, None, None
     it = iter(argv)
@@ -970,21 +1016,28 @@ def main(argv):
                 print(f"restore failed, nothing run: {bad}", flush=True)
                 return 2
         if matrix:
-            return matrix_main(phones, matrix, areas, shard, pick, golden)
-        return lanes_main(phones, only, pick, cases_dir, golden)
+            return matrix_main(phones, matrix, areas, shard, pick, golden, argv, resume)
+        return lanes_main(phones, only, pick, cases_dir, golden, argv, resume)
     finally:
         claims(phones, "", take=False)
 
 
-def lanes_main(phones, only, pick, cases_dir, golden):
+def lanes_main(phones, only, pick, cases_dir, golden, argv=(), resume=None):
     cases = sorted((json.loads(p.read_text()) for p in cases_dir.glob("*.json")), key=lambda c: c["id"])
     if pick:
         cases = [c for c in cases if any(c["id"].startswith(k) for k in pick)]
     lanes = sorted({c["lane"] for c in cases if not only or c["lane"] in only})
     deal = dict(zip(lanes, phones))
-    out = Path(os.environ.get("AE_RUNS_DIR") or HERE / "results") / time.strftime("%Y%m%d-%H%M%S")
-    out.mkdir(parents=True)
-    results, t0 = [], time.time()
+    out, results = run_dir(argv, resume)
+    kept = {r["id"] for r in results}
+    todo = [c for c in cases if c["id"] not in kept]
+    if resume:
+        print(f"resume {out.name}: {len(results)} done, {len(todo)} to run", flush=True)
+    t0, lock = time.time(), threading.Lock()
+
+    def save(running=True, interrupted=False):  # caller holds lock
+        write_results(out, {"running": running, **({"interrupted": True} if interrupted else {}), "deal": deal,
+                            "total_wall_s": round(time.time() - t0, 1), "results": sorted(results, key=lambda r: r["id"])})
 
     def lane_worker(lane):
         if lane in deal:
@@ -992,24 +1045,34 @@ def lanes_main(phones, only, pick, cases_dir, golden):
                 lane_setup(deal[lane], lane)
             except Exception as e:
                 print(f"{lane} setup on {deal[lane]}: {e}", flush=True)
-        for c in (c for c in cases if c["lane"] == lane):
-            results.append(run_case(deal[lane], c, out) if lane in deal else
-                           {"id": c["id"], "lane": lane, "status": "SKIP", "error": "no phone"})
-            report_bug(results[-1], out)
-            if results[-1]["status"] == "FAIL" and lane in deal and heal(deal[lane], lane, golden):
-                results[-1]["golden_restored"] = True
+        for c in (c for c in todo if c["lane"] == lane):
+            r = (run_case(deal[lane], c, out) if lane in deal else
+                 {"id": c["id"], "lane": lane, "status": "SKIP", "error": "no phone"})
+            report_bug(r, out)
+            if r["status"] == "FAIL" and lane in deal and heal(deal[lane], lane, golden):
+                r["golden_restored"] = True
+            with lock:
+                results.append(r)
+                save()  # after every case, so a killed run is resumable
 
-    ts = [threading.Thread(target=lane_worker, args=(l,)) for l in lanes]
+    with lock:
+        save()
+    closed = save_on_exit(lock, lambda: save(False, True))
+    # daemon threads + poll, as in matrix mode: a blocked join() does not see Ctrl-Break on Windows
+    ts = [threading.Thread(target=lane_worker, args=(l,), daemon=True) for l in lanes]
     for t in ts: t.start()
-    for t in ts: t.join()
+    while any(t.is_alive() for t in ts):
+        time.sleep(0.2)
     done = {r["id"] for r in results}  # a case that never reported is a FAIL, never a silent gap
     results += [{"id": c["id"], "lane": c["lane"], "status": "FAIL", "error": "lane thread died before this case"}
-                for c in cases if c["lane"] in lanes and c["id"] not in done]
+                for c in todo if c["lane"] in lanes and c["id"] not in done]
     for r in results[len(done):]:
         report_bug(r, out)
     results.sort(key=lambda r: r["id"])
     total = round(time.time() - t0, 1)
-    (out / "results.json").write_text(json.dumps({"deal": deal, "total_wall_s": total, "results": results}, indent=2))
+    with lock:
+        save(running=False)
+        closed.append(1)
     grid = ["| case | " + " | ".join(lanes) + " | wall s |", "|---" * (len(lanes) + 2) + "|"]
     for r in results:
         grid.append(f"| {r['id']} | " + " | ".join(r["status"] if r["lane"] == l else "" for l in lanes)

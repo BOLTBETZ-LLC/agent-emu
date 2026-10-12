@@ -215,7 +215,9 @@ pub fn run(addr: &str) {
         let p = &msg["params"];
         let result = match msg["method"].as_str().unwrap_or("") {
             "initialize" => Ok(json!({"protocolVersion": p["protocolVersion"].as_str().unwrap_or("2025-06-18"),
-                "capabilities": {"tools": {}}, "serverInfo": {"name": "agent-emu", "version": env!("CARGO_PKG_VERSION")}})),
+                "capabilities": {"tools": {}}, "serverInfo": {"name": "agent-emu", "version": env!("CARGO_PKG_VERSION")},
+                // Same text the installer ships as the Claude Code skill's AGENTS.md.
+                "instructions": include_str!("../../../desktop/qa/skill/agent-emu/AGENTS.md")})),
             "ping" => Ok(json!({})),
             "tools/list" => Ok(json!({"tools": tools()})),
             "tools/call" if matches!(p["name"].as_str(), Some("run_case" | "run_lanes" | "run_matrix")) => {

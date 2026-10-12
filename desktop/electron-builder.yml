@@ -20,6 +20,9 @@ extraResources:
   - from: ../tests/boltbetz
     to: agent-emu/tests/boltbetz
     filter: ["*.json", "*.py", "matrix/**", "plans/**", "!**/__pycache__/**", "!accounts.json"]
+  # QA operating guide + Claude Code skill; main.js copies it to %USERPROFILE%\.claude\skills\agent-emu at MCP setup.
+  - from: qa/skill/agent-emu
+    to: agent-emu/skill/agent-emu
 win:
   target: nsis
   signExecutable: false
@@ -30,7 +33,8 @@ nsis:
   createDesktopShortcut: true
   createStartMenuShortcut: true
   runAfterFinish: true
-# Update feed (electron-updater, generic provider). Placeholder until the S3 + CloudFront feed exists.
+# Update feed: GitHub Releases of this public repo. A release needs the Setup .exe, its .blockmap and latest.yml.
 publish:
-  provider: generic
-  url: https://updates.agent-emu.invalid/app/
+  provider: github
+  owner: BOLTBETZ-LLC
+  repo: agent-emu

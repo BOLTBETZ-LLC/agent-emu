@@ -360,6 +360,8 @@ async fn start_device(st: &State, idx: u32, req: &Value) -> R<(Arc<Device>, f64)
 async fn ui_xml(d: &Device) -> R<String> {
     match uidump::fast(d).await {
         Ok(x) => return Ok(x),
+        // A uiautomator dump would kill Appium's session the same way.
+        Err(e) if e.contains("exit 93") => return Err(e),
         Err(e) => eprintln!("{}: fast ui_tree failed, using uiautomator dump: {e}", d.id),
     }
     uidump::stop(d).await;
@@ -835,6 +837,8 @@ async fn handle_call(st: &Arc<State>, conn: u64, req: &Value) -> R<Value> {
                     "input_via": s.dev.transport().1, "lease": s.lease == Some(conn), "uptime_s": s.started.elapsed().as_secs()});
                 for (k, x) in s.info.as_object().into_iter().flatten() { v[k] = x.clone(); }
                 (v["claim"], v["health"]) = (ops::claim_of(&s.dev.id), ops::health_of(&s.dev.id));
+                // adb serial for outside tools (Appium udid); slirp forwards it to the guest's adbd.
+                if s.dev.net { v["adb"] = json!(format!("127.0.0.1:{}", 6520 + s.dev.idx())); }
                 v
             }).collect();
             return Ok(json!({"ok": true, "devices": devs, "available_mb": device::available_mb(), "claims": ops::claims()}));

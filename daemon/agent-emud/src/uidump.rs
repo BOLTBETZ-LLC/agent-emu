@@ -18,10 +18,12 @@ fn idle_s() -> u64 {
 /// No boot image (-Ximage at a missing file): outside the zygote, ART copies the boot image into ~33 MB of private
 /// memory; without it the dumper loads only the classes it uses (anon 42.6 -> 16.9 MB, same XML, start ~0.4 s).
 /// One console round trip: start the dumper if it isn't running, ask for a dump, print it.
-/// Exit 90 = dex missing in the guest, 91 = dumper did not come up, 92 = no answer / error answer.
+/// Exit 93 = an Appium UiAutomator2 server holds the one UiAutomation, 90 = dex missing in the guest, 91 = dumper did not come up, 92 = no answer / error answer.
 fn dump_cmd() -> String {
     let idle = idle_s();
     format!("D=/data/local/tmp; \
+        if ps -A -o NAME | grep -qx io.appium.uiautomator2.server; then \
+          echo 'an Appium session holds this phone: read the screen through Appium, or end that session'; exit 93; fi; \
         if ! {{ pidof aedump >/dev/null && [ -p $D/ae.req ]; }}; then \
           [ -f {DEX_PATH} ] || exit 90; rm -f $D/ae.req $D/ae.res; \
           p=$(pidof system_server); for v in $(tr '\\0' '\\n' < /proc/$p/environ | grep CLASSPATH=); do export \"$v\"; done; \

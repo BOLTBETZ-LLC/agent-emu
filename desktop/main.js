@@ -218,11 +218,60 @@ async function startDaemon() {
   return ok;
 }
 
+// ---- tools the agents need: Node.js (Appium's MCP) and Claude Code itself, installed when missing
+const NODE_DIR = path.join(ROOT, "node"), NODE_EXE = path.join(NODE_DIR, "node.exe");
+const APPIUM_DIR = path.join(ROOT, "appium"), APPIUM_JS = path.join(APPIUM_DIR, "node_modules", "appium-mcp", "dist", "index.js");
+const CLAUDE_NATIVE = path.join(process.env.USERPROFILE || "", ".local", "bin", "claude.exe");
+async function download(url, dest) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
+  await pipeline(Readable.fromWeb(res.body), fs.createWriteStream(dest));
+}
+// Newest Node LTS from nodejs.org, checked against its SHASUMS256.txt, unpacked to <root>\node (portable, not on PATH).
+async function ensureNode() {
+  if (fs.existsSync(NODE_EXE)) return true;
+  const rel = (await (await fetch("https://nodejs.org/dist/index.json")).json()).find((r) => r.lts && r.files.includes("win-x64-zip"));
+  const name = `node-${rel.version}-win-x64.zip`, base = `https://nodejs.org/dist/${rel.version}/`, dl = path.join(ROOT, "downloads");
+  fs.mkdirSync(dl, { recursive: true });
+  log(`download Node.js ${rel.version} (LTS)`);
+  const zip = path.join(dl, name);
+  await download(base + name, zip);
+  const want = (await (await fetch(base + "SHASUMS256.txt")).text()).split(/\r?\n/).find((l) => l.endsWith(`  ${name}`))?.split(" ")[0];
+  if (!want || (await sha256(zip)) !== want) { fs.rmSync(zip, { force: true }); throw new Error(`${name}: sha256 mismatch, deleted`); }
+  if (!(await extractZip(zip, NODE_DIR, 1))) throw new Error(`unpack ${name} failed`);
+  fs.rmSync(zip, { force: true });
+  log(`ok    Node.js ${rel.version} in ${NODE_DIR}`);
+  return true;
+}
+// appium-mcp installed into <root>\appium once per app version, so Claude Code starts it at once (no npx download per session).
+async function ensureAppium() {
+  const stamp = path.join(APPIUM_DIR, "app-version.txt");
+  if (fs.existsSync(APPIUM_JS) && fs.existsSync(stamp) && fs.readFileSync(stamp, "utf8") === app.getVersion()) return true;
+  fs.mkdirSync(APPIUM_DIR, { recursive: true });
+  log("install appium-mcp (Appium's official MCP server)...");
+  const r = await run(path.join(NODE_DIR, "npm.cmd"), ["install", "--prefix", APPIUM_DIR, "appium-mcp@latest", "--no-audit", "--no-fund"],
+    { shell: true, env: { ...process.env, PATH: `${NODE_DIR};${process.env.PATH}` }, echo: false });
+  if (r.code !== 0 || !fs.existsSync(APPIUM_JS)) throw new Error(`npm install appium-mcp: ${r.out.trim().split(/\r?\n/).slice(-3).join(" | ")}`);
+  fs.writeFileSync(stamp, app.getVersion());
+  log("ok    appium-mcp installed");
+  return true;
+}
+// Claude Code's official native installer (no admin): https://code.claude.com/docs/en/setup
+async function ensureClaude() {
+  if (await findClaude()) return true;
+  log("Claude Code not found: installing it (irm https://claude.ai/install.ps1 | iex)...");
+  const r = await run("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", "irm https://claude.ai/install.ps1 | iex"]);
+  if (r.code !== 0 || !(await findClaude())) { log("WARN  Claude Code install failed; install it from https://code.claude.com/docs/en/setup, then Setup again"); return false; }
+  log("ok    Claude Code installed. Sign in once: open a terminal and run `claude`.");
+  return true;
+}
+
 // ---- MCP registration
 function findClaude() {
   return new Promise((res) => execFile("where.exe", ["claude"], (e, out) => {
     const all = (out || "").split(/\r?\n/).filter(Boolean);
-    res(all.find((p) => p.toLowerCase().endsWith(".exe")) || all.find((p) => p.toLowerCase().endsWith(".cmd")) || null);
+    // A fresh native install is not on this process's PATH yet.
+    res(all.find((p) => p.toLowerCase().endsWith(".exe")) || all.find((p) => p.toLowerCase().endsWith(".cmd")) || (fs.existsSync(CLAUDE_NATIVE) ? CLAUDE_NATIVE : null));
   }));
 }
 async function claude(args) {
@@ -236,11 +285,28 @@ const BEGIN = "# >>> agent-emu app", END = "# <<< agent-emu app";
 function codexStrip(text) { return text.replace(new RegExp(`\\r?\\n?${BEGIN}[\\s\\S]*?${END}\\r?\\n?`, "g"), "\n"); }
 async function stepMcp() {
   const addr = `127.0.0.1:${cfg.agentPort}`;
+  await ensureClaude();
+  let appiumOk = false;
+  try { appiumOk = (await ensureNode()) && (await ensureAppium()); } catch (e) { log(`WARN  Appium tools: ${e.message}`); }
   await claude(["mcp", "remove", cfg.mcpName, "-s", "user"]);
   const add = await claude(["mcp", "add", "-s", "user", cfg.mcpName, "-e", `AE_PYTHON=${PY_EXE}`, "-e", `PICT=${PICT}`, "--", MCP_EXE, "mcp", "--addr", addr]);
   if (!add) log("skip  Claude Code not found; register later from Setup");
   else if (add.code === 0) { log(`ok    Claude Code: MCP ${cfg.mcpName} (user scope)`); log((await claude(["mcp", "get", cfg.mcpName])).out.split(/\r?\n/).slice(0, 6).join(" | ")); }
   else log(`WARN  claude mcp add failed: ${add.out.trim()}`);
+  const skill = path.join(process.env.USERPROFILE, ".claude", "skills", "agent-emu");
+  const skillSrc = app.isPackaged ? path.join(RES, "skill", "agent-emu") : path.join(__dirname, "qa", "skill", "agent-emu");
+  try { fs.cpSync(skillSrc, skill, { recursive: true }); log(`ok    Claude Code: skill agent-emu in ${skill}`); }
+  catch (e) { log(`WARN  skill copy failed: ${e.message}`); }
+  // Appium's official MCP (embedded UiAutomator2) wants ANDROID_HOME\platform-tools\adb.exe: give it the daemon's own adb
+  // (same version = one shared adb server) and the downloaded JRE. Phones join `adb devices` via the `appium` call.
+  const sdk = path.join(ROOT, "android-sdk"), pt = path.join(sdk, "platform-tools");
+  try { fs.cpSync(path.join(ROOT, "adb"), pt, { recursive: true }); } catch (e) { log(`WARN  android-sdk for Appium: ${e.message}`); }
+  if (add && appiumOk) {
+    await claude(["mcp", "remove", "appium-mcp", "-s", "user"]);
+    const ap = await claude(["mcp", "add", "-s", "user", "appium-mcp", "-e", `ANDROID_HOME=${sdk}`, "-e", `JAVA_HOME=${path.join(ROOT, "jre")}`,
+      "-e", "APPIUM_MCP_ON_CLIENT_DISCONNECT=delete_all", "--", NODE_EXE, APPIUM_JS]);
+    log(ap.code === 0 ? "ok    Claude Code: MCP appium-mcp (user scope)" : `WARN  claude mcp add appium-mcp failed: ${ap.out.trim()}`);
+  }
   const toml = codexToml();
   if (!fs.existsSync(path.dirname(toml))) { log("skip  Codex not found (~/.codex missing)"); return { ok: true }; }
   const lit = (s) => `'${s}'`; // TOML literal string: backslashes kept as-is
@@ -253,6 +319,7 @@ async function stepMcp() {
 }
 async function unregisterMcp() {
   await claude(["mcp", "remove", cfg.mcpName, "-s", "user"]);
+  await claude(["mcp", "remove", "appium-mcp", "-s", "user"]);
   const toml = codexToml();
   if (fs.existsSync(toml)) { const t = fs.readFileSync(toml, "utf8"); if (t.includes(BEGIN)) fs.writeFileSync(toml, codexStrip(t).replace(/\s*$/, "\n")); }
 }
@@ -283,15 +350,26 @@ async function quitAll() {
 async function makeTray() {
   tray = new Tray(await app.getFileIcon(process.execPath, { size: "small" }).catch(() => nativeImage.createEmpty()));
   tray.setToolTip("agent-emu");
+  tray.on("click", openDashboard);
+  refreshTray();
+}
+function refreshTray() {
+  if (!tray) return;
+  const saved = fs.existsSync(SESSION_FILE);
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: "Open dashboard", click: openDashboard },
+    ...(updateReady ? [{ label: `Install update ${updateReady}...`, click: installUpdate }] : []),
+    { label: "Check for updates", enabled: !!updater, click: () => updater.checkForUpdates().catch((e) => log(`update check: ${e.message}`)) },
+    { type: "separator" },
+    { label: "Save session and stop phones...", click: stopAll },
+    ...(saved ? [{ label: "Resume last session", click: resumeSession }] : []),
+    { type: "separator" },
     { label: "Setup and doctor", click: openWizard },
     { label: "Repair / re-download", click: repair },
     { label: "Logs folder", click: () => shell.openPath(path.join(ROOT, "logs")) },
     { type: "separator" },
-    { label: "Quit (stops phones and daemon)", click: quitAll },
+    { label: "Quit (saves the session, stops phones and daemon)...", click: quitAll },
   ]));
-  tray.on("click", openDashboard);
 }
 
 ipcMain.handle("info", () => ({ root: ROOT, url: URL_UI, mcpName: cfg.mcpName, version: app.getVersion() }));
@@ -343,11 +421,11 @@ if (process.argv.includes("--uninstall")) {
     await makeTray();
     const stale = (() => { try { return fs.readFileSync(path.join(ROOT, "app-version.txt"), "utf8") !== app.getVersion(); } catch { return true; } })();
     if (!cfg.setupDone) return openWizard();
-    if (stale && !(await health())) { const r = await stepSetup(); if (!r.ok) return openWizard(); }
+    // New version: refresh the payload, then tools + MCP registration (appium-mcp, skill) for this version.
+    if (stale && !(await health())) { const r = await stepSetup(); if (!r.ok) return openWizard(); await stepMcp().catch((e) => log(`WARN  mcp: ${e.message}`)); }
     if (await startDaemon()) openDashboard(); else openWizard();
-    if (app.isPackaged) {
-      const { autoUpdater } = require("electron-updater");
-      autoUpdater.checkForUpdatesAndNotify().catch((e) => log(`update check: ${e.message.split("\n")[0]}`));
-    }
+    // After an update: boot the saved phones and continue the paused test runs.
+    if (cfg.resumeAfterUpdate) { cfg.resumeAfterUpdate = false; saveConfig(cfg); await resumeSession(); }
+    setupUpdates(); refreshTray();
   });
 }

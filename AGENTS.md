@@ -110,6 +110,7 @@ HTTP 200 either way: always read `ok`.
 | `health` | `{"call":"health","device":"d2"}` | adb, network, app version, runtime vs staging, update id, foreground, signed in, last crash, stuck boot; `level` ok/warn/bad. Dashboard: dot by the phone name, hover for detail |
 | `snapshot` | `{"call":"snapshot","device":"d1","name":"L2-golden"}` | save a signed-in phone's disks (reboots it, ~2 min) |
 | `restore` | `{"call":"restore","device":"d1","name":"L2-golden"}` | put them back: disks in seconds, then a keep_data boot (~2 min); only that Device's snapshot, same image |
+| `appium` | `{"call":"appium","device":"d0","package":"com.boltbetz.staging"}` | hand the phone to Appium: stops the ui_tree reader, adb-connects, returns `udid` + UiAutomator2 `capabilities`. `ui_tree` on that phone errors while an Appium session is open |
 | `bugs` | `{"call":"bugs","area":"home","q":"pin"}` | the live bug feed: test FAILs folded by dedupe key, newest first, each with `count`, `cases`, `phones` and its newest occurrence (`last`); `full: true` = every kept occurrence. See [Bug feed](#bug-feed) |
 
 ## Phone lifecycle
@@ -279,6 +280,11 @@ python run.py --phones d0 cases/signed-out         # another cases dir
 Before the first case of a lane the runner waits for phase `ready`, grants POST_NOTIFICATIONS, on L3 sets CAMERA to
 denied (user-fixed: a live camera gets the app low-memory-killed), launches the app and waits for Home.
 Exit code 0 = no FAIL.
+
+**Resume.** Every run writes `argv.json` into its results folder. `python run.py --resume results/<stamp>` reruns the
+same command into the same folder: finished cases (PASS/FAIL/FLAKY/SKIP) are kept, the rest run. `--restore` is skipped
+on resume. Plan runs (`plan.py`) cannot resume yet. `session.py save|resume` pauses and resumes phones + runs together
+(the desktop app uses it around updates).
 
 **Snapshots and claims in a run.** `--restore {lane}-golden` restores every phone first; `--golden {lane}-golden` restores a
 phone that a case left signed out, then the lane goes on (lane mode: after the FAIL; matrix: when the reset finds it
@@ -528,7 +534,7 @@ tool_timeout_sec = 900   # start blocks ~2 min; Codex's default is 60
 Other folders: `codex mcp add agent-emu -- C:\dev\agent-emu\daemon\target-mcp\release\agent-emud.exe mcp --addr 127.0.0.1:7400`
 (then raise `tool_timeout_sec` in `~/.codex/config.toml`). Check: `codex mcp get agent-emu`.
 
-**Tools** (40): `install_app`, `set_default_app`, `default_app`, `bugs`, `claim`, `unclaim`, `health`, `snapshot`, `restore`, `status`, `start`, `stop`, `start_many`, `stop_many`, `install_bundled`, `app`, `ui_tree`,
+**Tools** (41): `appium`, `install_app`, `set_default_app`, `default_app`, `bugs`, `claim`, `unclaim`, `health`, `snapshot`, `restore`, `status`, `start`, `stop`, `start_many`, `stop_many`, `install_bundled`, `app`, `ui_tree`,
 `screenshot`, `tap`, `swipe`, `type_text`, `key`, `deep_link`, `permission`, `clock`, `set_location`, `shell`,
 `logs`, `issues`, `crash_events`, `memory`, `squeeze`, `lease`, `release`, `inject_camera_image`, `fleet`,
 `fleet_stop`, `run_case`, `run_lanes`, `run_matrix` (the last three run the test runner: [Test runner](#test-runner)).

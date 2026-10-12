@@ -6,7 +6,7 @@ use serde_json::{json, Value};
 use std::time::Duration;
 use tokio::process::Command;
 
-pub const CALLS: &[&str] = &["deep_link", "set_location", "inject_camera_image", "clock", "permission", "app"];
+pub const CALLS: &[&str] = &["deep_link", "set_location", "inject_camera_image", "clock", "permission", "app", "appium"];
 
 /// MCP tool schemas, one per call; each takes `device`.
 pub fn tools() -> Vec<Value> {
@@ -30,6 +30,8 @@ pub fn tools() -> Vec<Value> {
             json!({"pkg": s, "perm": s, "action": {"type": "string", "enum": ["grant", "revoke"]}}), &["pkg", "perm", "action"]),
         t("app", "Exactly one of: install (host APK path, needs adb), uninstall, clear (pm clear), launch (launcher activity, am start -W).",
             json!({"install": s, "uninstall": s, "clear": s, "launch": s}), &[]),
+        t("appium", "Hand this phone to Appium: stops agent-emu's screen reader (one UiAutomation per phone), adb-connects the phone and returns its udid plus UiAutomator2 capabilities (with appPackage/appActivity when `package` is given). ui_tree on this phone errors while an Appium session is open.",
+            json!({"package": s}), &[]),
     ]
 }
 
@@ -37,6 +39,20 @@ pub async fn handle(d: &Device, call: &str, req: &Value) -> R<Value> {
     let str_arg = |k: &str| req[k].as_str().filter(|v| !v.is_empty()).ok_or(format!("missing string `{k}`"));
     let num = |k: &str| req[k].as_f64().ok_or(format!("missing number `{k}`"));
     match call {
+        "appium" => {
+            crate::uidump::stop(d).await;
+            adb_host(d, &["get-state"], Duration::from_secs(20)).await?; // adb_raw connects first: the phone shows in `adb devices`
+            let udid = format!("127.0.0.1:{}", adb_port(Some(d)).unwrap_or_default());
+            let mut caps = json!({"platformName": "Android", "appium:automationName": "UiAutomator2", "appium:udid": udid,
+                "appium:noReset": true, "appium:uiautomator2ServerLaunchTimeout": 120000, "appium:adbExecTimeout": 60000});
+            if let Some(p) = req["package"].as_str().filter(|p| !p.is_empty()) {
+                let out = sh(d, &format!("cmd package resolve-activity --brief {}", name(p)?)).await?;
+                let comp = out.lines().last().unwrap_or("").trim();
+                let (pkg, act) = comp.split_once('/').ok_or(format!("{p}: no launcher activity ({})", out.trim()))?;
+                (caps["appium:appPackage"], caps["appium:appActivity"]) = (json!(pkg), json!(act));
+            }
+            Ok(json!({"ok": true, "udid": udid, "capabilities": caps}))
+        }
         "deep_link" => {
             let mut cmd = format!("am start -W -a android.intent.action.VIEW -d {}", q(str_arg("uri")?));
             if let Some(p) = req["package"].as_str() {
