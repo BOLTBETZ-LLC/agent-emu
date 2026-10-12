@@ -357,7 +357,45 @@ function openWizard() {
   wizard.loadFile(path.join(__dirname, "wizard.html"));
   wizard.on("closed", () => { wizard = null; });
 }
+// ---- session pause/resume (tests\boltbetz\session.py) and updates (electron-updater, feed from electron-builder publish)
+const SESSION_FILE = path.join(ROOT, "session.json");
+const session = (cmd) => run(PY_EXE, [path.join(ROOT, "tests", "boltbetz", "session.py"), cmd],
+  { env: { ...process.env, AE_API: URL_UI.replace(/\/$/, ""), AE_SESSION: SESSION_FILE } });
+async function saveSession() {
+  if (!(await health())) return false;
+  const r = await session("save");
+  log(r.code === 0 ? "ok    session saved, phones stopped" : `WARN  session save exit ${r.code}`);
+  refreshTray();
+  return r.code === 0;
+}
+async function stopAll() {
+  const { response } = await dialog.showMessageBox({ type: "question", buttons: ["Save and stop", "Cancel"], cancelId: 1,
+    message: "Save the session and stop every phone?", detail: "Live test runs stop and continue on Resume." });
+  if (response === 0) await saveSession();
+}
+async function resumeSession() {
+  if (!fs.existsSync(SESSION_FILE) || !(await startDaemon())) return;
+  const r = await session("resume");
+  log(r.code === 0 ? "ok    session resumed" : `WARN  session resume exit ${r.code}`);
+  refreshTray();
+}
+let updater = null, updateReady = null;
+function setupUpdates() {
+  if (!app.isPackaged || updater) return;
+  try { updater = require("electron-updater").autoUpdater; } catch (e) { log(`WARN  updates off: ${e.message}`); return; }
+  updater.autoInstallOnAppQuit = false;
+  updater.on("update-downloaded", (i) => { updateReady = i.version; log(`ok    update ${i.version} ready`); refreshTray(); });
+  updater.on("error", (e) => log(`WARN  update: ${e.message}`));
+  updater.checkForUpdates().catch((e) => log(`WARN  update check: ${e.message}`));
+}
+async function installUpdate() {
+  // Phones and runs come back after the new version starts (cfg.resumeAfterUpdate, read at startup).
+  cfg.resumeAfterUpdate = await saveSession(); saveConfig(cfg);
+  if (await ownDaemonRunning()) { try { await fetch(URL_UI + "api", { method: "POST", body: JSON.stringify({ call: "quit" }) }); } catch {} }
+  app.__quitting = true; updater.quitAndInstall();
+}
 async function quitAll() {
+  await saveSession();
   if (await ownDaemonRunning()) { try { await fetch(URL_UI + "api", { method: "POST", body: JSON.stringify({ call: "quit" }) }); } catch {} }
   app.__quitting = true; app.quit();
 }
@@ -441,5 +479,5 @@ if (process.argv.includes("--uninstall")) {
     // After an update: boot the saved phones and continue the paused test runs.
     if (cfg.resumeAfterUpdate) { cfg.resumeAfterUpdate = false; saveConfig(cfg); await resumeSession(); }
     setupUpdates(); refreshTray();
-  });
+  }).catch((e) => { log(`FAIL  startup: ${e.stack || e.message}`); openWizard(); }); // never start with no window
 }
