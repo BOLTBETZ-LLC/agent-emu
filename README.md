@@ -53,7 +53,8 @@ The agent gets its operating guide from the MCP server and the skill. The same g
 ## Setup installs
 
 Setup installs whatever is missing: Claude Code (Anthropic's official installer), Node.js LTS (inside agent-emu's own
-folder), Appium's MCP server, Python and the test tools, the phone images. After Claude Code installs, open a terminal
+folder), Appium's MCP server, Python and the test tools, the phone images (Android system image and browser), and the BoltBetz staging app
+that new phones install at first boot (the build is pinned per agent-emu version and moves forward with updates). After Claude Code installs, open a terminal
 once and run `claude` to sign in.
 
 ## Appium

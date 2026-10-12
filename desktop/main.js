@@ -207,6 +207,20 @@ async function repair() {
   openWizard();
 }
 
+// The app under test: the phone images ship without one. Each app version pins the staging build in package.json
+// (agentEmu.defaultApp); set it as the daemon's default app once per change. Phones started without keep_data install it.
+async function ensureDefaultApp() {
+  const want = PKG.agentEmu && PKG.agentEmu.defaultApp;
+  if (!want || cfg.defaultAppApplied === want) return true;
+  log(`set the app under test: ${want} (downloads ~150 MB)`);
+  try {
+    const r = await (await fetch(URL_UI + "api", { method: "POST", body: JSON.stringify({ call: "set_default_app", source: want }), signal: AbortSignal.timeout(900000) })).json();
+    if (!r.ok) { log(`WARN  set_default_app: ${r.error}`); return false; }
+    cfg.defaultAppApplied = want; saveConfig(cfg);
+    log(`ok    app under test: ${r.default_app.package} ${r.default_app.version_name} (${r.default_app.version_code})`);
+    return true;
+  } catch (e) { log(`WARN  set_default_app: ${e.message}`); return false; }
+}
 async function startDaemon() {
   if (await health()) { log(`ok    daemon already answers on ${URL_UI} (attached)`); return true; }
   const env = { ...process.env, ...(await secretEnv()), AE_HOME: ROOT, AE_WORK: path.join(ROOT, "images"), AE_PYTHON: PY_EXE, PICT };
@@ -380,7 +394,7 @@ ipcMain.handle("step", async (_e, name) => {
       case "setup": return await stepSetup();
       case "downloads": return await stepDownloads();
       case "secrets": return { ok: await importEnvSecrets() };
-      case "daemon": return { ok: await startDaemon() };
+      case "daemon": return { ok: (await startDaemon()) && (await ensureDefaultApp()) };
       case "mcp": return await stepMcp();
       case "finish": cfg.setupDone = true; saveConfig(cfg); openDashboard(); return { ok: true };
       case "fix-whp": await fixWhp(); return { ok: true };
@@ -423,7 +437,7 @@ if (process.argv.includes("--uninstall")) {
     if (!cfg.setupDone) return openWizard();
     // New version: refresh the payload, then tools + MCP registration (appium-mcp, skill) for this version.
     if (stale && !(await health())) { const r = await stepSetup(); if (!r.ok) return openWizard(); await stepMcp().catch((e) => log(`WARN  mcp: ${e.message}`)); }
-    if (await startDaemon()) openDashboard(); else openWizard();
+    if (await startDaemon()) { openDashboard(); ensureDefaultApp(); } else openWizard();
     // After an update: boot the saved phones and continue the paused test runs.
     if (cfg.resumeAfterUpdate) { cfg.resumeAfterUpdate = false; saveConfig(cfg); await resumeSession(); }
     setupUpdates(); refreshTray();

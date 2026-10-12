@@ -1,7 +1,7 @@
 {
   "name": "agent-emu",
   "productName": "agent-emu",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Android phone fleet for agent testing",
   "author": "BoltBetz",
   "main": "main.js",
@@ -19,6 +19,7 @@
     "electron-builder": "26.15.3"
   },
   "agentEmu": {
-    "feed": "https://d2pe4tj8fdcb6a.cloudfront.net/feed/v1/manifest.json"
+    "feed": "https://d2pe4tj8fdcb6a.cloudfront.net/feed/v1/manifest.json",
+    "defaultApp": "https://expo.dev/artifacts/eas/PrDreXFiALCuSSTALkhmPQvdrc-OwQNJ9stUadTzgN0.apk"
   }
 }
