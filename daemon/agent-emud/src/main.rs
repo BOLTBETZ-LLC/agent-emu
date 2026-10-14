@@ -868,7 +868,7 @@ async fn handle_call(st: &Arc<State>, conn: u64, req: &Value) -> R<Value> {
                 if s.dev.net { v["adb"] = json!(format!("127.0.0.1:{}", 6520 + s.dev.idx())); }
                 v
             }).collect();
-            return Ok(json!({"ok": true, "devices": devs, "available_mb": device::available_mb(), "claims": ops::claims()}));
+            return Ok(json!({"ok": true, "devices": devs, "available_mb": device::available_mb(), "max_phones": ops::max_phones(), "claims": ops::claims()}));
         }
         _ => {}
     }

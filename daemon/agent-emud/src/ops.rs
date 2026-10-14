@@ -91,8 +91,13 @@ pub fn claim_warning(req: &Value) -> Option<String> {
 // ---------- max phones ----------
 
 /// Aaron's rule: at most AE_MAX_PHONES (default 4) phones exist. `force: true` boots one more anyway.
+/// The phone limit per PC (AE_MAX_PHONES, default 4).
+pub fn max_phones() -> usize {
+    std::env::var("AE_MAX_PHONES").ok().and_then(|v| v.parse().ok()).unwrap_or(4usize)
+}
+
 pub fn max_check(running: usize, req: &Value) -> R<()> {
-    let max = std::env::var("AE_MAX_PHONES").ok().and_then(|v| v.parse().ok()).unwrap_or(4usize);
+    let max = max_phones();
     if running >= max && req["force"] != json!(true) {
         return Err(format!("{running} phones already run (max {max}, AE_MAX_PHONES); stop one or pass force: true"));
     }
