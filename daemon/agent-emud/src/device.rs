@@ -826,6 +826,14 @@ impl Device {
     /// Kills the Device and returns only once its boot powershell, crosvm broker and every helper have
     /// exited (they hold fleet\dN\*.img open: a keep_data start right after an early return failed with
     /// os error 32 on frp.img). Err names the pids still alive after STOP_WAIT; a later stop waits on them again.
+    /// The VM behind a booted Device is gone (its boot process exited, or an adopted one is no longer alive).
+    pub async fn vm_exited(&self) -> bool {
+        if let Some(c) = self.boot.lock().await.as_mut() {
+            return c.try_wait().ok().flatten().is_some();
+        }
+        self.adopted.is_some_and(|a| !crate::adopt::alive(a.0, a.1))
+    }
+
     pub async fn stop(&self) -> R<()> {
         // Flush the guest's page cache so userdata survives for a keep_data start (the kill is a power cut).
         if self.ready.swap(false, Ordering::SeqCst) {

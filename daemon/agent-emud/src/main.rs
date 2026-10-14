@@ -97,6 +97,7 @@ async fn serve(addr: String) {
     let st = Arc::new(new_state(Cfg::from_env()));
     tokio::spawn(metrics(st.clone()));
     tokio::spawn(recap_idle(st.clone()));
+    tokio::spawn(reap_dead(st.clone()));
     tokio::spawn(uidump::watch(st.clone()));
     tokio::spawn(ops::health_loop(st.clone()));
     let ui_addr = std::env::var("AE_UI_ADDR").unwrap_or_else(|_| "127.0.0.1:7401".into());
@@ -637,6 +638,24 @@ fn p50(v: &std::collections::VecDeque<u64>) -> Option<u64> {
 
 /// While anyone listens on /events: one `metrics` event a second (phase, scanout and sent fps, input p50,
 /// RAM own/shared refreshed every 5 s), plus a `crash` event per new crash/ANR.
+/// A ready or sleeping phone whose VM exited (crash, killed crosvm) would otherwise stay "ready" forever:
+/// every 5 s, stop and drop it so status, the dashboard and `start` see it as off.
+async fn reap_dead(st: Arc<State>) {
+    let mut iv = tokio::time::interval(Duration::from_secs(5));
+    loop {
+        iv.tick().await;
+        let devs: Vec<(String, Arc<Device>)> = st.devs.lock().unwrap().iter()
+            .filter(|(_, s)| s.phase == "ready" || s.phase == "sleeping").map(|(k, s)| (k.clone(), s.dev.clone())).collect();
+        for (id, d) in devs {
+            if d.vm_exited().await {
+                eprintln!("{id}: VM exited on its own; dropping it");
+                let _ = stop_one(&st, &id).await;
+                emit(&st, json!({"type": "error", "device": id, "error": "the phone's VM exited (see crosvm.log); start it again"}));
+            }
+        }
+    }
+}
+
 async fn metrics(st: Arc<State>) {
     let mut prev: std::collections::HashMap<String, (u64, u64, u64)> = Default::default();
     let mut mem: std::collections::HashMap<String, (u64, u64, u64)> = Default::default();
