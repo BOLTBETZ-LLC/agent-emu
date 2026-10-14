@@ -11,8 +11,11 @@ use std::time::Duration;
 /// Start of the `ui_tree` error while an Appium UiAutomator2 server holds the phone.
 pub const YIELDED: &str = "yielded to Appium (UiAutomator2 running)";
 const YIELDED_MSG: &str = "yielded to Appium (UiAutomator2 running); use Appium or stop its session";
-/// The Appium UiAutomator2 server and its test package (`...server.test`) both match.
-const APPIUM_PS: &str = "ps -A -o NAME | grep -q io.appium.uiautomator2.server";
+/// Guest check for Appium's UiAutomator2 server; its test package (`...server.test`) matches too.
+/// AE_APPIUM_PROC swaps the process name (tests stand in a throwaway process for Appium).
+fn appium_ps() -> String {
+    format!("ps -A -o NAME | grep -q {}", std::env::var("AE_APPIUM_PROC").unwrap_or_else(|_| "io.appium.uiautomator2.server".into()))
+}
 
 /// Per Device: (Appium seen and not yet gone, epoch ms of the last dump that worked).
 static READER: Mutex<Option<HashMap<String, (bool, u64)>>> = Mutex::new(None);
@@ -49,7 +52,7 @@ pub async fn watch(st: std::sync::Arc<crate::State>) {
         tokio::time::sleep(Duration::from_secs(2)).await;
         for (id, yielded) in watched() {
             let Some(d) = st.dev(&id) else { continue };
-            let Ok((_, code)) = d.con.exec(APPIUM_PS, Duration::from_secs(10)).await else { continue };
+            let Ok((_, code)) = d.con.exec(&appium_ps(), Duration::from_secs(10)).await else { continue };
             if code == 0 && !yielded {
                 stop(&d).await;
                 mark(&id, |m| m.0 = true);
@@ -74,9 +77,9 @@ fn idle_s() -> u64 {
 /// One console round trip: start the dumper if it isn't running, ask for a dump, print it.
 /// Exit 93 = an Appium UiAutomator2 server holds the one UiAutomation, 90 = dex missing in the guest, 91 = dumper did not come up, 92 = no answer / error answer.
 fn dump_cmd() -> String {
-    let idle = idle_s();
+    let (idle, appium_ps) = (idle_s(), appium_ps());
     format!("D=/data/local/tmp; \
-        if {APPIUM_PS}; then exit 93; fi; \
+        if {appium_ps}; then exit 93; fi; \
         if ! {{ pidof aedump >/dev/null && [ -p $D/ae.req ]; }}; then \
           [ -f {DEX_PATH} ] || exit 90; rm -f $D/ae.req $D/ae.res; \
           p=$(pidof system_server); for v in $(tr '\\0' '\\n' < /proc/$p/environ | grep CLASSPATH=); do export \"$v\"; done; \
