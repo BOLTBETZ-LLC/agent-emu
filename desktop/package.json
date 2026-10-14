@@ -1,7 +1,7 @@
 {
   "name": "agent-emu",
   "productName": "agent-emu",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Android phone fleet for agent testing",
   "author": "BoltBetz",
   "main": "main.js",
