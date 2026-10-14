@@ -11,7 +11,7 @@ headers. Other origins get none.
 
 Device ids are `d0` .. `dN`. Each id has its own pipes and adb port (6520+N). Eight or more Devices can run
 at once. Each boot is refused while host Available memory, minus the guest RAM of Devices still booting,
-is under 4000 MB (`AE_MIN_AVAIL_MB`).
+is under 4000 MB (`AE_MIN_AVAIL_MB`, default 4000).
 
 ## Endpoints
 
@@ -40,11 +40,14 @@ The body is `{"call": "<name>", "device": "d0", ...}`. The reply is `{"ok": true
 
 | Call | Arguments | Notes |
 | --- | --- | --- |
-| `start` | `force` (boot past the phone limit: at most `AE_MAX_PHONES`, default 4, phones run; also `start_many`, `fleet`), `image` (`phone`, `phone-n`, `slim5`, `slim4`, `slim3n`, ...), `screen`, `render` (`gfxstream` default, `software`), `refresh_hz` (default 120, 1-240), `boot_cap_mb` (default 600, 0 = none), `idle_cap_mb` (default 250, 0 = keep the boot cap), `mem`, `cpus`, `net`, `auto_squeeze`, `keep_data` | boots and waits for Android plus setup. Use `async`. `keep_data: true` reuses the Device's disks from its last run (installed apps, sign-ins, files); refused if there is none or it was made for another Device, image or super.img. Without it the disks are wiped. `stop` runs `sync` in the guest first |
-| `start_many` | `devices: ["d0","d1",...]`, `parallel` (default 4, max 8), plus the `start` arguments | boots them, up to `parallel` at once. Reply `devices: [{device, ok, ready_s / error}]` |
+| `start` | `force` (boot past the phone limit: at most `AE_MAX_PHONES`, default 4, phones run; also `start_many`, `fleet`), `image` (`phone`, `phone-n`, `slim5`, `slim4`, `slim3n`, ...), `screen`, `render` (`gfxstream` default, `software`), `refresh_hz` (default 120, 1-240), `boot_cap_mb` (default 600, 0 = none), `idle_cap_mb` (default 250, 0 = keep the boot cap), `mem`, `cpus`, `net`, `auto_squeeze`, `keep_data`, `fresh` | boots and waits for Android plus setup. Use `async`. **Disks are kept by default** (installed apps, sign-ins, files): when the Device's existing disk was made for this Device, image and super.img, `start` reuses it (no wipe, no app install). `fresh: true` (or an explicit `keep_data: false`) wipes it. A disk made for another Device, image or super.img (for example after an image update) fails with an error starting `disk_mismatch:`; retry with `fresh: true`. No disk, or one whose first boot never reached ready, boots fresh. An explicit `keep_data: true` with no disk fails (`keep_data: dN has no saved disk`). `stop` never wipes; it runs `sync` in the guest first. `start` on a `sleeping` Device wakes it (no reboot) |
+| `start_many` | `devices: ["d0","d1",...]`, `parallel` (default 4, or 1 when host `available_mb` is under 8000; max 8), plus the `start` arguments | boots them, up to `parallel` at once. Reply `devices: [{device, ok, ready_s / error}]` |
 | `stop` | `device` | |
 | `stop_many` | `devices` (default: all) | stops them all at once |
-| `status` | | every Device: `id, ready, phase, streams, image, mem, cpus, net, screen{name,width,height,dpi}, uptime_s, frames_via, input_via, claim, health` (last check, see `health`), plus `available_mb` and `claims` (every claim, running or not) |
+| `sleep` | `device` | between test batches: the phone keeps running (apps, sign-in, booted Android) but drops to its idle RAM caps now and the screen reader stops; phase `sleeping`. Refused while the phone is claimed by an owner starting `run.py-` (a test run; the error names it) and while it is still booting. Reply `capped_processes` |
+| `wake` | `device` | caps lifted, phase back to `ready`, a few seconds (`woke_ms`). A phone that is not running errors: use `start` |
+| `sleep_many`, `wake_many` | `devices` (default: every ready / every sleeping Device) | like `stop_many`; reply `devices: [{device, ok, error}]` |
+| `status` | | every Device: `id, ready, phase, phase_since_ms` (epoch ms when the phase began), `ui_reader` (`on` = the in-guest screen reader is alive, `yielded_appium` = an Appium UiAutomator2 server holds the phone and `ui_tree` errors, `off`), `streams, image, mem, cpus, net, screen{name,width,height,dpi}, uptime_s, frames_via, input_via, claim, health` (last check, see `health`), plus `available_mb`, `max_phones` (the AE_MAX_PHONES cap) and `claims` (every claim, running or not) |
 | `claim` | `device`, `owner`, `note`, `force` | marks the phone as `owner`'s (in memory; a daemon restart clears it). Refused while someone else holds it, unless `force`. Any later non-read call on it from another `owner` (or none) still runs and gets a `warning` field |
 | `unclaim` | `device`, `owner`, `force` | drops the claim; another owner's only with `force` |
 | `health` | `device` | fresh check, reply `health`: `level` (`ok` / `warn` / `bad`), `summary`, `problems`, `warnings`, `adb {ok,port,error}` (host `adb -s 127.0.0.1:<6520+N> shell echo ok`), `network {ip_10_0_2_15, dns_ok, dns, host}` (`AE_HEALTH_HOST`, default `staging.bbapp01.com`), `foreground`, `signed_in` (home vs start/login screen; looked at only while the app is in front), `last_crash`, `stuck` (not ready after `AE_BOOT_STUCK_S`, default 600), and `build` (below). The daemon also checks each idle or booting phone every 60 s (`health` event); phones in use keep their last result (`checked_ms`) |
@@ -66,7 +69,8 @@ The body is `{"call": "<name>", "device": "d0", ...}`. The reply is `{"ok": true
 | `crash_events` | `after` (seq), `wait_ms`, `filter` | crashes, ANRs and native crashes |
 | `memory` | | the Device's crosvm processes: `ws_mb, own_mb, shared_mb`, per-process caps |
 | `squeeze` | `balloon_mb, cap_main_mb, cap_helper_mb` | balloon plus working-set caps |
-| `deep_link`, `set_location`, `clock`, `permission`, `shell`, `ui_tree`, `lease`, `release`, `fleet`, `fleet_stop` | | as on the agent API |
+| `ui_tree` | | the screen's view tree. While an Appium UiAutomator2 server (`io.appium.uiautomator2.server`) runs on the phone it errors `yielded to Appium (UiAutomator2 running); use Appium or stop its session`: the daemon's reader does not start uiautomator and a watcher (every 2 s, for phones read in the last 2 min) kills only its own `aedump`; it resumes by itself when Appium's server is gone. Appium's process is never touched |
+| `deep_link`, `set_location`, `clock`, `permission`, `shell`, `lease`, `release`, `fleet`, `fleet_stop` | | as on the agent API |
 | `bug` | `case` (required), `area`, `step`, `endpoint`, `check`, plus any evidence fields (below) | records one test FAIL. Also `POST /bugs`. Reply `key`, `new` (first time this key was seen), `count` |
 | `bugs` | `key`, `status`, `kind`, `area`, `case` (id prefix of any of its cases), `q` (text in title or signature), `since` (ms, last seen), `limit` (200), `full` | bugs, newest `last_seen` first: `{key, sig, title, kind, status, area, step, endpoint, check, first_seen, last_seen, count, cases, phones, runs}` plus `last` (newest occurrence), or `occurrences` (newest 30) with `full: true`. Reply also `total`, `open`, `matched`, `file`. Also `GET /bugs` |
 | `quit` | | stops every Device and exits the daemon |
@@ -141,6 +145,7 @@ so 440 x 956 points. Every iPhone profile lays Android out at the same 440 dp wi
 | `iphone17promax-native` | 1320 x 2868 | 480 | `phone`, `phone-n` (`screen` omitted) |
 | `iphone17promax-3q` | 984 x 2140 | 358 | |
 | `iphone17promax-half` (lean) | 656 x 1424 | 238 | lean images (`screen` omitted) |
+| `samsung-a16` | 1080 x 2340 | 450 | (384 dp wide; guest RAM as for native: image default + browser headroom) |
 | `legacy` (or `small`) | 720 x 1080 | 320 | |
 
 The lean width is 656, not 660, because crosvm rounds the display width down to a multiple of 8.
@@ -170,7 +175,7 @@ es.onmessage = (m) => { const e = JSON.parse(m.data); /* switch (e.type) */ };
 | `type` | Fields |
 | --- | --- |
 | `snapshot` | first message: the `status` reply (`devices`, `available_mb`) |
-| `device` | `device, phase, t_s` (seconds since start). Phases: `spawning` (with `info`: image, mem, cpus, screen) -> `booting` (crosvm and kernel) -> `android` (the guest shell answers) -> `setup` (boot completed, settings applied) -> `ready`; `stopped` after a stop or a failed boot |
+| `device` | `device, phase, t_s` (seconds since start). Phases: `spawning` (with `info`: image, mem, cpus, screen) -> `booting` (crosvm and kernel) -> `android` (the guest shell answers) -> `setup` (boot completed, settings applied) -> `ready`; `stopped` after a stop or a failed boot. `sleeping` (from `sleep`; the phone really runs) goes back to `ready` on `wake`, `start` or any input call. Every `status` row also has `phase_since_ms` |
 | `job` | `job, call, device, state` (`running`, `done`, `failed`), `result` or `error`, `ms` |
 | `metrics` | once a second: `available_mb`, `devices: [{id, phase, ready, uptime_s, activity, scanout_fps, sent_fps, streams, input_p50_ms, input_n, ws_mb, own_mb, shared_mb}]` |
 | `crash` | `device, event` (as in `crash_events`: `kind` crash, anr or native, `process`, `seq`, ...) |

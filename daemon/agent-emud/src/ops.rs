@@ -90,9 +90,14 @@ pub fn claim_warning(req: &Value) -> Option<String> {
 
 // ---------- max phones ----------
 
-/// Aaron's rule: at most AE_MAX_PHONES (default 4) phones exist. `force: true` boots one more anyway.
+/// The phone limit per PC (AE_MAX_PHONES, default 4).
+pub fn max_phones() -> usize {
+    std::env::var("AE_MAX_PHONES").ok().and_then(|v| v.parse().ok()).unwrap_or(4usize)
+}
+
+/// Aaron's rule: at most `max_phones()` phones exist. `force: true` boots one more anyway.
 pub fn max_check(running: usize, req: &Value) -> R<()> {
-    let max = std::env::var("AE_MAX_PHONES").ok().and_then(|v| v.parse().ok()).unwrap_or(4usize);
+    let max = max_phones();
     if running >= max && req["force"] != json!(true) {
         return Err(format!("{running} phones already run (max {max}, AE_MAX_PHONES); stop one or pass force: true"));
     }
@@ -222,6 +227,11 @@ pub async fn check(st: &Arc<State>, id: &str, full: bool) -> R<Value> {
     let mut problems: Vec<String> = vec![];
     let mut warns: Vec<String> = vec![];
     let mut h = json!({"phase": phase, "uptime_s": uptime, "checked_ms": device::now_ms()});
+    if phase == "sleeping" {
+        // Asleep on purpose: no adb or screen probes (they would page the phone in); `wake` first for a full check.
+        h["sleeping"] = json!(true);
+        return Ok(finish(id, h, problems, warns));
+    }
     if phase != "ready" {
         let stuck = uptime > stuck_after_s();
         h["stuck"] = json!(stuck);
@@ -354,7 +364,7 @@ pub async fn health_loop(st: Arc<State>) {
     loop {
         tokio::time::sleep(Duration::from_secs(60)).await;
         let ids: Vec<(String, bool)> = st.devs.lock().unwrap().iter()
-            .map(|(k, s)| (k.clone(), s.phase != "ready" || !s.dev.in_use())).collect();
+            .map(|(k, s)| (k.clone(), s.phase != "sleeping" && (s.phase != "ready" || !s.dev.in_use()))).collect();
         HEALTH.lock().unwrap().retain(|k, _| ids.iter().any(|(id, _)| id == k));
         for (id, idle) in ids {
             if !idle {

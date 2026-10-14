@@ -79,11 +79,12 @@ HTTP 200 either way: always read `ok`.
 
 | Call | Example body | Reply / note |
 | --- | --- | --- |
-| `status` | `{"call":"status"}` | `devices[{id,ready,phase,image_name,screen{width,height},mem,keep_data,uptime_s}]`, `available_mb` |
-| `start` | `{"call":"start","device":"d3","image":"slim5","screen":"iphone17promax-half","keep_data":true}` | blocks until ready (~110 s); add `"async":true` on HTTP to return at once |
-| `start_many` | `{"call":"start_many","devices":["d0","d1"],"image":"slim5","screen":"iphone17promax-half","keep_data":true}` | up to 4 boot at once |
+| `status` | `{"call":"status"}` | `devices[{id,ready,phase,phase_since_ms,ui_reader,image_name,screen{width,height},mem,keep_data,uptime_s}]`, `available_mb` |
+| `start` | `{"call":"start","device":"d3","image":"slim5","screen":"iphone17promax-half","keep_data":true}` | blocks until ready (~110 s); add `"async":true` on HTTP to return at once. Keeps the existing disk by default (`"fresh":true` wipes); a sleeping phone is woken instead |
+| `start_many` | `{"call":"start_many","devices":["d0","d1"],"image":"slim5","screen":"iphone17promax-half","keep_data":true}` | up to 4 boot at once (one at a time when host `available_mb` < 8000; `parallel` overrides) |
 | `stop` | `{"call":"stop","device":"d3"}` | syncs the guest first, so `keep_data` can reuse the disks |
 | `stop_many` | `{"call":"stop_many","devices":["d0","d1"]}` | no `devices` = every phone |
+| `sleep` / `wake` | `{"call":"sleep","device":"d3"}` | rest a ready phone between batches (idle caps, reader off, phase `sleeping`), then bring it back in seconds; `sleep_many`/`wake_many` take `devices` |
 | `install_bundled` | `{"call":"install_bundled","device":"d3"}` | the image's default app (on this PC the BoltBetz staging APK) |
 | `install_app` | `{"call":"install_app","devices":["d3"],"source":"https://expo.dev/artifacts/eas/<x>.apk"}` | any build, see [The app under test](#the-app-under-test) |
 | `set_default_app` | `{"call":"set_default_app","source":"C:/builds/app.apk"}` | the app new phones install at boot |
@@ -119,16 +120,24 @@ Phases, in order (`status.devices[].phase`, also `device` events on `/events`):
 
 `spawning` -> `booting` (crosvm + kernel) -> `android` (guest shell answers) -> `setup` (boot done, settings applied)
 -> `browser` (Firefox first run, only on wiped disks; can relaunch Firefox over the app for 2-4 min) -> `ready`.
-`stopped` after a stop or a failed boot.
+`stopped` after a stop or a failed boot. `sleeping` is a ready phone put to rest by `sleep` (see below).
 
 **Ready means `phase == "ready"`.** The `ready` boolean turns true before the `browser` phase ends. Calls other
 than `status`/`stop` on a phone that is not up fail with `Device dN is still booting`.
 
-- **`keep_data: true`** reuses the phone's disks: installed app, sign-in, Firefox setup. It is refused when the disk
-  was made for another Device, image or system image (`keep_data: d3's disk is ..., this start needs ...`). Then
-  start with the same `image`/`screen` as the last run (BoltBetz phones: `slim5`, `iphone17promax-half`), or start
-  without `keep_data` to wipe it and redo install + sign-in.
-- **Without `keep_data`** the disks are wiped: `install_bundled`, then sign in.
+- **Disks are kept by default.** `start` reuses the phone's disks (installed app, sign-in, Firefox setup) when they were
+  made for this Device, image and system image; no wipe, no app install, no new sign-in. `stop` never wipes.
+  `"fresh": true` (or `"keep_data": false`) wipes them: then `install_bundled` and sign in.
+- **`disk_mismatch:`** is the error when the disk was made for another Device, image or system image (for example after
+  an image update). Start with the same `image`/`screen` as the last run (BoltBetz phones: `slim5`,
+  `iphone17promax-half`), or with `"fresh": true` to wipe and redo install + sign-in. A phone with no disk, or whose
+  first boot never reached ready, boots fresh by itself.
+- **Sleep between batches.** `sleep` keeps the phone running but at its idle RAM caps with the screen reader off (phase
+  `sleeping`, `ready` still true); `wake`, `start` or any input call brings it back in seconds. It is refused while a test
+  run claims the phone (`run.py-<pid>`). Use it instead of `stop` + wiped `start` when the next batch comes soon; use
+  `stop` to free the RAM. After a daemon `restart`, sleeping phones come back as `ready` (already capped).
+- **Appium.** While an Appium UiAutomator2 server runs on a phone, `ui_tree` errors `yielded to Appium ...` and the
+  daemon's own reader stays off (`status` `ui_reader` = `yielded_appium`); it resumes when the Appium session ends.
 - **RAM.** slim5 at half screen boots with 896 MB guest RAM (640 + 256 browser headroom). A boot is refused while
   host available memory (minus phones still booting) is under 4000 MB (`AE_MIN_AVAIL_MB`).
 - **Idle caps and balloon.** After 60 s with no input, the daemon caps each phone's host working set (idle cap
@@ -143,7 +152,7 @@ than `status`/`stop` on a phone that is not up fail with `Device dN is still boo
 ### The app under test
 
 Any Android build plugs in. `install_app` puts it on running phones now; `set_default_app` makes it the app every phone
-started later without `keep_data` installs at boot (and what `install_bundled`/`fleet` install). Both take one
+started later on wiped disks (`fresh`) installs at boot (and what `install_bundled`/`fleet` install). Both take one
 `source`, and anything that names a build works:
 
 | Source | Example |
@@ -184,7 +193,7 @@ kept at `C:\dev\agent-emu-work\apk\boltbetz-staging-4cd7f3dc.apk`. Previous one 
 2. **Screenshot to look.** `screenshot` (MCP: image block) or `GET http://127.0.0.1:7401/screenshot.png?device=d3`
    (full-size PNG). Pass `size` to save tokens. Look at it before you say something is visible.
 3. **Phone size.** BoltBetz phones are 656 x 1424 (`iphone17promax-half`, 440 dp wide like an iPhone 17 Pro Max).
-   Native is 1320 x 2868. Read `status.devices[].screen` rather than assuming.
+   Native is 1320 x 2868. Read `status.devices[].screen` rather than assuming. Screen `samsung-a16` is 1080 x 2340 at 450 dpi.
 
 Screen ids that mark where you are: `start-screen`, `login-screen`, `home-screen`, `wallet-main-screen`,
 `settings-screen`, `rewards-screen`, `machine-connected-screen`, `responsible-gaming-screen`,
@@ -536,7 +545,7 @@ tool_timeout_sec = 900   # start blocks ~2 min; Codex's default is 60
 Other folders: `codex mcp add agent-emu -- C:\dev\agent-emu\daemon\target-mcp\release\agent-emud.exe mcp --addr 127.0.0.1:7400`
 (then raise `tool_timeout_sec` in `~/.codex/config.toml`). Check: `codex mcp get agent-emu`.
 
-**Tools** (41): `appium`, `install_app`, `set_default_app`, `default_app`, `bugs`, `claim`, `unclaim`, `health`, `snapshot`, `restore`, `status`, `start`, `stop`, `start_many`, `stop_many`, `install_bundled`, `app`, `ui_tree`,
+**Tools** (45): `appium`, `install_app`, `set_default_app`, `default_app`, `bugs`, `claim`, `unclaim`, `health`, `snapshot`, `restore`, `status`, `start`, `stop`, `sleep`, `wake`, `start_many`, `stop_many`, `sleep_many`, `wake_many`, `install_bundled`, `app`, `ui_tree`,
 `screenshot`, `tap`, `swipe`, `type_text`, `key`, `deep_link`, `permission`, `clock`, `set_location`, `shell`,
 `logs`, `issues`, `crash_events`, `memory`, `squeeze`, `lease`, `release`, `inject_camera_image`, `fleet`,
 `fleet_stop`, `run_case`, `run_lanes`, `run_matrix` (the last three run the test runner: [Test runner](#test-runner)).
@@ -550,7 +559,7 @@ MCP replies with a frame become an image block: pass `"screenshot": false` on in
 | Boot stuck in `android` 10+ min, `logcat.log` grows to 100s of MB | an old trim disabled Settings (FallbackHome, the only home app): "No home screen found", boot never completes, the radio floods logcat | daemon from commit f6c7f0c on re-enables it at boot; an older live daemon needs Aaron's redeploy. Do not stop the phone yourself |
 | Home shows "We couldn't load your rewards." after the backend recovered | the app keeps the failed read; L4-02 fails on it | restart the app: `shell am force-stop com.boltbetz.staging`, `app launch` |
 | `logs` slow or huge | logcat floods (`C:\dev\agent-emu-work\fleet\dN\logcat.log`) | always pass `filter`, `level` and a `cursor`; `issues` for a summary |
-| `keep_data` refused, "disk is ..., this start needs ..." | disk belongs to another Device/image/system image | same `image`/`screen` as last time, or start without `keep_data` (then install + sign in) |
+| `start` fails `disk_mismatch: ...` | disk belongs to another Device/image/system image | same `image`/`screen` as last time, or `"fresh": true` (then install + sign in) |
 | Waiting for `Get-Process agent-emud` to exit never ends (daemon swap scripts) | test daemons (`daemon\target-expX\...`, other ports) share the process name | match the exe path `daemon\target\release\agent-emud.exe` or the owner of port 7400, never the bare name |
 | Tip sheet stays over Home after Disconnect | it blocks the tab bar for later steps | tap `machine-tips-sheet-close-button` before navigating |
 | App killed with the scanner open | live camera on a ~1 GB phone trips the low-memory killer | keep CAMERA denied on the scanner lane (runner does it on L3) |

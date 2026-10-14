@@ -134,7 +134,7 @@ impl Cfg {
                 .or_else(|| home().map(|h| h.join("images"))).unwrap_or_else(|| PathBuf::from("C:/dev/agent-emu-work")),
             mem: e("AE_MEM", "896"),
             cpus: e("AE_CPUS", "4"),
-            min_avail_mb: e("AE_MIN_AVAIL_MB", "1500").parse().unwrap_or(1500),
+            min_avail_mb: e("AE_MIN_AVAIL_MB", "4000").parse().unwrap_or(4000),
             crosvm_dir: e("AE_CROSVM_DIR", "crosvm-pmem"),
         }
     }
@@ -339,8 +339,10 @@ pub fn screen(name: &str, phone: bool) -> R<(u32, u32, u32)> {
         ("iphone17promax-native", _) => Ok((1320, 2868, 480)),
         ("iphone17promax-3q", _) => Ok((984, 2140, 358)),
         ("iphone17promax-half", _) => Ok((656, 1424, 238)),
+        // Samsung Galaxy A16: 1080 x 2340 at 450 dpi = 384 dp wide (a tester's phone).
+        ("samsung-a16", _) => Ok((1080, 2340, 450)),
         ("legacy" | "small", _) => Ok((720, 1080, 320)),
-        _ => Err(format!("unknown screen `{name}` (iphone17promax[-native|-3q|-half], legacy)")),
+        _ => Err(format!("unknown screen `{name}` (iphone17promax[-native|-3q|-half], samsung-a16, legacy)")),
     }
 }
 
@@ -348,6 +350,34 @@ pub fn screen(name: &str, phone: bool) -> R<(u32, u32, u32)> {
 pub fn data_stamp(work: &Path, idx: u32, run_name: &str) -> String {
     format!("d{idx} {run_name} {:?}", std::fs::metadata(work.join(run_name).join("super.img")).ok().map(|m| (m.len(), m.modified().ok())))
 }
+
+/// What `start` finds on disk for Device `idx` with image `image_name`.
+pub enum Disk {
+    /// A finished boot's disks made for this Device, image and super.img: a keep_data start reuses them.
+    Match,
+    /// No disk, or one whose first provisioning never finished (`provision.incomplete`): nothing worth keeping.
+    Missing,
+    /// A disk made for another Device, image or system image (the reason names both stamps).
+    Mismatch(String),
+}
+
+/// Lets `start` default `keep_data` to true when the existing disk fits.
+pub fn disk_status(cfg: &Cfg, idx: u32, image_name: &str) -> R<Disk> {
+    let run_name = image(image_name)?.0;
+    let d = cfg.work.join(format!("fleet/d{idx}"));
+    let Ok(have) = std::fs::read_to_string(d.join("data.id")) else { return Ok(Disk::Missing) };
+    if !d.join("userdata.img").exists() || d.join(INCOMPLETE).exists() {
+        return Ok(Disk::Missing);
+    }
+    let stamp = data_stamp(&cfg.work, idx, run_name);
+    Ok(if have == stamp { Disk::Match } else {
+        Disk::Mismatch(format!("d{idx}'s disk is `{}`, this start needs `{stamp}`", have.trim()))
+    })
+}
+
+/// Written when a wiped start begins, removed when it reaches ready: a boot that died half way leaves a disk
+/// with no app or sign-in, which a defaulted keep_data must not reuse.
+pub const INCOMPLETE: &str = "provision.incomplete";
 
 fn make_device(cfg: &Cfg, idx: u32, run_name: &str, keep_data: bool) -> R<PathBuf> {
     let run = cfg.work.join(run_name);
@@ -374,8 +404,8 @@ fn make_device(cfg: &Cfg, idx: u32, run_name: &str, keep_data: bool) -> R<PathBu
     if keep_data {
         match std::fs::read_to_string(d.join("data.id")) {
             Ok(s) if s == stamp && d.join("userdata.img").exists() => {}
-            Ok(s) => return Err(format!("keep_data: d{idx}'s disk is `{}`, this start needs `{stamp}`; start without keep_data to wipe it", s.trim())),
-            Err(_) => return Err(format!("keep_data: d{idx} has no saved disk; start once without keep_data")),
+            Ok(s) => return Err(format!("disk_mismatch: d{idx}'s disk is `{}`, this start needs `{stamp}`; start with fresh: true to wipe it", s.trim())),
+            Err(_) => return Err(format!("keep_data: d{idx} has no saved disk; start once with fresh: true")),
         }
     }
     let disks: &[(&str, u64)] = &[("frp", 1 << 20), ("metadata", 64 << 20), ("userdata", 8 << 30), ("misc", 1 << 20), ("out", 64 << 20)];
@@ -384,6 +414,9 @@ fn make_device(cfg: &Cfg, idx: u32, run_name: &str, keep_data: bool) -> R<PathBu
         f.set_len(sz).map_err(|e| e.to_string())?;
     }
     std::fs::write(d.join("data.id"), &stamp).map_err(|e| format!("data.id: {e}"))?;
+    if !keep_data {
+        let _ = std::fs::write(d.join(INCOMPLETE), "");
+    }
     for f in ["kernel.log", "logcat.log", "crosvm.log", "console.log", "os_composite.img", "os_composite.img.filler",
         "os_composite.img.footer", "os_composite.img.header", "fb.bin"] {
         let _ = std::fs::remove_file(d.join(f));
@@ -1038,12 +1071,31 @@ mod tests {
     }
 
     #[test]
+    fn disk_status_matches_the_stamp() {
+        let work = std::env::temp_dir().join(format!("ae-disk-{}", now_ms()));
+        let d = work.join("fleet/d7");
+        std::fs::create_dir_all(&d).unwrap();
+        std::fs::create_dir_all(work.join("run-slim5")).unwrap();
+        let cfg = Cfg { work: work.clone(), ..Cfg::from_env() };
+        assert!(matches!(disk_status(&cfg, 7, "slim5").unwrap(), Disk::Missing), "no data.id");
+        std::fs::write(d.join("userdata.img"), "").unwrap();
+        std::fs::write(d.join("data.id"), data_stamp(&work, 7, "run-slim5")).unwrap();
+        assert!(matches!(disk_status(&cfg, 7, "slim5").unwrap(), Disk::Match));
+        assert!(matches!(disk_status(&cfg, 7, "slim4").unwrap(), Disk::Mismatch(_)), "another image");
+        std::fs::write(d.join(INCOMPLETE), "").unwrap();
+        assert!(matches!(disk_status(&cfg, 7, "slim5").unwrap(), Disk::Missing), "first boot never finished");
+        assert!(disk_status(&cfg, 7, "slim9").is_err());
+        std::fs::remove_dir_all(&work).ok();
+    }
+
+    #[test]
     fn screens_lay_out_440_dp_wide() {
         for (name, phone) in [("", true), ("", false), ("iphone17promax-3q", true), ("iphone17promax-half", true)] {
             let (w, h, dpi) = screen(name, phone).unwrap();
             assert_eq!(w % 8, 0, "crosvm rounds the width down to a multiple of 8");
             assert!((w * 160 / dpi).abs_diff(440) <= 1 && (h * 160 / dpi).abs_diff(956) <= 1, "{w}x{h}@{dpi}");
         }
+        assert_eq!(screen("samsung-a16", true).unwrap(), (1080, 2340, 450));
         assert_eq!(screen("small", true).unwrap(), (720, 1080, 320));
         assert_eq!(screen("legacy", false).unwrap(), (720, 1080, 320));
         assert!(screen("tablet", true).is_err());

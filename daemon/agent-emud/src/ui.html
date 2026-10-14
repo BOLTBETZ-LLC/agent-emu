@@ -146,8 +146,11 @@
   /* ---------- phones view ---------- */
   #phones { height: calc(100dvh - var(--bar-h)); display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 32px;
     padding: 22px 28px 20px; container-type: size; }
-  #grid { --ph: min(calc((100cqh - var(--rows) * var(--cap) - (var(--rows) - 1) * var(--rg)) / var(--rows)), calc((60cqw - 3 * var(--cg)) / 4 * 2868 / 1320));
-    display: grid; grid-template-columns: repeat(4, max-content); gap: var(--rg) var(--cg); align-content: center; }
+  #grid { --ph: min(calc((100cqh - var(--rows) * var(--cap) - (var(--rows) - 1) * var(--rg)) / var(--rows)), calc((60cqw - (var(--cols, 4) - 1) * var(--cg)) / var(--cols, 4) * 2868 / 1320));
+    display: grid; grid-template-columns: repeat(var(--cols, 4), max-content); gap: var(--rg) var(--cg); align-content: center; }
+  /* One phone shown: the focus stage is that phone, so the grid tile would only repeat it. */
+  @media (min-width: 981px) { #phones.solo { grid-template-columns: minmax(0, 1fr); } #phones.solo #grid { display: none; } }
+  .tile[hidden] { display: none; }
   .tile { position: relative; display: grid; grid-template-rows: auto var(--cap); width: calc(var(--ph) * 1320 / 2868); }
 
   /* The phone: a physical object on the sweep, glass inside a thin bezel, a soft contact shadow under it. */
@@ -332,6 +335,29 @@
   .toast.out { opacity: 0; transform: translateY(6px); transition: opacity .2s, transform .2s; }
   @keyframes toast { from { opacity: 0; transform: translateY(8px) scale(.98); } }
 
+  /* Sleeping: same dark glass as Off, with a Wake button. */
+  [data-state=sleeping] .phone { background: linear-gradient(155deg, #1d1d20 0, #0b0b0d 38%, #050506 100%); }
+  [data-state=sleeping] canvas { opacity: 0; }
+  [data-state=sleeping] .pill::before { background: var(--indigo); }
+  [data-state=sleeping] .say .btn.ink { background: #f2f1ee; color: #141414; }
+  .cap .l1 .sig { font-size: 11px; margin-left: 6px; white-space: nowrap; color: var(--ink-3); }
+  .cap .l1 .sig.out, .cap .l1 .sig.ax { color: var(--amber); }
+
+  /* Phone count: segmented control in the bar. */
+  #nseg .lbl { align-self: center; padding: 0 8px 0 10px; color: var(--ink-2); font-size: 12px; white-space: nowrap; }
+  #nseg button { padding: 0; width: 30px; }
+  #nseg button:disabled { opacity: .35; cursor: not-allowed; }
+  #hint { grid-column: 1 / -1; width: min(360px, 90vw); align-self: center; padding: 18px 20px; border-radius: 14px; background: var(--fill); color: var(--ink-2); line-height: 1.45; }
+  #hint b { color: var(--ink); font: 650 15px var(--disp); display: block; margin-bottom: 4px; }
+  #ask { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 20px; background: color-mix(in srgb, var(--amber) 16%, var(--card-solid)); border-bottom: 1px solid var(--line); }
+  #ask[hidden] { display: none; }
+  #ask span { flex: 1 1 280px; }
+  #tilemenu { width: 250px; }
+  #tilemenu .in { padding: 6px; gap: 2px; }
+  #tilemenu .btn { justify-content: flex-start; width: 100%; background: transparent; height: 32px; }
+  #tilemenu .btn:hover:not(:disabled) { background: var(--fill); }
+  #tilemenu small { display: block; padding: 4px 10px 6px; color: var(--ink-3); font-size: 11.5px; }
+
   /* ---------- smaller windows ---------- */
   @media (max-width: 1280px) { #focus { grid-template-columns: minmax(0, 1fr) 300px; } }
   @media (max-width: 980px) {
@@ -339,10 +365,14 @@
     #bar { flex-wrap: wrap; height: auto; padding: 10px 14px; gap: 8px; } #brand { min-width: 0; } #views { margin: 0; order: 3; }
     #bar .right { flex-wrap: wrap; width: 100%; } #membtn { margin-right: auto; padding-left: 0; }
     #phones { height: auto; display: block; container-type: normal; padding: 16px; }
-    #grid { --ph: 300px; grid-template-columns: repeat(2, max-content); justify-content: center; }
+    #grid { --ph: 300px; grid-template-columns: repeat(min(2, var(--cols, 2)), max-content); justify-content: center; }
     #focus { display: block; margin-top: 24px; } #stagebox { display: none; } #insp { backdrop-filter: none; }
     #runs, #bugs { height: auto; grid-template-columns: 1fr; padding: 16px; } #runlist, #buglist { max-height: 240px; }
     .pop { right: 8px; left: 8px; width: auto; }
+  }
+  @media (max-width: 600px) {
+    #grid { --ph: min(300px, calc((100vw - 56px) * 2868 / 1320)); grid-template-columns: max-content; }
+    #nseg .lbl { display: none; }
   }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { transition: none !important; animation: none !important; }
@@ -362,6 +392,7 @@
   <symbol id="i-bolt" viewBox="0 0 16 16"><path d="M9 1.8 3.8 9h3.6L6.8 14.2 12.2 7H8.6z"/></symbol>
   <symbol id="i-down" viewBox="0 0 16 16"><path d="m4 6 4 4 4-4"/></symbol>
   <symbol id="i-more" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r=".9"/><circle cx="8" cy="8" r=".9"/><circle cx="12.5" cy="8" r=".9"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 16 16"><path d="M12.6 9.8A5.4 5.4 0 0 1 6.2 3.4a5.4 5.4 0 1 0 6.4 6.4z"/></symbol>
   <symbol id="i-power" viewBox="0 0 16 16"><path d="M8 2v6"/><path d="M4.6 4.4a5 5 0 1 0 6.8 0"/></symbol>
   <symbol id="i-x" viewBox="0 0 16 16"><path d="m4 4 8 8M12 4l-8 8"/></symbol>
   <symbol id="i-check" viewBox="0 0 16 16"><path d="m3.5 8.5 3 3 6-7"/></symbol>
@@ -377,18 +408,20 @@
     <button role="tab" id="v-bugs" aria-selected="false" aria-controls="bugs">Bugs <span id="bugn" class="num"></span></button>
   </div>
   <div class="right">
+    <div class="seg" id="nseg" role="group" aria-label="How many phones"><span class="lbl">Phones</span></div>
     <button id="membtn" popovertarget="mempop" title="Host memory"><span class="mini" id="memmini"></span><span class="num" id="memword">Memory</span></button>
     <div class="split">
-      <button class="btn ink" id="startall"><svg class="i"><use href="#i-play"/></svg><span id="startlbl">Start all</span></button>
+      <button class="btn ink" id="startall"><svg class="i"><use href="#i-play"/></svg><span id="startlbl">Start</span></button>
       <button class="btn ink" popovertarget="startpop" aria-label="Start options" title="Start options"><svg class="i"><use href="#i-down"/></svg></button>
     </div>
-    <button class="btn" id="stopall"><svg class="i"><use href="#i-stop"/></svg><span>Stop all</span></button>
+    <button class="btn" id="stopall" title="Put every running phone to sleep. They keep their app and sign-in."><svg class="i"><use href="#i-moon"/></svg><span>Sleep all</span></button>
     <button class="btn quiet icon" popovertarget="morepop" aria-label="More" title="More"><svg class="i"><use href="#i-more"/></svg></button>
   </div>
 </header>
+<div id="ask" role="alert" hidden><span id="asktext"></span><button class="btn sm ink" id="askok">OK</button><button class="btn sm" id="askno">Keep them on</button></div>
 
 <main id="phones" role="tabpanel" aria-labelledby="v-phones">
-  <section id="grid" aria-label="Phones"></section>
+  <section id="grid" aria-label="Phones"><div id="hint" hidden></div></section>
   <section id="focus" aria-label="Focused phone">
     <div id="stagebox">
       <div class="phone" id="stage" data-state="empty">
@@ -413,7 +446,8 @@
         <button class="btn sm icon" data-act="shot" title="Screenshot (PNG to Downloads)" aria-label="Screenshot"><svg class="i"><use href="#i-shot"/></svg></button>
         <span class="sp"></span>
         <button class="btn sm icon quiet" data-act="restart" title="Restart" aria-label="Restart"><svg class="i"><use href="#i-restart"/></svg></button>
-        <button class="btn sm danger" data-act="stop"><svg class="i"><use href="#i-stop"/></svg>Stop</button>
+        <button class="btn sm" data-act="sleep"><svg class="i"><use href="#i-moon"/></svg>Sleep</button>
+        <button class="btn sm icon quiet" data-act="more" title="More: stop or reset this phone" aria-label="More"><svg class="i"><use href="#i-more"/></svg></button>
       </div>
       <form id="browserrow" hidden><input id="browserurl" placeholder="https://" aria-label="Web address"><button class="btn sm ink">Open</button></form>
       <dl class="facts" id="st_facts"></dl>
@@ -475,6 +509,7 @@
   </select></div>
   <div class="note" id="imgnote"></div>
   <div class="field"><span>Screen</span><select id="s_screen">
+    <option value="samsung-a16" selected>Samsung A16, 1080 × 2340</option>
     <option value="">Image default</option>
     <option value="iphone17promax-native">Full, 1320 × 2868</option>
     <option value="iphone17promax-3q">3/4, 984 × 2140</option>
@@ -489,9 +524,15 @@
     <label><input type="checkbox" id="s_squeeze"> Save RAM <small>after the first app launch</small></label>
   </div>
   <hr>
-  <div class="row"><div class="stepper" aria-label="How many phones"><button id="n_minus" aria-label="Fewer">−</button><output id="n_out" class="num">1</output><button id="n_plus" aria-label="More">+</button></div>
-    <button class="btn ink" id="startn"><svg class="i"><use href="#i-play"/></svg><span id="startnlbl">Start 1</span></button></div>
-  <p class="note">Start all starts every off phone that fits in free memory. At most 4 boot at once; the rest wait.</p>
+  <div class="row"><button class="btn danger" id="freshbtn">Start fresh (wipes app + sign-in)</button></div>
+  <p class="note">Phones keep their app and sign-in when they start or wake. Start fresh resets the focused phone to a clean copy of the image with the settings above.</p>
+</div></div>
+
+<div popover id="tilemenu" class="pop"><div class="in">
+  <button class="btn" id="menustop"><svg class="i"><use href="#i-stop"/></svg>Stop phone</button>
+  <small>Powers it off. Sleep keeps it ready to wake in seconds; stop frees its memory completely.</small>
+  <button class="btn danger" id="menureset"><svg class="i"><use href="#i-restart"/></svg>Reset phone (wipe)</button>
+  <small>Deletes the app and sign-in on this phone and starts it clean.</small>
 </div></div>
 
 <div popover id="mempop" class="pop"><div class="in" id="memin"></div></div>
@@ -522,11 +563,12 @@
         <button class="btn" data-key="app_switch" title="Recent apps" aria-label="Recent apps"><svg class="i"><use href="#i-recents"/></svg></button>
         <span class="gap"></span>
         <button class="btn" data-act="open" title="Open BoltBetz" aria-label="Open BoltBetz"><svg class="i"><use href="#i-bolt"/></svg></button>
-        <button class="btn" data-act="stop" title="Stop" aria-label="Stop"><svg class="i"><use href="#i-stop"/></svg></button>
+        <button class="btn" data-act="sleep" title="Sleep" aria-label="Sleep"><svg class="i"><use href="#i-moon"/></svg></button>
+        <button class="btn" data-act="more" title="More" aria-label="More"><svg class="i"><use href="#i-more"/></svg></button>
       </div>
     </div>
     <div class="cap">
-      <div class="l1"><span class="dot hd" hidden></span><button class="name" title="Focus this phone"></button><span class="pill">Off</span><span class="tag own" hidden></span><button class="crash" hidden></button></div>
+      <div class="l1"><span class="dot hd" hidden></span><button class="name" title="Focus this phone"></button><span class="pill">Off</span><span class="sig" hidden></span><span class="sig ax" hidden></span><span class="tag own" hidden></span><button class="crash" hidden></button></div>
       <div class="l2 num"><span class="m1"></span><span class="m2"></span><span class="tag m3"></span></div>
     </div>
   </article>
@@ -563,21 +605,26 @@ document.querySelectorAll("#themeseg button").forEach(b => b.onclick = () => set
 // ---------- state ----------
 // devs: what the daemon reports. ui: what this page knows ahead of it (queued, starting, stopping, failed, opening).
 // m: metrics per Device (fps, RAM, activity, memory_mode). frame: size and blank flag from the frame worker.
-const S = { online: null, avail: null, devs: {}, ui: {}, m: {}, frame: {}, shown: {}, crashes: {}, sel: store.get("sel", SLOTS[0]), lat: [], view: store.get("view", "phones") };
+const S = { n: store.get("n.shown", null), cap: 4, online: null, avail: null, devs: {}, ui: {}, m: {}, frame: {}, shown: {}, crashes: {}, sel: store.get("sel", SLOTS[0]), lat: [], view: store.get("view", "phones") };
+// Phones this page started or woke (it may put these to sleep silently; anything else it asks about first).
+const mineSet = new Set(store.get("mine", []));
+const markMine = (id, on) => { if (on) mineSet.add(id); else mineSet.delete(id); store.set("mine", [...mineSet]); };
+const nEff = () => S.n == null ? 0 : Math.min(S.n, S.cap);
 const ensure = (id) => { if (!S.ui[id]) { S.ui[id] = {}; S.crashes[id] = 0; } };
 IDS.forEach(ensure);
 function stateOf(id) {
   const u = S.ui[id] || {}, d = S.devs[id];
-  if (u.stopping) return "stopping";
+  if (u.stopping || u.sleeping) return "stopping";
   if (u.failed) return "failed";
+  if (d && d.phase === "sleeping") return u.waking ? "booting" : u.queued ? "queued" : "sleeping";
   if (d) return d.ready ? "running" : "booting";
   if (u.starting) return "booting";
   if (u.queued) return "queued";
   return "empty";
 }
-const LABEL = { empty: "Off", queued: "Waiting", booting: "Starting", running: "Running", stopping: "Stopping", failed: "Failed" };
+const LABEL = { empty: "Off", queued: "Waiting", sleeping: "Sleeping", booting: "Starting", running: "Running", stopping: "Stopping", failed: "Failed" };
 // Boot phases: words, which mark they fill (0-3), and a typical length in s.
-const PHASE = { spawning: ["Starting the VM", 0, 4], booting: ["Booting the kernel", 1, 14], android: ["Starting Android", 2, 60], setup: ["Applying settings", 3, 12], ready: ["Ready", 4, 1] };
+const PHASE = { sleeping: ["Waking up", 0, 15], spawning: ["Starting the VM", 0, 4], booting: ["Booting the kernel", 1, 14], android: ["Starting Android", 2, 90], setup: ["Applying settings", 3, 12], browser: ["Setting up the browser", 3, 25], app: ["Installing the app", 3, 20], ready: ["Ready", 4, 1] };
 
 // ---------- daemon calls ----------
 async function api(call, args = {}) {
@@ -599,6 +646,7 @@ function jobDone(e) {
 // Daemon messages -> what happened and what to do next.
 function plain(e, id) {
   e = String(e || "failed"); let m;
+  if (/^\s*disk_mismatch:/.test(e)) return `${id ? id + ": " : ""}this phone's disk is from an older image. Use Reset phone to start it clean.`;
   if ((m = e.match(/Available (\d+) MB < (\d+) MB/))) return `Not enough free memory: ${m[1]} MB free, ${m[2]} MB needed. Stop a phone, then retry.`;
   if (/daemon not reachable/.test(e)) return "The daemon is not answering. Start it with agent-emu.cmd; this page reconnects by itself.";
   if (/already running/.test(e)) return `${id} is already running.`;
@@ -753,7 +801,7 @@ function addTile(id) {
   const el = $("tile-t").content.firstElementChild.cloneNode(true);
   el.dataset.id = id; el.setAttribute("aria-label", "Phone " + id);
   const q = (s) => el.querySelector(s);
-  const t = T[id] = { el, id, cv: q("canvas"), phone: q(".phone"), say: q(".say"), pill: q(".pill"), m1: q(".m1"), m2: q(".m2"), m3: q(".m3"), crash: q(".crash"), hd: q(".hd"), own: q(".own"), last: {} };
+  const t = T[id] = { el, id, cv: q("canvas"), phone: q(".phone"), say: q(".say"), pill: q(".pill"), m1: q(".m1"), m2: q(".m2"), m3: q(".m3"), crash: q(".crash"), sig: q(".sig"), ax: q(".sig.ax"), hd: q(".hd"), own: q(".own"), last: {} };
   q(".name").textContent = id;
   q(".name").onclick = () => select(id);
   t.crash.onclick = () => { select(id); setTab("crashes"); };
@@ -763,16 +811,16 @@ function addTile(id) {
   el.querySelectorAll(".hud [data-act]").forEach(b => b.onclick = () => act(id, b.dataset.act, b));
   bindDrop(el, () => id, el);
   $("grid").append(el); handCanvas(t.cv, id); io.observe(el);
-  document.documentElement.style.setProperty("--rows", Math.ceil(IDS.length / 4));
 }
 function sayFor(id, st) {
   const d = S.devs[id], u = S.ui[id];
   if (u.opening) return `<b>${u.opening}</b><div class="phases" style="max-width:120px"><i style="--f:100%" class="done"></i><i></i><i></i><i></i></div>`;
   if (st === "empty") return `<button class="btn ink" data-v="start" aria-label="Start ${id}"><svg class="i"><use href="#i-play"/></svg>Start</button>`;
+  if (st === "sleeping") return `<b>Sleeping</b><div>Keeps its app and sign-in.</div><button class="btn ink" data-v="start" aria-label="Wake ${id}"><svg class="i"><use href="#i-play"/></svg>Wake</button>`;
   if (st === "queued") return `<div>Starts when a boot slot frees up.</div><button class="btn sm" data-v="cancel">Cancel</button>`;
   if (st === "booting") return `<b class="ph"></b><div class="phases"><i></i><i></i><i></i><i></i></div><div class="el num"></div>`;
   if (st === "stopping") return "";
-  if (st === "failed") return `<div>${esc(u.failed.replace(/ \(.*\)$/s, ""))}</div>${u.raw ? `<div class="raw">${esc(u.raw)}</div>` : ""}<div class="row" style="justify-content:center"><button class="btn sm ink" data-v="retry">Retry</button><button class="btn sm" data-v="dismiss">Dismiss</button></div>`;
+  if (st === "failed") return `<div>${esc(u.failed.replace(/ \(.*\)$/s, ""))}</div>${u.raw ? `<div class="raw">${esc(u.raw)}</div>` : ""}<div class="row" style="justify-content:center">${u.disk ? `<button class="btn sm ink" data-v="reset">Reset phone</button>` : `<button class="btn sm ink" data-v="retry">Retry</button>`}<button class="btn sm" data-v="dismiss">Dismiss</button></div>`;
   if (st === "running" && !S.frame[id]) return `<b>Android is up</b><div>Waiting for the first frame</div>`;
   if (noApp(id)) return `<b>No app open</b><div>This lean image has no home screen.</div><button class="btn ink sm" data-v="open"><svg class="i"><use href="#i-bolt"/></svg>Open BoltBetz</button>`;
   return "";
@@ -791,6 +839,7 @@ function setSay(box, html, over, id) {
 }
 function sayAct(id, v, btn) {
   if (v === "start" || v === "retry") { S.ui[id] = {}; start([id]); }
+  else if (v === "reset") confirmStep(btn, "Wipes app + sign-in. Click again", () => resetPhone(id));
   else if (v === "cancel") dequeue(id);
   else if (v === "dismiss") { S.ui[id] = {}; renderAll(); }
   else if (v === "open") openApp(id, btn);
@@ -802,12 +851,12 @@ function bootInfo(id) {
   const t0 = d && d.upAt ? d.upAt - (d.uptime_s || 0) * 1000 : u.t0 || t;
   const frac = Math.min(.92, inPh / ph[2]), done = ph[1];
   const weights = [1, 2, 4, 1], p = (weights.slice(0, done).reduce((a, b) => a + b, 0) + weights[Math.min(3, done)] * frac) / 8 * 100;
-  return { word: ph[0], mark: done, frac, p, el: Math.max(0, Math.round((Date.now() - t0) / 1000)) };
+  return { word: ph[0], inPh, mark: done, frac, p, el: Math.max(0, Math.round((Date.now() - t0) / 1000)) };
 }
 function paintBoot(box, host, id) {
   const b = bootInfo(id), usual = bootEstimate(imageOf(id));
   const ph = box.querySelector(".ph"); if (!ph) return;
-  setText(ph, b.word);
+  setText(ph, `${b.word} · ${Math.round(b.inPh)} s`);
   box.querySelectorAll(".phases i").forEach((i, k) => { i.classList.toggle("done", k < b.mark); i.style.setProperty("--f", k === b.mark ? (b.frac * 100).toFixed(1) + "%" : "0%"); });
   setText(box.querySelector(".el"), `${b.el} s · usually about ${usual} s`);
   host.style.setProperty("--p", b.p.toFixed(1));
@@ -824,7 +873,7 @@ function renderTile(id) {
   }
   t.el.classList.toggle("sel", S.sel === id);
   t.el.classList.toggle("busy", !!u.opening);
-  setText(t.pill, u.opening ? "Opening app" : LABEL[st]);
+  setText(t.pill, u.opening ? "Opening app" : u.sleeping ? "Going to sleep" : u.waking ? "Waking up" : LABEL[st]);
   const live = st === "running";
   setText(t.m1, (live || st === "booting") && m.own_mb != null ? `${m.own_mb} MB` : "");
   setText(t.m2, live ? (m.activity === "idle" ? "idle" : `${Math.round(m.scanout_fps || 0)} fps`) : "");
@@ -834,6 +883,10 @@ function renderTile(id) {
   t.m3.title = "capped: memory is held down until the next input";
   const d = S.devs[id], h = d && d.health, c = d && d.claim;
   t.hd.hidden = !h; if (h) { t.hd.className = "dot hd " + ({ ok: "ok", warn: "warm", bad: "bad" }[h.level] || ""); t.hd.title = healthTip(h); }
+  const si = live && h && typeof h.signed_in === "boolean" ? h.signed_in : null;
+  t.sig.hidden = si == null; t.sig.classList.toggle("out", si === false); setText(t.sig, si == null ? "" : si ? "Signed in" : "Signed out");
+  const ax = d && d.ui_reader === "yielded_appium";
+  t.ax.hidden = !ax; setText(t.ax, ax ? "Appium in control" : ""); t.ax.title = "Appium has this phone's screen reader. ui_tree fails until the Appium session closes.";
   t.own.hidden = !c; if (c) { setText(t.own, c.owner); t.own.title = `Claimed by ${c.owner}${c.note ? ": " + c.note : ""}. Others get a warning when they send input.`; }
   t.crash.hidden = !S.crashes[id]; setText(t.crash, S.crashes[id] === 1 ? "1 crash" : S.crashes[id] + " crashes");
   setSay(t.say, sayFor(id, st), live && S.frame[id], id);
@@ -856,7 +909,7 @@ function healthTip(h) {
     h.last_crash ? `Last crash: ${h.last_crash.kind || "crash"} ${h.last_crash.time || ""}` : null,
     ago != null ? `Checked ${ago} s ago` : null].filter(Boolean).join("\n");
 }
-function renderAll() { IDS.forEach(renderTile); renderStage(); renderMem(); renderStartBtns(); }
+function renderAll() { layout(); IDS.forEach(renderTile); renderStage(); renderMem(); renderStartBtns(); }
 
 // ---------- memory ----------
 const FLOOR = 1500;
@@ -896,8 +949,8 @@ $("mempop").addEventListener("toggle", renderMem);
 
 // ---------- live state: one /events stream ----------
 function applyStatus(r) {
-  S.avail = r.available_mb; const now = {};
-  for (const d of r.devices) { now[d.id] = { ...(S.devs[d.id] || {}), ...d, upAt: Date.now(), phaseAt: (S.devs[d.id] && S.devs[d.id].phase === d.phase) ? S.devs[d.id].phaseAt : Date.now() }; if (!T[d.id]) { IDS.push(d.id); addTile(d.id); } }
+  S.avail = r.available_mb; if (r.max_phones > 0) S.cap = r.max_phones; const now = {};
+  for (const d of r.devices) { now[d.id] = { ...(S.devs[d.id] || {}), ...d, upAt: Date.now(), phaseAt: d.phase_since_ms || ((S.devs[d.id] && S.devs[d.id].phase === d.phase) ? S.devs[d.id].phaseAt : Date.now()) }; if (!T[d.id]) { IDS.push(d.id); addTile(d.id); } }
   for (const id of IDS) if (S.devs[id] && !now[id]) gone(id);
   S.devs = now; renderAll(); syncStreams();
 }
@@ -932,7 +985,7 @@ function onEvent(e) {
     const d = S.devs[id] || (S.devs[id] = { id, uptime_s: 0 });
     if (e.info) Object.assign(d, e.info);
     d.phase = e.phase; d.phaseAt = Date.now(); d.t_s = e.t_s; d.ready = e.phase === "ready";
-    if (e.phase === "spawning") syncStreams();
+    if (e.phase === "spawning") { syncStreams(); S.crashes[id] = 0; if (id === S.sel) setText($("crashn"), ""); }
     if (d.ready) status();
     renderTile(id); if (id === S.sel) renderStage(); return;
   }
@@ -1029,11 +1082,13 @@ function renderStage() {
   setText($("st_id"), id); $("insp").dataset.state = st;
   const m = S.m[id] || {};
   setText($("st_pill"), u.opening ? "Opening app" : LABEL[st]);
-  setText($("st_sub"), d ? [d.image_name || d.image, d.mem && `${d.mem} MB`, d.cpus && `${d.cpus} CPU`, d.net === false && "no network"].filter(Boolean).join(" · ") : st === "empty" ? "Off. Start it from its tile or Start all." : "");
+  setText($("st_sub"), d ? [d.image_name || d.image, d.mem && `${d.mem} MB`, d.cpus && `${d.cpus} CPU`, d.net === false && "no network"].filter(Boolean).join(" · ") : st === "empty" ? "Off. Start it from its tile." : "");
   const live = st === "running";
   document.querySelectorAll("#insp .keys .btn, #st_acts [data-act=open], #st_acts [data-act=browser], #st_acts [data-act=shot], #st_acts [data-act=restart], #installpath, #launch").forEach(b => b.disabled = !live);
-  document.querySelector("#st_acts [data-act=stop]").disabled = st === "empty" || st === "stopping";
-  setText(document.querySelector("#st_acts [data-act=stop]").lastChild, st === "queued" || st === "booting" ? "Cancel" : "Stop");
+  const sl = document.querySelector("#st_acts [data-act=sleep]");
+  sl.disabled = !["running", "booting", "queued"].includes(st);
+  setText(sl.lastChild, st === "queued" || st === "booting" ? "Cancel" : "Sleep");
+  document.querySelector("#st_acts [data-act=more]").disabled = st === "stopping";
   setSay($("stagesay"), sayFor(id, st), live && f, id);
   if (st === "booting") paintBoot($("stagesay"), stg, id);
   setText($("crashn"), S.crashes[id] || "");
@@ -1061,7 +1116,7 @@ document.querySelectorAll("#insp .keys [data-key]").forEach(b => b.onclick = () 
 document.querySelectorAll("#st_acts [data-act]").forEach(b => b.onclick = () => act(S.sel, b.dataset.act, b));
 document.addEventListener("keydown", (ev) => {
   const a = document.activeElement; if (ev.ctrlKey || ev.metaKey || ev.altKey || (a && /^(INPUT|SELECT|TEXTAREA|CANVAS)$/.test(a.tagName))) return;
-  const n = parseInt(ev.key); if (n >= 1 && n <= 8 && IDS[n - 1] && S.view === "phones") { select(IDS[n - 1]); }
+  const n = parseInt(ev.key); const sh = shownIds(); if (n >= 1 && n <= 8 && sh[n - 1] && S.view === "phones") { select(sh[n - 1]); }
 });
 
 // ---------- start / stop (optimistic: the tile changes the moment you click) ----------
@@ -1077,8 +1132,10 @@ function startArgs() {
 const queue = [], cancelled = new Set(); let booting = 0; const MAXBOOT = 4;
 function start(ids, args = startArgs(), openAfter = $("s_openapp").checked) {
   for (const id of ids) {
-    if (!["empty", "failed"].includes(stateOf(id))) continue;
-    S.ui[id] = { queued: true, args }; queue.push({ id, args, openAfter });
+    const st = stateOf(id);
+    if (st === "sleeping") { S.ui[id] = { queued: true, args: {} }; queue.push({ id, args: {}, wake: true }); markMine(id, true); continue; }
+    if (!["empty", "failed"].includes(st)) continue;
+    S.ui[id] = { queued: true, args }; queue.push({ id, args, openAfter }); markMine(id, true);
   }
   if (ids.length && stateOf(S.sel) === "empty") select(ids[0]);
   pump(); renderAll();
@@ -1087,19 +1144,20 @@ function dequeue(id) { const i = queue.findIndex(j => j.id === id); if (i >= 0) 
 function pump() { while (booting < MAXBOOT && queue.length) boot(queue.shift()); }
 async function boot(j) {
   const id = j.id; booting++;
-  S.ui[id] = { starting: true, t0: Date.now(), args: j.args }; renderTile(id); if (id === S.sel) renderStage();
-  const r = await job("start", { device: id, ...j.args });
+  S.ui[id] = { starting: true, waking: !!j.wake, t0: Date.now(), args: j.args }; renderTile(id); if (id === S.sel) renderStage();
+  const r = await job(j.wake ? "wake" : "start", { device: id, ...j.args });
   booting--; pump();
   if (r.ok) {
     const k = "boot." + (j.args.image || "default"), old = store.get(k, null);
-    if (r.ready_s) store.set(k, old ? old * 0.6 + r.ready_s * 0.4 : r.ready_s);
-    S.ui[id] = {}; toast(`${id} is running${r.ready_s ? `, started in ${Math.round(r.ready_s)} s` : ""}.`);
+    if (r.ready_s && !j.wake) store.set(k, old ? old * 0.6 + r.ready_s * 0.4 : r.ready_s);
+    S.ui[id] = {}; toast(j.wake ? `${id} is awake.` : `${id} is running${r.ready_s ? `, started in ${Math.round(r.ready_s)} s` : ""}.`);
     await status();
     if (j.openAfter) openApp(id);
   } else if (cancelled.delete(id)) {
     S.ui[id] = {}; await status();
   } else if (!S.ui[id].stopping) {
-    S.ui[id] = { failed: plain(r.error, id), raw: String(r.error || "") }; toast(`${id}: ${plain(r.error, id).replace(/ \(.*\)$/s, "")}`, { err: true }); await status();
+    const dm = /^\s*disk_mismatch:/.test(String(r.error || "")); markMine(id, false);
+    S.ui[id] = dm ? { failed: "This phone's disk is from an older image. Reset it to start clean with the current one.", disk: true } : { failed: plain(r.error, id), raw: String(r.error || "") }; toast(`${id}: ${plain(r.error, id).replace(/ \(.*\)$/s, "")}`, { err: true }); await status();
   }
   renderAll();
 }
@@ -1111,7 +1169,7 @@ async function stop(id, btn) {
   if (st === "booting") cancelled.add(id); // its start job fails when the VM goes; that is the cancel, not an error
   S.ui[id] = { stopping: true }; renderAll();
   const r = await busy(btn, job("stop", { device: id }));
-  if (r.ok || /no Device/.test(r.error)) { S.ui[id] = {}; await status(); }
+  if (r.ok || /no Device/.test(r.error)) { S.ui[id] = {}; markMine(id, false); await status(); }
   else { cancelled.delete(id); S.ui[id] = before; renderAll(); toast(`${id} did not stop: ${plain(r.error, id)}`, { err: true }); }
 }
 async function restart(id, btn) {
@@ -1122,29 +1180,109 @@ async function restart(id, btn) {
   if (d.screen && d.screen.name) args.screen = d.screen.name;
   await stop(id, btn); start([id], args, !(d.image_name || "").startsWith("phone"));
 }
-const offIds = () => IDS.filter(id => ["empty", "failed"].includes(stateOf(id)));
-let nStart = store.get("n", 1);
-function renderStartBtns() {
-  const off = offIds(), room = S.avail == null ? off.length : memModel().room;
-  const n = Math.min(off.length, Math.max(room, 0));
-  setText($("startlbl"), off.length && n < off.length && n > 0 ? `Start ${n}` : "Start all");
-  $("startall").disabled = !off.length || (S.avail != null && n === 0);
-  $("startall").title = !off.length ? "Every phone is on" : n === 0 ? "Not enough free memory for another phone" : n < off.length ? `Free memory fits ${n} more` : "Start every phone that is off";
-  nStart = Math.max(1, Math.min(IDS.length, nStart)); setText($("n_out"), nStart);
-  const ids = off.slice(0, nStart);
-  setText($("startnlbl"), ids.length ? (ids.length === 1 ? `Start ${ids[0]}` : `Start ${ids.length}`) : "All on"); $("startn").disabled = !ids.length;
-  const live = IDS.filter(id => !["empty", "failed"].includes(stateOf(id))).length;
-  $("stopall").disabled = !live;
+const isOff = (id) => ["empty", "failed", "sleeping"].includes(stateOf(id));
+const isAwake = (id) => ["running", "booting"].includes(stateOf(id));
+
+// ---------- how many phones: the grid shows exactly N; going up starts or wakes, going down sleeps ----------
+function shownIds() {
+  const n = nEff();
+  return IDS.filter(id => { const i = SLOTS.indexOf(id); if (i >= 0 && i < n) return true; const d = S.devs[id]; return !!d && d.phase !== "sleeping" && d.phase !== "stopped"; });
 }
-$("n_minus").onclick = () => { nStart--; store.set("n", Math.max(1, nStart)); renderStartBtns(); };
-$("n_plus").onclick = () => { nStart++; store.set("n", Math.min(IDS.length, nStart)); renderStartBtns(); };
+function layout() {
+  const sh = shownIds(), set = new Set(sh), root = document.documentElement.style;
+  for (const id of IDS) if (T[id]) T[id].el.hidden = !set.has(id);
+  const cols = Math.max(1, Math.min(4, sh.length));
+  $("phones").classList.toggle("solo", sh.length === 1);
+  root.setProperty("--cols", cols); root.setProperty("--rows", Math.max(1, Math.ceil(sh.length / cols)));
+  $("focus").style.display = sh.length ? "" : "none";
+  const hint = $("hint"); hint.hidden = sh.length > 0;
+  if (!sh.length) {
+    const h = S.online === false ? `<b>The daemon is not answering</b>Start it with agent-emu.cmd; this page reconnects by itself.`
+      : `<b>How many phones do you want?</b>Pick a number at the top right. Phones keep their app and sign-in between sessions.`;
+    if (hint._h !== h) { hint._h = h; hint.innerHTML = h; }
+  }
+  if (sh.length && !set.has(S.sel)) select(sh[0]);
+  renderNseg();
+}
+// Counts the free memory cannot fit are greyed out; the tooltip says how many fit.
+function renderNseg() {
+  const box = $("nseg"), n = nEff(), room = S.avail == null ? Infinity : memModel().room;
+  const fits = (k) => SLOTS.slice(0, k).filter(id => !isAwake(id)).length <= room;
+  let maxK = 0; for (let k = 1; k <= S.cap; k++) if (fits(k)) maxK = k;
+  const off = S.online === false, key = JSON.stringify([S.cap, n, S.n, maxK, off]);
+  if (box._k === key) return; box._k = key;
+  box.querySelectorAll("button").forEach(b => b.remove());
+  for (let k = 1; k <= S.cap; k++) {
+    const b = document.createElement("button"); b.textContent = k; b.setAttribute("aria-pressed", k === n);
+    const grey = off || (k > n && !fits(k));
+    b.disabled = grey;
+    b.title = off ? "The daemon is not answering." : grey ? `Free memory fits ${maxK} phone${maxK === 1 ? "" : "s"} right now (about 1 GB each).` : k === 1 ? "Show 1 phone" : `Show ${k} phones`;
+    b.onclick = () => setN(k); box.append(b);
+  }
+  box.title = S.n != null && S.n > S.cap ? `Your saved choice was ${S.n}; this daemon allows ${S.cap}.` : "";
+}
+function setN(k) {
+  const old = nEff(); S.n = k; store.set("n.shown", k); renderAll();
+  if (k > old) { const ids = SLOTS.slice(0, k).filter(isOff); if (ids.length) start(ids); }
+  else if (k < old) sleepPhones(SLOTS.slice(k, old).filter(id => stateOf(id) === "running"));
+}
+// Why a phone should not be put to sleep silently, or "".
+function holdReason(id) {
+  const c = S.devs[id] && S.devs[id].claim;
+  if (c && /^run\.py/.test(c.owner)) return "is held by a test run";
+  if (c) return `is claimed by ${c.owner}`;
+  if (!mineSet.has(id)) return "was started outside this page";
+  return "";
+}
+function sleepPhones(ids) {
+  const free = [], held = [];
+  for (const id of ids) { const w = holdReason(id); if (w) held.push([id, w]); else free.push(id); }
+  free.forEach(id => sleep(id));
+  if (held.length) ask(`${held.map(([id, w]) => `${id} ${w}`).join("; ")}. Put ${held.length === 1 ? "it" : "them"} to sleep anyway?`, "Sleep", "Keep on", () => held.forEach(([id]) => sleep(id)));
+}
+const sleepWhy = (e, id) => /run\.py|test run|claim/i.test(String(e)) ? `a test run is using ${id}. Sleep it when the run ends.` : plain(e, id);
+async function sleep(id, btn) {
+  if (stateOf(id) !== "running") return;
+  const before = { ...S.ui[id] }; S.ui[id] = { sleeping: true }; renderAll();
+  const r = await busy(btn, job("sleep", { device: id }));
+  if (r.ok) { S.ui[id] = {}; markMine(id, false); await status(); renderAll(); return; }
+  S.ui[id] = before; renderAll(); toast(`${id} stays on: ${sleepWhy(r.error, id)}`, { err: true, ms: 6000 });
+}
+// One question under the bar. Only one at a time; a new one replaces the old.
+function ask(text, okLabel, noLabel, yes) {
+  setText($("asktext"), text); setText($("askok"), okLabel); setText($("askno"), noLabel); $("ask").hidden = false;
+  $("askok").onclick = () => { $("ask").hidden = true; yes(); };
+  $("askno").onclick = () => { $("ask").hidden = true; };
+}
+// Wipe one phone and start it clean: stop it if it is up, then start with fresh:true and the saved settings.
+async function resetPhone(id) {
+  if (S.devs[id]) { await stop(id); if (S.devs[id]) return; } else S.ui[id] = {};
+  const args = startArgs(); args.fresh = true;
+  start([id], args);
+}
+const offShown = () => shownIds().filter(isOff);
+function renderStartBtns() {
+  const off = offShown(), room = S.avail == null ? off.length : memModel().room, n = Math.min(off.length, Math.max(room, 0));
+  setText($("startlbl"), off.length ? `Start ${off.length}` : "Start");
+  $("startall").disabled = S.online === false || !off.length || (S.avail != null && n === 0);
+  $("startall").title = S.online === false ? "The daemon is not answering" : S.n == null && !off.length ? "Pick how many phones first" : !off.length ? "Every phone shown is on" : n === 0 ? "Not enough free memory for another phone" : n < off.length ? `Starts or wakes the phones shown that are off. Free memory fits ${n} of ${off.length}.` : "Starts or wakes the phones shown that are off";
+  $("stopall").disabled = !IDS.some(id => stateOf(id) === "running");
+}
 $("startall").onclick = () => {
-  const off = offIds(), room = S.avail == null ? off.length : memModel().room, ids = off.slice(0, Math.max(1, room));
+  const off = offShown(), room = S.avail == null ? off.length : memModel().room, ids = off.slice(0, Math.max(0, room));
   if (!ids.length) return;
   start(ids);
   if (ids.length < off.length) toast(`Starting ${ids.length}. Free memory does not fit more.`);
 };
-$("startn").onclick = () => { const ids = offIds().slice(0, nStart); if (ids.length) { start(ids); $("startpop").hidePopover(); } };
+$("freshbtn").onclick = (ev) => confirmStep(ev.currentTarget, "Wipes app + sign-in. Click again", () => { $("startpop").hidePopover(); resetPhone(S.sel); });
+function showMenu(id, anchor) {
+  const m = $("tilemenu"), r = anchor.getBoundingClientRect(), st = stateOf(id);
+  m._id = id; m.style.top = Math.max(8, Math.min(r.bottom + 6, innerHeight - 190)) + "px"; m.style.left = Math.max(8, Math.min(r.left, innerWidth - 262)) + "px"; m.style.right = "auto";
+  $("menustop").disabled = st === "empty" || st === "stopping"; $("menureset").disabled = st === "stopping";
+  m.showPopover();
+}
+$("menustop").onclick = (ev) => { const id = $("tilemenu")._id; $("tilemenu").hidePopover(); stop(id, ev.currentTarget); };
+$("menureset").onclick = (ev) => confirmStep(ev.currentTarget, "Wipes app + sign-in. Click again", () => { const id = $("tilemenu")._id; $("tilemenu").hidePopover(); resetPhone(id); });
 
 // Two-step confirm in place: the button turns red and asks once; no dialog.
 function confirmStep(btn, label, fn) {
@@ -1152,17 +1290,7 @@ function confirmStep(btn, label, fn) {
   btn._html = btn.innerHTML; btn.dataset.arm = "1"; btn.classList.add("confirm"); btn.textContent = label;
   btn._t = setTimeout(() => { delete btn.dataset.arm; btn.classList.remove("confirm"); btn.innerHTML = btn._html; }, 3500);
 }
-$("stopall").onclick = () => {
-  const live = IDS.filter(id => !["empty", "failed"].includes(stateOf(id)));
-  if (!live.length) return;
-  confirmStep($("stopall"), `Stop ${live.length}? Click again`, async () => {
-    queue.length = 0; const before = Object.fromEntries(live.map(id => [id, { ...S.ui[id] }]));
-    live.forEach(id => { S.ui[id] = S.devs[id] ? { stopping: true } : {}; }); renderAll();
-    const r = await busy($("stopall"), job("stop_many", { devices: live.filter(id => S.devs[id]) }));
-    if (r.ok) { live.forEach(id => { S.ui[id] = {}; }); await status(); toast(`Stopped ${live.length === 1 ? live[0] : live.length + " phones"}.`); }
-    else { live.forEach(id => { S.ui[id] = before[id]; }); await status(); toast(plain(r.error), { err: true }); }
-  });
-};
+$("stopall").onclick = () => sleepPhones(IDS.filter(id => stateOf(id) === "running"));
 $("quit").onclick = () => confirmStep($("quit"), "Stop all and quit? Click again", async () => {
   await api("quit"); document.body.innerHTML = "<p style='padding:32px;font:15px system-ui'>agent-emu stopped. Open agent-emu again to restart it.</p>";
 });
@@ -1170,6 +1298,8 @@ $("quit").onclick = () => confirmStep($("quit"), "Stop all and quit? Click again
 // ---------- per-phone actions ----------
 function act(id, a, btn) {
   if (a === "stop") return stop(id, btn);
+  if (a === "sleep") return ["booting", "queued"].includes(stateOf(id)) ? stop(id, btn) : sleep(id, btn);
+  if (a === "more") return showMenu(id, btn);
   if (a === "restart") return restart(id, btn);
   if (a === "open") return openApp(id, btn);
   if (a === "shot") return shot(id);
@@ -1436,6 +1566,7 @@ $("v-phones").onclick = () => setView("phones"); $("v-runs").onclick = () => set
 setInterval(() => { if (S.view === "runs" && !document.hidden) loadRuns(); }, 10000);
 
 // ---------- settings persist per field ----------
+if (store.get("defaults.v", 0) < 2) { store.set("defaults.v", 2); try { localStorage.removeItem("ae.f.s_screen"); localStorage.removeItem("ae.f.s_image"); } catch {} }
 const FIELDS = ["s_image", "s_screen", "s_mem", "s_cpus", "s_net", "s_openapp", "s_squeeze", "logfilter", "loglevel", "pkg", "apkpath"];
 for (const f of FIELDS) {
   const el = $(f), v = store.get("f." + f, null);
