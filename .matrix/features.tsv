@@ -1,0 +1,45 @@
+id	area	claim	check	status
+ui-01	ui	Picking Phones N shows exactly N phone tiles	fake daemon, click 1..4, count visible tiles	pass
+ui-02	ui	The picker never offers more phones than max_phones	fake max_phones=2, buttons 3-4 absent or disabled	pass
+ui-03	ui	Counts that free RAM can't fit are greyed with a tooltip naming the max	fake available_mb=2500, buttons disabled + title text	pass
+ui-04	ui	With 1 phone shown, the phone appears once (no duplicate tile + stage)	N=1, count visible phone frames = 1	pass
+ui-05	ui	A booting tile shows the boot step and seconds counting up	fake phase android with phase_since_ms, text has step name + seconds that increase	pass
+ui-06	ui	A sleeping tile says Sleeping and has a Wake button that wakes it	fake phase sleeping, click Wake, wake call received, tile goes Running	pass
+ui-07	ui	Sleep on a running tile sends sleep and the tile shows Sleeping	click Sleep, sleep call received, tile text	pass
+ui-08	ui	More > Stop phone stops it and the tile shows Off	click, stop call received, tile text Off	pass
+ui-09	ui	More > Reset phone (wipe) asks first, then starts with fresh:true	confirm shown, start call has fresh:true	pass
+ui-10	ui	A disk_mismatch start error shows the older-image card with Reset phone	fake start error disk_mismatch, card text + button	pass
+ui-11	ui	A RAM-refused start shows a plain not-enough-memory message with Retry	fake start error under 4000 MB, text + Retry button	pass
+ui-12	ui	Start K starts the shown phones that are off with slim5 + samsung-a16 + keep data	start call args	pass
+ui-13	ui	Daemon offline: picker and Start disabled and the page says the daemon is not answering	fake daemon down, text + disabled	pass
+ui-14	ui	First run with nothing saved asks how many phones in one sentence	clear localStorage, hint text	pass
+ui-15	ui	Inspector tabs Apps, Logs, Issues, Crashes each open without errors	click each, no console error, pane visible	pass
+ui-16	ui	Test runs view lists runs and opens one	click view, list non-empty on fake data, open first	pass
+ui-17	ui	Bugs view lists bugs from /bugs and opens one with its evidence	click view, rows = fake bugs, open first	pass
+ui-18	ui	Memory popover shows free RAM and per-phone memory	click, text has MB values	pass
+ui-19	ui	Narrow window (520 px) shows 1 column with no horizontal overflow	viewport 520, scrollWidth <= clientWidth	pass
+ui-20	ui	Medium window (800 px) shows 2 columns	viewport 800, tile x positions	pass
+ui-21	ui	Signed in / Signed out label matches health.signed_in	fake health, tile text	pass
+ui-22	ui	Appium in control label when ui_reader is yielded_appium	fake status, tile text	pass
+ui-23	ui	The page logs no console errors through the whole sweep	collect console errors	pass
+ui-24	ui	Sleep all puts every running phone to sleep	click, sleep_many or sleep calls	pass
+ui-25	ui	Lowering N sleeps the extra phones, asking first for phones the page did not start	fake 3 running, pick 1, prompt + sleep calls	pass
+api-01	api	status returns every documented field per device plus available_mb, max_phones, claims	live status, field set vs API.md	pass
+api-02	api	sleep then wake on d2 each finish in under 2 s and ui_tree works after	live d2 timings + ui_tree ok	pass
+api-03	api	An input call on a sleeping phone wakes it first	sleep d2, tap off-target safe spot, phase ready	pass
+api-04	api	sleep is refused while a run.py- claim holds the phone, naming the owner	claim d2 as run.py-1, sleep error text, unclaim	pass
+api-05	api	wake on a phone that is not running says to use start	wake d1, error text	blocked: no listed phone is off right now (others are using d0/d1)
+api-06	api	A misspelled call says unknown call, not a device error	call foo, error text	fail
+api-07	api	A call on a missing device names the device	ui_tree d7, error text	pass
+api-08	api	start past max_phones is refused with the cap in the message	test daemon AE_MAX_PHONES=1, two starts	pass
+api-09	api	start under the RAM floor is refused with free and needed MB	test daemon AE_MIN_AVAIL_MB=999999, error text	pass
+api-10	api	start keeps the disk by default and comes back with the app installed	test daemon, boot, install, stop, start, keep_data true + package present	pass
+api-11	api	start fresh:true wipes the disk	test daemon, start fresh, package absent	pass
+api-12	api	disk made for another image fails with disk_mismatch:	test daemon, start other image on same id, error prefix	pass
+api-13	api	quit keep_devices keeps phones and the next daemon adopts them as ready	test daemon, quit, start daemon, status + ui_tree	pass
+api-14	api	A phone whose VM dies shows as off within 10 s	test daemon, kill its crosvm, status	pass
+api-15	api	ui_tree yields while an Appium UiAutomator2 server runs and resumes after	test daemon AE_APPIUM_PROC stand-in, status ui_reader + error text	fail
+api-16	api	A full start/sleep/wake/stop cycle opens no visible console windows	window watcher during api-10 cycle, 0 new windows from agent-emu chain	pass
+api-17	api	health on a busy phone reports busy instead of failing	live health d2 during load, ok + busy field	fail
+api-18	api	Default vCPUs is 2 on hosts with 8 or fewer threads, else 4	read boot-args of a test daemon phone vs NUMBER_OF_PROCESSORS	fail
+api-19	api	The update flow installs a new version with phones running and they stay ready	installer over running app (last, manual-heavy)	blocked: manual: the lead runs the installer-over-running-app update flow

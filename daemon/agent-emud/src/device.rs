@@ -126,6 +126,11 @@ pub struct Cfg {
     pub crosvm_dir: String,
 }
 
+/// vCPUs per phone when AE_CPUS is unset, from the host's thread count.
+fn default_cpus(host_threads: usize) -> &'static str {
+    if host_threads <= 8 { "2" } else { "4" }
+}
+
 impl Cfg {
     pub fn from_env() -> Cfg {
         let e = |k: &str, d: &str| std::env::var(k).unwrap_or_else(|_| d.to_string());
@@ -135,7 +140,7 @@ impl Cfg {
             mem: e("AE_MEM", "896"),
             // 4 vCPUs per phone oversubscribes small hosts: 3 phones on an 8-core laptop starved the guests
             // (console timeouts, UiAutomator2 dying). Up to 8 host threads: 2 per phone.
-            cpus: e("AE_CPUS", if std::thread::available_parallelism().map_or(4, |n| n.get()) <= 8 { "2" } else { "4" }),
+            cpus: e("AE_CPUS", default_cpus(std::thread::available_parallelism().map_or(9, |n| n.get()))),
             min_avail_mb: e("AE_MIN_AVAIL_MB", "2500").parse().unwrap_or(2500),
             crosvm_dir: e("AE_CROSVM_DIR", "crosvm-pmem"),
         }
@@ -1017,6 +1022,14 @@ async fn kill_tree(pid: Option<u32>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn default_cpus_by_host() {
+        // An 8-thread laptop (Haiping's) running 3 phones at 4 vCPUs starved them.
+        assert_eq!(default_cpus(8), "2");
+        assert_eq!(default_cpus(4), "2");
+        assert_eq!(default_cpus(20), "4");
+    }
 
     #[test]
     fn wait_procs_sees_exit_and_live() {
