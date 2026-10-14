@@ -262,6 +262,14 @@ pub fn available_mb() -> u64 {
     m.avail_phys >> 20
 }
 
+/// Pids of every crosvm.exe running now (tasklist CSV). A recorded pid not in here died, and Windows may have
+/// handed it to an unrelated process since.
+async fn crosvm_pids() -> std::collections::HashSet<u32> {
+    let o = Command::new("tasklist").args(["/FI", "IMAGENAME eq crosvm.exe", "/FO", "CSV", "/NH"]).creation_flags(CREATE_NO_WINDOW).output().await;
+    o.map(|o| String::from_utf8_lossy(&o.stdout).lines().filter_map(|l| l.split("\",\"").nth(1)?.parse().ok()).collect())
+        .unwrap_or_default()
+}
+
 async fn crosvm_running() -> bool {
     let o = Command::new("tasklist").args(["/FI", "IMAGENAME eq crosvm.exe", "/NH"]).creation_flags(CREATE_NO_WINDOW).output().await;
     o.map(|o| String::from_utf8_lossy(&o.stdout).to_lowercase().contains("crosvm.exe")).unwrap_or(false)
@@ -837,6 +845,9 @@ impl Device {
         }
         pids.sort_unstable();
         pids.dedup();
+        // Recorded crosvm pids that are no longer crosvm died with the VM; never wait on (or report) their reuse.
+        let live = crosvm_pids().await;
+        pids.retain(|p| live.contains(p) || Some(*p) == bp);
         // Handles first, so a pid reused after the kill is never mistaken for ours.
         let hs = open_procs(&pids);
         if bp.is_some() {
