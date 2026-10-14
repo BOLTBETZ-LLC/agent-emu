@@ -139,7 +139,7 @@ than `status`/`stop` on a phone that is not up fail with `Device dN is still boo
 - **Appium.** While an Appium UiAutomator2 server runs on a phone, `ui_tree` errors `yielded to Appium ...` and the
   daemon's own reader stays off (`status` `ui_reader` = `yielded_appium`); it resumes when the Appium session ends.
 - **RAM.** slim5 at half screen boots with 896 MB guest RAM (640 + 256 browser headroom). A boot is refused while
-  host available memory (minus phones still booting) is under 4000 MB (`AE_MIN_AVAIL_MB`).
+  host available memory (minus phones still booting) is under 2500 MB (`AE_MIN_AVAIL_MB`).
 - **Idle caps and balloon.** After 60 s with no input, the daemon caps each phone's host working set (idle cap
   200-250 MB) and pushes cold pages into the guest balloon/zram. Any input (tap, swipe, key, text, `app`,
   `deep_link`) lifts every cap at once; the first tap after idle can take 150-450 ms instead of ~130 ms. Normal,
@@ -576,7 +576,7 @@ MCP replies with a frame become an image block: pass `"screenshot": false` on in
 | MCP tool error `daemon 127.0.0.1:7400: ...` | daemon health as above | start the daemon; the MCP reconnects on the next call |
 | `no Device dN` | `status` | the phone is not running: `start` it (with `keep_data` for BoltBetz phones), if no one else owns that id |
 | `Device dN is still booting` | `status` phase | poll every 30 s; no progress for 3 checks = report it |
-| `start` refused for memory | `status.available_mb` | free RAM is under 4000 MB: report it; never stop other agents' phones |
+| `start` refused for memory | `status.available_mb` | free RAM is under 2500 MB: report it; never stop other agents' phones |
 | `busy: Device is leased by another client` | someone holds the lease | use another phone or wait; `release` only your own |
 | `ui_tree` lacks an id the screenshot shows | dump raced a transition, or a WebView (Plaid) | retry after a `wait_id`; drive WebViews by coordinates |
 | Case FAIL `tap_id X: not on screen` | the case's FAIL PNG | wrong screen (sheet, dialog, signed out) or a renamed testID: fix the step or the starting state |

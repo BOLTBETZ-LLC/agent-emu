@@ -11,7 +11,7 @@ headers. Other origins get none.
 
 Device ids are `d0` .. `dN`. Each id has its own pipes and adb port (6520+N). Eight or more Devices can run
 at once. Each boot is refused while host Available memory, minus the guest RAM of Devices still booting,
-is under 4000 MB (`AE_MIN_AVAIL_MB`, default 4000).
+is under 2500 MB (`AE_MIN_AVAIL_MB`, default 2500).
 
 ## Endpoints
 

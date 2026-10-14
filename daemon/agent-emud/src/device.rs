@@ -136,7 +136,7 @@ impl Cfg {
             // 4 vCPUs per phone oversubscribes small hosts: 3 phones on an 8-core laptop starved the guests
             // (console timeouts, UiAutomator2 dying). Up to 8 host threads: 2 per phone.
             cpus: e("AE_CPUS", if std::thread::available_parallelism().map_or(4, |n| n.get()) <= 8 { "2" } else { "4" }),
-            min_avail_mb: e("AE_MIN_AVAIL_MB", "4000").parse().unwrap_or(4000),
+            min_avail_mb: e("AE_MIN_AVAIL_MB", "2500").parse().unwrap_or(2500),
             crosvm_dir: e("AE_CROSVM_DIR", "crosvm-pmem"),
         }
     }
