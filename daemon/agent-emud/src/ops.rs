@@ -222,6 +222,11 @@ pub async fn check(st: &Arc<State>, id: &str, full: bool) -> R<Value> {
     let mut problems: Vec<String> = vec![];
     let mut warns: Vec<String> = vec![];
     let mut h = json!({"phase": phase, "uptime_s": uptime, "checked_ms": device::now_ms()});
+    if phase == "sleeping" {
+        // Asleep on purpose: no adb or screen probes (they would page the phone in); `wake` first for a full check.
+        h["sleeping"] = json!(true);
+        return Ok(finish(id, h, problems, warns));
+    }
     if phase != "ready" {
         let stuck = uptime > stuck_after_s();
         h["stuck"] = json!(stuck);
@@ -354,7 +359,7 @@ pub async fn health_loop(st: Arc<State>) {
     loop {
         tokio::time::sleep(Duration::from_secs(60)).await;
         let ids: Vec<(String, bool)> = st.devs.lock().unwrap().iter()
-            .map(|(k, s)| (k.clone(), s.phase != "ready" || !s.dev.in_use())).collect();
+            .map(|(k, s)| (k.clone(), s.phase != "sleeping" && (s.phase != "ready" || !s.dev.in_use()))).collect();
         HEALTH.lock().unwrap().retain(|k, _| ids.iter().any(|(id, _)| id == k));
         for (id, idle) in ids {
             if !idle {

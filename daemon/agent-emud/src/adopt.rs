@@ -262,7 +262,7 @@ async fn adopt_one(st: &Arc<State>, dir: &Path, v: &Value) -> R<()> {
             return Err(format!("`{id}` is already listed"));
         }
         devs.insert(id.clone(), Slot { dev: d.clone(), opts: squeeze::Opts::from(&req, squeeze::Opts::DEFAULT), auto_squeeze: false,
-            lease: None, info: v["info"].clone(), started, phase: "ready", lat: Default::default(), sent: 0, streams: 0 });
+            lease: None, info: v["info"].clone(), started, phase: "ready", phase_since: device::now_ms(), lat: Default::default(), sent: 0, streams: 0 });
     }
     if let Some((_, _, pkg)) = d.browser.clone().filter(|_| d.headroom_mb.load(Ordering::SeqCst) > 0) {
         let (d2, ev) = (d.clone(), st.events.clone());
@@ -275,7 +275,7 @@ async fn adopt_one(st: &Arc<State>, dir: &Path, v: &Value) -> R<()> {
 /// Saves every Device for the next daemon. Refused while one is still booting (it has no handles to park yet).
 pub async fn save_all(st: &State, addr: &str) -> R<Vec<String>> {
     let ids: Vec<(String, &'static str)> = st.devs.lock().unwrap().iter().map(|(k, s)| (k.clone(), s.phase)).collect();
-    if let Some((id, p)) = ids.iter().find(|(_, p)| *p != "ready") {
+    if let Some((id, p)) = ids.iter().find(|(_, p)| *p != "ready" && *p != "sleeping") {
         return Err(format!("{id} is `{p}`; wait for ready or stop it, then restart"));
     }
     for (id, _) in &ids {

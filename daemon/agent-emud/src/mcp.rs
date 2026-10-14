@@ -43,10 +43,13 @@ fn tools() -> Value {
         tool("start", "Boot the Device and wait until phase ready (about 2 min; blocks). keep_data true reuses its disks (apps, sign-ins); \
             without it the disks are wiped. Refused while host Available RAM is under the floor.",
             json!({"image": {"type": "string", "description": "slim5 (BoltBetz phones), phone, phone-n, slim4, slim3n"},
-                "screen": {"type": "string", "description": "iphone17promax-native | -3q | -half | legacy"}, "keep_data": {"type": "boolean"},
+                "screen": {"type": "string", "description": "iphone17promax-native | -3q | -half | samsung-a16 | legacy"}, "keep_data": {"type": "boolean", "description": "default true when the phone's disk fits this Device/image; false wipes"},
+                "fresh": {"type": "boolean", "description": "true = wipe the disks (a mismatching disk errors `disk_mismatch:` without it)"},
                 "mem": num, "cpus": num, "render": {"type": "string", "description": "gfxstream (default) | software"},
                 "auto_squeeze": {"type": "boolean"}, "boot_cap_mb": num, "idle_cap_mb": num}), &[], false),
         tool("stop", "Stop the Device (syncs the guest first so keep_data can reuse its disks).", json!({}), &[], false),
+        tool("sleep", "Between test batches: the phone keeps running (apps, sign-in) but drops to its idle RAM caps with the screen reader off; phase `sleeping`. Refused while a test run (claim owner `run.py-...`) holds it or while it boots. `wake` (or `start`, or any input call) brings it back in seconds.", json!({}), &[], false),
+        tool("wake", "Wake a sleeping phone: caps lifted, phase back to `ready`, a few seconds. A stopped phone errors: use `start`.", json!({}), &[], false),
         tool("install_bundled", "Install the image's default app (set_default_app; on this PC the BoltBetz staging build) over the console; no adb needed.", json!({}), &[], false),
         json!({"name": "install_app", "description": format!("Install ANY Android app build on one or more running Devices and report             package, version_name/version_code and Expo runtime/channel. Accepts anything that names a build: {}. Downloads are cached.             An .aab becomes a universal APK signed with this PC's debug key.", crate::apps::SOURCES),
             "inputSchema": {"type": "object", "required": ["source"], "properties": {"source": {"type": "string",
@@ -85,12 +88,16 @@ fn tools() -> Value {
                 "app": {"type": "string", "description": "package to launch, default com.boltbetz.staging"},
                 "balloon_mb": num, "cap_main_mb": num, "cap_helper_mb": num}}}),
         json!({"name": "fleet_stop", "description": "Stop every Device this daemon runs.", "inputSchema": {"type": "object", "properties": {}}}),
-        json!({"name": "status", "description": "Every Device: id, ready, phase (spawning, booting, android, setup, browser, ready, stopped), image, screen, mem, uptime; plus host available_mb.",
+        json!({"name": "status", "description": "Every Device: id, ready, phase (spawning, booting, android, setup, browser, ready, sleeping, stopped), phase_since_ms, ui_reader (on, yielded_appium, off), image, screen, mem, uptime; plus host available_mb.",
             "inputSchema": {"type": "object", "properties": {}}}),
         json!({"name": "start_many", "description": "Boot several Devices, up to `parallel` at once; takes the `start` options. Blocks until all are done.",
             "inputSchema": {"type": "object", "required": ["devices"], "properties": {"devices": ids.clone(), "parallel": num,
-                "image": {"type": "string"}, "screen": {"type": "string"}, "keep_data": {"type": "boolean"}, "mem": num, "auto_squeeze": {"type": "boolean"}}}}),
+                "image": {"type": "string"}, "screen": {"type": "string"}, "keep_data": {"type": "boolean"}, "fresh": {"type": "boolean"}, "mem": num, "auto_squeeze": {"type": "boolean"}}}}),
         json!({"name": "stop_many", "description": "Stop the listed Devices at once (default: all).",
+            "inputSchema": {"type": "object", "properties": {"devices": ids.clone()}}}),
+        json!({"name": "sleep_many", "description": "Put the listed Devices to sleep (default: every ready one); see `sleep`.",
+            "inputSchema": {"type": "object", "properties": {"devices": ids.clone()}}}),
+        json!({"name": "wake_many", "description": "Wake the listed Devices (default: every sleeping one); see `wake`.",
             "inputSchema": {"type": "object", "properties": {"devices": ids.clone()}}}),
         json!({"name": "bugs", "description": "The live bug feed: test runner FAILs folded into bugs by dedupe key (area|step|endpoint|failed check;             fault preset, phone, lane, attempt and build dropped). Newest first, each with count, cases, phones and its newest occurrence             (`last`: case, failing step and check, error, screenshot paths, app error log lines, phone, build/runtime, decisions).             full = every kept occurrence.",
             "inputSchema": {"type": "object", "properties": {"status": {"type": "string", "description": "open (all bugs are open for now)"},
@@ -271,7 +278,7 @@ mod tests {
     #[test]
     fn every_tool_takes_device() {
         for t in tools().as_array().unwrap() {
-            if ["fleet", "fleet_stop", "status", "start_many", "stop_many", "run_lanes", "run_matrix", "bugs", "install_app", "set_default_app", "default_app"].contains(&t["name"].as_str().unwrap()) {
+            if ["fleet", "fleet_stop", "status", "start_many", "stop_many", "sleep_many", "wake_many", "run_lanes", "run_matrix", "bugs", "install_app", "set_default_app", "default_app"].contains(&t["name"].as_str().unwrap()) {
                 continue;
             }
             assert_eq!(t["inputSchema"]["required"][0], "device", "{}", t["name"]);

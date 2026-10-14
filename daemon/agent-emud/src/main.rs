@@ -14,6 +14,7 @@ mod mcp;
 mod ops;
 mod squeeze;
 mod ui;
+mod sleep;
 mod uidump;
 
 use base64::Engine;
@@ -39,8 +40,10 @@ struct Slot {
     /// What `start` asked for, for `status` (image name, guest MB, vCPUs, net) and when.
     info: Value,
     started: Instant,
-    /// "spawning" | "booting" | "android" | "setup" | "ready" (pushed as `device` events).
+    /// "spawning" | "booting" | "android" | "setup" | "browser" | "app" | "ready" | "sleeping" (pushed as `device` events).
     phase: &'static str,
+    /// Epoch ms when `phase` began.
+    phase_since: u64,
     /// Recent input -> first new frame times (ms), for the metrics p50.
     lat: std::collections::VecDeque<u64>,
     /// Frames sent on all /frames streams of this Device, and how many streams are open.
@@ -94,6 +97,7 @@ async fn serve(addr: String) {
     let st = Arc::new(new_state(Cfg::from_env()));
     tokio::spawn(metrics(st.clone()));
     tokio::spawn(recap_idle(st.clone()));
+    tokio::spawn(uidump::watch(st.clone()));
     tokio::spawn(ops::health_loop(st.clone()));
     let ui_addr = std::env::var("AE_UI_ADDR").unwrap_or_else(|_| "127.0.0.1:7401".into());
     tokio::spawn(ui::serve(st.clone(), ui_addr));
@@ -244,6 +248,22 @@ async fn start_device(st: &State, idx: u32, req: &Value) -> R<(Arc<Device>, f64)
     let id = format!("d{idx}");
     let t0 = Instant::now();
     let fail = |e: String| { emit(st, json!({"type": "error", "device": id, "call": "start", "error": e})); e };
+    // A sleeping phone is already running: start wakes it, no reboot.
+    if let Some(d) = st.dev(&id).filter(|_| sleep::is_sleeping(st, &id)) {
+        sleep::wake(st, &id).await.map_err(fail)?;
+        return Ok((d, t0.elapsed().as_secs_f64()));
+    }
+    // keep_data defaults to true when the phone's disk fits this Device, image and system image; `fresh: true` or an
+    // explicit `keep_data: false` wipes. A disk that does not fit is an error, never a silent wipe.
+    let keep = if req["fresh"] == json!(true) || req["keep_data"] == json!(false) {
+        false
+    } else {
+        match device::disk_status(&st.cfg, idx, req["image"].as_str().unwrap_or("")).map_err(fail)? {
+            device::Disk::Match => true,
+            device::Disk::Missing => req["keep_data"] == json!(true),
+            device::Disk::Mismatch(why) => return Err(fail(format!("disk_mismatch: {why}; start with fresh: true to wipe it"))),
+        }
+    };
     // browser_headroom_mb (default 256 when the browser disk exists): the guest gets this much more RAM, held in
     // the balloon while the app is in front and given back while the browser is (a login Custom Tab needs it:
     // at 768 MB the Auth0 page never loaded, at 1024 MB it did).
@@ -277,7 +297,7 @@ async fn start_device(st: &State, idx: u32, req: &Value) -> R<(Arc<Device>, f64)
     let idle_cap = req["idle_cap_mb"].as_u64().unwrap_or(IDLE_CAP_MB);
     let info = json!({"image": if image_name.is_empty() { "slim3n (default)" } else { image_name }, "mem": shown_mem,
         "render": if gfx { "gfxstream" } else { "software" }, "refresh_hz": hz, "boot_cap_mb": boot_cap, "idle_cap_mb": idle_cap, "browser_headroom_mb": headroom,
-        "cpus": cpus.clone().unwrap_or(st.cfg.cpus.clone()), "net": net, "keep_data": req["keep_data"] == json!(true), "image_name": image_name,
+        "cpus": cpus.clone().unwrap_or(st.cfg.cpus.clone()), "net": net, "keep_data": keep, "image_name": image_name,
         "screen": {"name": if screen.is_empty() { "iphone17promax" } else { screen }, "width": sw, "height": sh, "dpi": dpi}});
     let d = {
         let _g = st.lifecycle.lock().await;
@@ -298,18 +318,18 @@ async fn start_device(st: &State, idx: u32, req: &Value) -> R<(Arc<Device>, f64)
         let others_ok = !st.devs.lock().unwrap().is_empty();
         emit(st, json!({"type": "device", "device": id, "phase": "spawning", "t_s": 0.0, "info": info}));
         let d = Device::spawn(&st.cfg, idx, image_name, screen, mem.as_deref(), cpus.as_deref(), net, others_ok, gfx, hz as u32,
-            req["keep_data"] == json!(true)).await.map_err(fail)?;
+            keep).await.map_err(fail)?;
         d.headroom_mb.store(headroom, Ordering::SeqCst);
         if boot_cap > 0 {
             tokio::spawn(boot_caps(d.clone(), boot_cap, idle_cap));
         }
         st.devs.lock().unwrap().insert(id.clone(), Slot { dev: d.clone(), opts: squeeze::Opts::from(req, squeeze::Opts::DEFAULT),
-            auto_squeeze: req["auto_squeeze"] == json!(true), lease: None, info, started: Instant::now(), phase: "booting",
+            auto_squeeze: req["auto_squeeze"] == json!(true), lease: None, info, started: Instant::now(), phase: "booting", phase_since: device::now_ms(),
             lat: Default::default(), sent: 0, streams: 0 });
         d
     };
     let phase = |p: &'static str| {
-        if let Some(s) = st.devs.lock().unwrap().get_mut(&id) { s.phase = p; }
+        if let Some(s) = st.devs.lock().unwrap().get_mut(&id) { (s.phase, s.phase_since) = (p, device::now_ms()); }
         emit(st, json!({"type": "device", "device": id, "phase": p, "t_s": t0.elapsed().as_secs_f64()}));
     };
     phase("booting");
@@ -328,7 +348,7 @@ async fn start_device(st: &State, idx: u32, req: &Value) -> R<(Arc<Device>, f64)
         let mut ok = matches!(&r, Ok((o, 0)) if o.contains(&pkg));
         let mut err = r.err();
         // A keep_data disk already has Firefox past its Terms screen; re-running it relaunches Firefox over the app for minutes.
-        if ok && pkg == "org.mozilla.firefox" && req["keep_data"] != json!(true) {
+        if ok && pkg == "org.mozilla.firefox" && !keep {
             if let Err(e) = firefox_first_run(&d).await {
                 eprintln!("{id}: firefox first run: {e}");
                 (ok, err) = (false, Some(e));
@@ -342,11 +362,12 @@ async fn start_device(st: &State, idx: u32, req: &Value) -> R<(Arc<Device>, f64)
         }
     }
     // Wiped disks: install the image's default app (set_default_app) before Ready. Images without one skip it.
-    if req["keep_data"] != json!(true) && apps::image_apk_size(&d) > 0 {
+    if !keep && apps::image_apk_size(&d) > 0 {
         phase("app");
         let r = apps::install_image_apk(&d, apps::image_apk_size(&d)).await;
         emit(st, json!({"type": "device", "device": id, "default_app": if r.is_ok() { "installed" } else { "failed" }, "error": r.err()}));
     }
+    let _ = std::fs::remove_file(d.dir.join(device::INCOMPLETE));
     phase("ready");
     if let Err(e) = adopt::save(st, &id, Some(req), adopt::addr()).await {
         eprintln!("{id}: not adoptable by a later daemon: {e}");
@@ -361,7 +382,7 @@ async fn ui_xml(d: &Device) -> R<String> {
     match uidump::fast(d).await {
         Ok(x) => return Ok(x),
         // A uiautomator dump would kill Appium's session the same way.
-        Err(e) if e.contains("exit 93") => return Err(e),
+        Err(e) if e.starts_with(uidump::YIELDED) => return Err(e),
         Err(e) => eprintln!("{}: fast ui_tree failed, using uiautomator dump: {e}", d.id),
     }
     uidump::stop(d).await;
@@ -580,7 +601,9 @@ async fn start_many(st: &Arc<State>, req: &Value) -> R<Value> {
     for id in &list {
         idx_of(id)?;
     }
-    let sem = Arc::new(tokio::sync::Semaphore::new(req["parallel"].as_u64().unwrap_or(4).clamp(1, 8) as usize));
+    // Parallel boots stall each other when the host is short of RAM: below 8 GB free they go one at a time.
+    let default_par = if device::available_mb() < 8000 { 1 } else { 4 };
+    let sem = Arc::new(tokio::sync::Semaphore::new(req["parallel"].as_u64().unwrap_or(default_par).clamp(1, 8) as usize));
     let hs: Vec<_> = list.into_iter().map(|id| {
         let (st, req, sem) = (st.clone(), req.clone(), sem.clone());
         (id.clone(), tokio::spawn(async move {
@@ -786,6 +809,10 @@ async fn handle(st: &Arc<State>, conn: u64, req: &Value) -> R<Value> {
     if bugs::CALLS.contains(&call) {
         return bugs::handle(st, call, req);
     }
+    if sleep::CALLS.contains(&call) {
+        return sleep::handle(st, call, req).await;
+    }
+    sleep::wake_for(st, call, req).await;
     if apps::CALLS.contains(&call) {
         return apps::handle(st, call, req).await;
     }
@@ -833,7 +860,7 @@ async fn handle_call(st: &Arc<State>, conn: u64, req: &Value) -> R<Value> {
         }
         "status" => {
             let devs: Vec<Value> = st.devs.lock().unwrap().values().map(|s| {
-                let mut v = json!({"id": s.dev.id, "ready": s.dev.ready.load(Ordering::SeqCst), "phase": s.phase, "streams": s.streams, "frames_via": s.dev.transport().0,
+                let mut v = json!({"id": s.dev.id, "ready": s.dev.ready.load(Ordering::SeqCst), "phase": s.phase, "phase_since_ms": s.phase_since, "ui_reader": uidump::state(&s.dev.id), "streams": s.streams, "frames_via": s.dev.transport().0,
                     "input_via": s.dev.transport().1, "lease": s.lease == Some(conn), "uptime_s": s.started.elapsed().as_secs()});
                 for (k, x) in s.info.as_object().into_iter().flatten() { v[k] = x.clone(); }
                 (v["claim"], v["health"]) = (ops::claim_of(&s.dev.id), ops::health_of(&s.dev.id));
