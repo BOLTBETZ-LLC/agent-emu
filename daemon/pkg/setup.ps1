@@ -56,8 +56,19 @@ if ($fail) { Write-Host "`nSetup stopped: fix the FAIL lines above, then run set
 
 Write-Host "Installing to $Root"
 if (-not $inPlace) {
-  robocopy $Src $Root /E /NFL /NDL /NJH /NJS /NP | Out-Null
-  if ($LASTEXITCODE -ge 8) { throw "copy to $Root failed (robocopy $LASTEXITCODE)" }
+  # A daemon from this install holds agent-emud.exe open: ask it to exit with the phones kept running (the next
+  # daemon adopts them), so the new exe can land. Without this the copy waited forever on the locked file.
+  $daemon = @(Get-Process agent-emud -ErrorAction SilentlyContinue | ? { $_.Path -like "$Root\*" })
+  if ($daemon) {
+    try { Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:$Port/api" -Body '{"call":"quit","keep_devices":true}' -TimeoutSec 30 | Out-Null } catch { Warn "daemon quit: $($_.Exception.Message)" }
+    $daemon | Wait-Process -Timeout 30 -ErrorAction SilentlyContinue
+    if (Get-Process -Id $daemon.Id -ErrorAction SilentlyContinue) { Bad "the running daemon did not exit (a phone still booting?); try again when boots finish"; exit 1 }
+  }
+  # Running phones hold their crosvm, emulator DLLs and adb open; those dirs update on a quiet install only.
+  $busy = @(Get-Process crosvm, adb -ErrorAction SilentlyContinue | ? { $_.Path -like "$Root\*" })
+  $skip = if ($busy) { Warn "phones are running: crosvm, emulator and adb files keep their current version"; @("/XD", "$Src\crosvm", "$Src\crosvm-gpu", "$Src\emulator", "$Src\adb") } else { @() }
+  robocopy $Src $Root /E /R:2 /W:1 /NFL /NDL /NJH /NJS /NP @skip | Out-Null
+  if ($LASTEXITCODE -ge 8) { throw "copy to $Root failed (robocopy $($LASTEXITCODE): a file is in use)" }
 }
 New-Item -ItemType Directory -Force "$Root\logs" | Out-Null
 Set-Content -Encoding ASCII "$Root\config.cmd" @(

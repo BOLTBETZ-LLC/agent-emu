@@ -123,7 +123,13 @@ async function importEnvSecrets() {
 }
 
 // ---- steps
-async function stepSetup() {
+// One setup at a time: the wizard and the new-version startup path both ran it at once (two copies racing).
+let setupRun = null;
+function stepSetup() {
+  setupRun = setupRun || stepSetupOnce().finally(() => { setupRun = null; });
+  return setupRun;
+}
+async function stepSetupOnce() {
   const r = await ps(path.join(RES, "setup.ps1"), ["-Root", ROOT, "-Port", cfg.port, "-AgentPort", cfg.agentPort, "-NoShortcuts", "-NoMcp", "-NoStart"].map(String));
   if (r.code !== 0) return { ok: false, whp: /Hypervisor Platform is off/.test(r.out) };
   // Separate MCP exe: MCP clients hold it open; refresh only when not locked.
@@ -397,8 +403,16 @@ function setupUpdates() {
 }
 async function installUpdate() {
   // Phones and runs come back after the new version starts (cfg.resumeAfterUpdate, read at startup).
-  cfg.resumeAfterUpdate = await saveSession(); saveConfig(cfg);
-  if (await ownDaemonRunning()) { try { await fetch(URL_UI + "api", { method: "POST", body: JSON.stringify({ call: "quit" }) }); } catch {} }
+  // Phones keep running through the update (quit keep_devices; the new daemon adopts them). Only when that is
+  // refused (a phone still booting) fall back to saving the session, which stops the phones.
+  let kept = false;
+  if (await ownDaemonRunning()) {
+    try { kept = !!(await (await fetch(URL_UI + "api", { method: "POST", body: JSON.stringify({ call: "quit", keep_devices: true }) })).json()).ok; } catch {}
+  }
+  if (!kept) {
+    cfg.resumeAfterUpdate = await saveSession(); saveConfig(cfg);
+    if (await ownDaemonRunning()) { try { await fetch(URL_UI + "api", { method: "POST", body: JSON.stringify({ call: "quit" }) }); } catch {} }
+  }
   app.__quitting = true; updater.quitAndInstall();
 }
 async function quitAll() {
@@ -481,7 +495,9 @@ if (process.argv.includes("--uninstall")) {
     const stale = (() => { try { return fs.readFileSync(path.join(ROOT, "app-version.txt"), "utf8") !== app.getVersion(); } catch { return true; } })();
     if (!cfg.setupDone) return openWizard();
     // New version: refresh the payload, then tools + MCP registration (appium-mcp, skill) for this version.
-    if (stale && !(await health())) { const r = await stepSetup(); if (!r.ok) return openWizard(); await stepMcp().catch((e) => log(`WARN  mcp: ${e.message}`)); }
+    // setup.ps1 asks a running daemon to exit with its phones kept, so a new version always gets its own daemon
+    // (it used to attach to the old one and run old code until a reboot).
+    if (stale) { const r = await stepSetup(); if (!r.ok) return openWizard(); await stepMcp().catch((e) => log(`WARN  mcp: ${e.message}`)); }
     if (await startDaemon()) { openDashboard(); ensureDefaultApp(); } else openWizard();
     // After an update: boot the saved phones and continue the paused test runs.
     if (cfg.resumeAfterUpdate) { cfg.resumeAfterUpdate = false; saveConfig(cfg); await resumeSession(); }
