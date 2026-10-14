@@ -61,8 +61,9 @@ if (-not $inPlace) {
   $daemon = @(Get-Process agent-emud -ErrorAction SilentlyContinue | ? { $_.Path -like "$Root\*" })
   if ($daemon) {
     try { Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:$Port/api" -Body '{"call":"quit","keep_devices":true}' -TimeoutSec 30 | Out-Null } catch { Warn "daemon quit: $($_.Exception.Message)" }
-    $daemon | Wait-Process -Timeout 30 -ErrorAction SilentlyContinue
-    if (Get-Process -Id $daemon.Id -ErrorAction SilentlyContinue) { Bad "the running daemon did not exit (a phone still booting?); try again when boots finish"; exit 1 }
+    $ids = @($daemon | % { $_.Id }); $until = (Get-Date).AddSeconds(30)
+    while ((Get-Process -Id $ids -ErrorAction SilentlyContinue) -and (Get-Date) -lt $until) { Start-Sleep -Milliseconds 500 }
+    if (Get-Process -Id $ids -ErrorAction SilentlyContinue) { Bad "the running daemon did not exit (a phone still booting?); try again when boots finish"; exit 1 }
   }
   # Running phones hold their crosvm, emulator DLLs and adb open; those dirs update on a quiet install only.
   $busy = @(Get-Process crosvm, adb -ErrorAction SilentlyContinue | ? { $_.Path -like "$Root\*" })

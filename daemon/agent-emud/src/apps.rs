@@ -114,7 +114,7 @@ async fn eas_build_url(id: &str, project: Option<&str>) -> R<String> {
     let dir = project.map(str::to_string).or_else(|| std::env::var("AE_EAS_PROJECT_DIR").ok()).ok_or(format!(
         "EAS build {id}: pass eas_project (any Expo project folder) or set AE_EAS_PROJECT_DIR, or give the build's artifact URL (https://expo.dev/artifacts/eas/...)"))?;
     let o = Command::new("cmd").args(["/d", "/c", "eas", "build:view", id, "--json"]).current_dir(&dir)
-        .env("EAS_NO_VCS", "1").env("EXPO_NO_TELEMETRY", "1").kill_on_drop(true).output();
+        .env("EAS_NO_VCS", "1").env("EXPO_NO_TELEMETRY", "1").creation_flags(0x0800_0000).kill_on_drop(true).output();
     let o = tokio::time::timeout(Duration::from_secs(120), o).await.map_err(|_| "eas build:view timed out".to_string())?
         .map_err(|e| format!("eas CLI not runnable ({e}); install it with `npm i -g eas-cli` and `eas login`"))?;
     let out = String::from_utf8_lossy(&o.stdout);
@@ -137,12 +137,17 @@ async fn download(work: &Path, url: &str) -> R<PathBuf> {
     let h = url.bytes().fold(0xcbf2_9ce4_8422_2325u64, |h, b| (h ^ b as u64).wrapping_mul(0x100_0000_01b3)); // FNV-1a
     let ext = url.split(['?', '#']).next().unwrap_or("").rsplit('.').next().filter(|e| e.len() <= 4).unwrap_or("bin");
     let file = dir.join(format!("{h:016x}.{}", ext.to_lowercase()));
+    // A cached file that is not a readable zip (two downloads once wrote the same .part at once) is dropped and
+    // fetched again; before this it failed every set_default_app with "Damaged Zip archive".
     if file.is_file() {
-        return Ok(file);
+        if tar(&["-t"], &file).await.is_ok() {
+            return Ok(file);
+        }
+        let _ = std::fs::remove_file(&file);
     }
     let part = file.with_extension("part");
     let o = Command::new("curl.exe").args(["-L", "--fail", "-sS", "--retry", "3", "-C", "-", "-o"]).arg(&part).arg(url)
-        .kill_on_drop(true).output();
+        .creation_flags(0x0800_0000).kill_on_drop(true).output();
     let o = tokio::time::timeout(Duration::from_secs(1800), o).await.map_err(|_| format!("download {url} timed out"))?
         .map_err(|e| format!("curl: {e}"))?;
     if !o.status.success() {
@@ -191,7 +196,7 @@ async fn debug_keystore(keytool: &Path) -> R<PathBuf> {
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let o = Command::new(keytool).args(["-genkeypair", "-keystore"]).arg(&ks).args(["-storepass", "android", "-alias",
         "androiddebugkey", "-keypass", "android", "-keyalg", "RSA", "-keysize", "2048", "-validity", "10000", "-dname",
-        "CN=Android Debug,O=Android,C=US", "-noprompt"]).kill_on_drop(true).output().await.map_err(|e| format!("keytool: {e}"))?;
+        "CN=Android Debug,O=Android,C=US", "-noprompt"]).creation_flags(0x0800_0000).kill_on_drop(true).output().await.map_err(|e| format!("keytool: {e}"))?;
     if !o.status.success() {
         return Err(format!("keytool: {}", String::from_utf8_lossy(&o.stderr).trim()));
     }
@@ -213,7 +218,7 @@ async fn aab_to_apk(work: &Path, aab: &Path) -> R<PathBuf> {
     let apks = cache.join(format!("{key}.apks"));
     let o = Command::new(&java).arg("-jar").arg(&bt).args(["build-apks", "--mode", "universal", "--overwrite"])
         .arg(format!("--bundle={}", aab.display())).arg(format!("--output={}", apks.display())).arg(format!("--ks={}", ks.display()))
-        .args(["--ks-pass=pass:android", "--ks-key-alias=androiddebugkey", "--key-pass=pass:android"]).kill_on_drop(true).output();
+        .args(["--ks-pass=pass:android", "--ks-key-alias=androiddebugkey", "--key-pass=pass:android"]).creation_flags(0x0800_0000).kill_on_drop(true).output();
     let o = tokio::time::timeout(Duration::from_secs(900), o).await.map_err(|_| "bundletool timed out".to_string())?
         .map_err(|e| format!("java ({}): {e}", java.display()))?;
     if !o.status.success() {
@@ -226,7 +231,7 @@ async fn aab_to_apk(work: &Path, aab: &Path) -> R<PathBuf> {
 
 async fn tar(args: &[&str], zip: &Path) -> R<Vec<u8>> {
     let tar = std::env::var("SystemRoot").map(|r| format!("{r}\\System32\\tar.exe")).unwrap_or("tar.exe".into());
-    let o = Command::new(tar).args(args).arg("-f").arg(zip).kill_on_drop(true).output().await.map_err(|e| format!("tar: {e}"))?;
+    let o = Command::new(tar).args(args).arg("-f").arg(zip).creation_flags(0x0800_0000).kill_on_drop(true).output().await.map_err(|e| format!("tar: {e}"))?;
     if !o.status.success() {
         return Err(format!("not a zip ({}): {}", zip.display(), String::from_utf8_lossy(&o.stderr).trim()));
     }
@@ -249,7 +254,7 @@ async fn apk_info(apk: &Path) -> R<Value> {
 
 async fn member(zip: &Path, name: &str) -> R<Vec<u8>> {
     let tar = std::env::var("SystemRoot").map(|r| format!("{r}\\System32\\tar.exe")).unwrap_or("tar.exe".into());
-    let o = Command::new(tar).arg("-xOf").arg(zip).arg(name).kill_on_drop(true).output().await.map_err(|e| format!("tar: {e}"))?;
+    let o = Command::new(tar).arg("-xOf").arg(zip).arg(name).creation_flags(0x0800_0000).kill_on_drop(true).output().await.map_err(|e| format!("tar: {e}"))?;
     if !o.status.success() || o.stdout.is_empty() {
         return Err(format!("{name} not in {}", zip.display()));
     }

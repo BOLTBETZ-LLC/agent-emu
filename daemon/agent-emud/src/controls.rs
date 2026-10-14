@@ -199,7 +199,7 @@ pub async fn adb_raw(d: Option<&Device>, args: &[&str], timeout: Duration) -> R<
     let serial = format!("127.0.0.1:{}", adb_port(d).ok_or("no adb port for this Device")?);
     let run = |a: Vec<&str>| {
         let mut c = Command::new("adb");
-        c.args(a).kill_on_drop(true);
+        c.args(a).creation_flags(0x0800_0000).kill_on_drop(true);
         async move { tokio::time::timeout(timeout, c.output()).await }
     };
     // Idempotent; also re-attaches after an adb server restart.
