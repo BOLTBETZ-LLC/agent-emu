@@ -66,10 +66,10 @@ pub async fn watch(st: std::sync::Arc<crate::State>) {
 const DEX: &[u8] = include_bytes!("../aedump/aedump.dex");
 /// Bump the name when AeDump.java changes, so a guest with the old dex gets the new one.
 const DEX_PATH: &str = "/data/local/tmp/aedump3.dex";
-/// The dumper exits after this many seconds without a request (~42 MB PSS while it lives); the next ui_tree
+/// The dumper (it holds the one UiAutomation, which Appium needs) exits after this many seconds without a request (default 5; ~42 MB PSS while it lives); the next ui_tree
 /// starts it again (~0.5 s). AE_UI_DUMPER_IDLE_S overrides; 0 keeps it alive.
 fn idle_s() -> u64 {
-    std::env::var("AE_UI_DUMPER_IDLE_S").ok().and_then(|v| v.parse().ok()).unwrap_or(30)
+    std::env::var("AE_UI_DUMPER_IDLE_S").ok().and_then(|v| v.parse().ok()).unwrap_or(5)
 }
 
 /// No boot image (-Ximage at a missing file): outside the zygote, ART copies the boot image into ~33 MB of private

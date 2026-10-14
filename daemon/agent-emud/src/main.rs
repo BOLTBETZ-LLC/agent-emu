@@ -677,7 +677,7 @@ async fn metrics(st: Arc<State>) {
             prev.insert(id.clone(), (seq, s.1, ev_last));
             let m = mem.get(id);
             // "idle": the guest posted no frame this second (nothing changed on screen), so 0 fps is not slowness.
-            rows.push(json!({"id": id, "phase": s.0, "ready": s.0 == "ready", "uptime_s": s.5, "activity": if sc > 0.0 { "rendering" } else { "idle" },
+            rows.push(json!({"id": id, "phase": s.0, "ready": s.0 == "ready" || s.0 == "sleeping", "uptime_s": s.5, "activity": if sc > 0.0 { "rendering" } else { "idle" },
                 "memory_mode": if d.capped.load(Ordering::SeqCst) { "capped" } else { "active" },
                 "scanout_fps": (sc * 10.0).round() / 10.0,
                 "sent_fps": (se * 10.0).round() / 10.0, "streams": s.2, "input_p50_ms": s.3, "input_n": s.4,
