@@ -148,6 +148,8 @@
     padding: 22px 28px 20px; container-type: size; }
   #grid { --ph: min(calc((100cqh - var(--rows) * var(--cap) - (var(--rows) - 1) * var(--rg)) / var(--rows)), calc((60cqw - (var(--cols, 4) - 1) * var(--cg)) / var(--cols, 4) * 2868 / 1320));
     display: grid; grid-template-columns: repeat(var(--cols, 4), max-content); gap: var(--rg) var(--cg); align-content: center; }
+  /* One phone shown: the focus stage is that phone, so the grid tile would only repeat it. */
+  @media (min-width: 981px) { #phones.solo { grid-template-columns: minmax(0, 1fr); } #phones.solo #grid { display: none; } }
   .tile[hidden] { display: none; }
   .tile { position: relative; display: grid; grid-template-rows: auto var(--cap); width: calc(var(--ph) * 1320 / 2868); }
 
@@ -622,7 +624,7 @@ function stateOf(id) {
 }
 const LABEL = { empty: "Off", queued: "Waiting", sleeping: "Sleeping", booting: "Starting", running: "Running", stopping: "Stopping", failed: "Failed" };
 // Boot phases: words, which mark they fill (0-3), and a typical length in s.
-const PHASE = { sleeping: ["Waking up", 0, 15], spawning: ["Starting the VM", 0, 4], booting: ["Booting the kernel", 1, 14], android: ["Starting Android", 2, 60], setup: ["Applying settings", 3, 12], ready: ["Ready", 4, 1] };
+const PHASE = { sleeping: ["Waking up", 0, 15], spawning: ["Starting the VM", 0, 4], booting: ["Booting the kernel", 1, 14], android: ["Starting Android", 2, 90], setup: ["Applying settings", 3, 12], browser: ["Setting up the browser", 3, 25], app: ["Installing the app", 3, 20], ready: ["Ready", 4, 1] };
 
 // ---------- daemon calls ----------
 async function api(call, args = {}) {
@@ -983,7 +985,7 @@ function onEvent(e) {
     const d = S.devs[id] || (S.devs[id] = { id, uptime_s: 0 });
     if (e.info) Object.assign(d, e.info);
     d.phase = e.phase; d.phaseAt = Date.now(); d.t_s = e.t_s; d.ready = e.phase === "ready";
-    if (e.phase === "spawning") syncStreams();
+    if (e.phase === "spawning") { syncStreams(); S.crashes[id] = 0; if (id === S.sel) setText($("crashn"), ""); }
     if (d.ready) status();
     renderTile(id); if (id === S.sel) renderStage(); return;
   }
@@ -1190,6 +1192,7 @@ function layout() {
   const sh = shownIds(), set = new Set(sh), root = document.documentElement.style;
   for (const id of IDS) if (T[id]) T[id].el.hidden = !set.has(id);
   const cols = Math.max(1, Math.min(4, sh.length));
+  $("phones").classList.toggle("solo", sh.length === 1);
   root.setProperty("--cols", cols); root.setProperty("--rows", Math.max(1, Math.ceil(sh.length / cols)));
   $("focus").style.display = sh.length ? "" : "none";
   const hint = $("hint"); hint.hidden = sh.length > 0;
