@@ -14,7 +14,8 @@ param(
   [string]$Sdk = "$env:LOCALAPPDATA\Android\Sdk",
   [string]$Target = "",
   [switch]$NoBuild,
-  [switch]$NoZip
+  [switch]$NoZip,
+  [switch]$NoImages  # installer builds: electron-builder drops images\ anyway; the app downloads them on first run
 )
 $ErrorActionPreference = "Stop"
 $Repo = Split-Path $PSScriptRoot -Parent
@@ -66,6 +67,7 @@ $src = Get-Content -Raw (Join-Path $PSScriptRoot "agent-emud\src\device.rs")
 $shared = [regex]::Matches([regex]::Match($src, '(?s)const SHARED: &\[&str\] = &\[(.*?)\];').Groups[1].Value, '"([^"]+)"') |
   ForEach-Object { $_.Groups[1].Value }
 if (-not $shared) { throw "could not parse SHARED from device.rs" }
+if ($NoImages) { $Images = @() }
 foreach ($name in $Images) {
   $m = [regex]::Match($src, "(?m)^\s*(?:""[^""]*""\s*\|\s*)*""$name""(?:\s*\|\s*""[^""]*"")*\s*=>\s*Ok\(\(""([^""]+)""")
   if (-not $m.Success) { throw "image $name not in device.rs image()" }
@@ -75,9 +77,11 @@ foreach ($name in $Images) {
     if (Test-Path $p) { Put $p "images\$run" -Link }
   }
 }
-Put (Join-Path $Work "stage1\unpack\vendor_boot.txt") "images\stage1\unpack"
-foreach ($f in "browser.img", "browser.size", "browser.pkg") { Put (Join-Path $Work "browser\$f") "images\browser" -Link }
-Put (Join-Path $Work "gpu\kmod\virtio-gpu-nobacking.cpio") "images\gpu\kmod"
+if (-not $NoImages) {
+  Put (Join-Path $Work "stage1\unpack\vendor_boot.txt") "images\stage1\unpack"
+  foreach ($f in "browser.img", "browser.size", "browser.pkg") { Put (Join-Path $Work "browser\$f") "images\browser" -Link }
+  Put (Join-Path $Work "gpu\kmod\virtio-gpu-nobacking.cpio") "images\gpu\kmod"
+}
 
 # 4. Test runner: tests\boltbetz scripts and cases, not results.
 $Tests = Join-Path $Repo "tests\boltbetz"

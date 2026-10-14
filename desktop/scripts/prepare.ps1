@@ -6,7 +6,7 @@ param([switch]$SkipPackage)
 $ErrorActionPreference = "Stop"
 $Repo = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 if (-not $SkipPackage) {
-  & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Repo "daemon\package.ps1") -NoZip
+  & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Repo "daemon\package.ps1") -NoZip -NoImages
   if ($LASTEXITCODE -ne 0) { throw "package.ps1 failed ($LASTEXITCODE)" }
 }
 if (-not (Test-Path (Join-Path $Repo "dist\agent-emu\agent-emud.exe"))) { throw "dist\agent-emu missing: run without -SkipPackage" }
