@@ -255,7 +255,25 @@ pub async fn check(st: &Arc<State>, id: &str, full: bool) -> R<Value> {
         problems.push(format!("adb: {e}"));
     }
     let host = std::env::var("AE_HEALTH_HOST").unwrap_or_else(|_| "staging.bbapp01.com".into());
-    let (o, _) = d.con.exec(&probe_cmd(APP, &host), Duration::from_secs(30)).await?;
+    let (o, _) = match d.con.exec(&probe_cmd(APP, &host), Duration::from_secs(30)).await {
+        Ok(r) => r,
+        Err(e) if e.starts_with("console timeout") => {
+            // The guest is busy (app start, boot-time load), not broken: keep what we knew, say so, don't flag a problem.
+            let mut prev = health_of(id);
+            if !prev.is_object() {
+                prev = h;
+            }
+            prev["checked_ms"] = json!(device::now_ms());
+            prev["busy"] = json!(true);
+            h = prev;
+            let keep: Vec<String> = h["problems"].as_array().into_iter().flatten().filter_map(|v| v.as_str().map(str::to_string)).collect();
+            for k in keep { if !problems.contains(&k) { problems.push(k); } }
+            warns.push("phone busy: the health probe got no answer in 30 s, showing the last known detail".into());
+            return Ok(finish(id, h, problems, warns));
+        }
+        Err(e) => return Err(e),
+    };
+    h["busy"] = json!(false);
     let kv = kv(&o);
     let ip = kv.get("NET").is_some_and(|n| n != "0");
     let dns = kv.get("DNS").cloned().unwrap_or_default();
@@ -360,6 +378,8 @@ fn finish(id: &str, mut h: Value, problems: Vec<String>, warns: Vec<String>) -> 
 
 /// Every 60 s: health of each phone that is idle (no input for a minute) or not ready yet, as a `health` event.
 /// Phones in use (a test run) are left alone; their last health stays, with its `checked_ms`.
+static LAST_ERR: Mutex<BTreeMap<String, String>> = Mutex::new(BTreeMap::new());
+
 pub async fn health_loop(st: Arc<State>) {
     loop {
         tokio::time::sleep(Duration::from_secs(60)).await;
@@ -371,8 +391,17 @@ pub async fn health_loop(st: Arc<State>) {
                 continue;
             }
             match check(&st, &id, true).await {
-                Ok(h) => crate::emit(&st, json!({"type": "health", "device": id, "health": h})),
-                Err(e) => eprintln!("{id}: health: {e}"),
+                Ok(h) => {
+                    LAST_ERR.lock().unwrap().remove(&id);
+                    crate::emit(&st, json!({"type": "health", "device": id, "health": h}))
+                }
+                // One line per distinct error, not one per minute.
+                Err(e) => {
+                    let e = e.split(": ").next().unwrap_or(&e).to_string();
+                    if LAST_ERR.lock().unwrap().insert(id.clone(), e.clone()).as_deref() != Some(e.as_str()) {
+                        eprintln!("{id}: health: {e}");
+                    }
+                }
             }
         }
     }

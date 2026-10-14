@@ -136,7 +136,10 @@ pub async fn serve(st: Arc<State>, addr: String) {
         tokio::spawn(async move {
             let _ = sock.set_nodelay(true);
             if let Err(e) = conn(&st, sock).await {
-                eprintln!("panel: {e}");
+                // A browser tab closing or reloading mid-request is normal, not a fault worth a log line.
+                if !is_hangup(&e) {
+                    eprintln!("panel: {e}");
+                }
             }
         });
     }
@@ -196,6 +199,11 @@ fn unescape(s: &str) -> String {
         }
     }
     String::from_utf8_lossy(&out).into_owned()
+}
+
+/// Windows/Unix text of a peer that went away (os error 10053 aborted, 10054 reset, 32/EPIPE broken pipe).
+fn is_hangup(e: &str) -> bool {
+    ["os error 10053", "os error 10054", "os error 10058", "os error 32)", "os error 104", "forcibly closed", "Broken pipe"].iter().any(|k| e.contains(k))
 }
 
 async fn conn(st: &Arc<State>, mut sock: TcpStream) -> R<()> {

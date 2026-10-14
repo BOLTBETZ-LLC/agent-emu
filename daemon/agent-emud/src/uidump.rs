@@ -87,7 +87,7 @@ fn dump_cmd() -> String {
             exec app_process -Ximage:/aedump-no-boot-image -Xnoimage-dex2oat /system/bin --nice-name=aedump AeDump {idle}' </dev/null >$D/aedump.log 2>&1 & \
           i=0; while [ ! -p $D/ae.req ]; do i=$((i+1)); [ $i -gt 100 ] && exit 91; sleep 0.1; done; \
         fi; \
-        r=$(timeout 5 sh -c 'echo d > /data/local/tmp/ae.req && head -n 1 /data/local/tmp/ae.res'); \
+        r=; for t in 1 2 3; do           r=$(timeout 5 sh -c 'echo d > /data/local/tmp/ae.req && head -n 1 /data/local/tmp/ae.res' 2>&1);           case \"$r\" in *Interrupted*) sleep 0.2;; *) break;; esac; done; \
         [ \"$r\" = ok ] || {{ echo \"aedump: $r\"; exit 92; }}; cat $D/ae.xml")
 }
 
@@ -119,8 +119,13 @@ pub async fn fast(d: &Device) -> R<String> {
         upload_dex(d).await?;
         (o, code) = d.con.exec(&cmd, Duration::from_secs(20)).await?;
     }
-    if code == 92 {
-        // The dumper may have hit its idle exit just as this request came in: once more starts a new one.
+    // Exit 92 can be the dumper's idle exit landing as the request came in, a screen mid-transition ("null root node"),
+    // or a signal interrupting the fifo write: up to two more tries, each starting a fresh dumper if needed.
+    for _ in 0..2 {
+        if code != 92 {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(250)).await;
         (o, code) = d.con.exec(&cmd, Duration::from_secs(20)).await?;
     }
     if code != 0 {
