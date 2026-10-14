@@ -211,7 +211,14 @@ async function repair() {
 // (agentEmu.defaultApp); set it as the daemon's default app once per change. Phones started without keep_data install it.
 async function ensureDefaultApp() {
   const want = PKG.agentEmu && PKG.agentEmu.defaultApp;
-  if (!want || cfg.defaultAppApplied === want) return true;
+  if (!want) return true;
+  if (cfg.defaultAppApplied === want) {
+    // The flag alone can go stale (images dir rebuilt): trust it only while the daemon still has a default app.
+    try {
+      const cur = await (await fetch(URL_UI + "api", { method: "POST", body: JSON.stringify({ call: "default_app" }), signal: AbortSignal.timeout(10000) })).json();
+      if (cur.ok && cur.default_app) return true;
+    } catch (e) { log(`WARN  default_app: ${e.message}`); return false; }
+  }
   log(`set the app under test: ${want} (downloads ~150 MB)`);
   try {
     const r = await (await fetch(URL_UI + "api", { method: "POST", body: JSON.stringify({ call: "set_default_app", source: want }), signal: AbortSignal.timeout(900000) })).json();
