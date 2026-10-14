@@ -993,6 +993,7 @@ function onEvent(e) {
     const d = S.devs[e.device]; if (d) { d[e.type] = e[e.type]; renderTile(e.device); if (e.device === S.sel) renderStage(); } return;
   }
   if (e.type === "crash") {
+    if (bootNoise(e.event)) return;
     S.crashes[e.device] = (S.crashes[e.device] || 0) + 1;
     if (e.device === S.sel) addCrash(e.event);
     renderTile(e.device); setText($("crashn"), S.crashes[S.sel] || ""); return;
@@ -1414,7 +1415,10 @@ async function logLoop() {
   }
 }
 let crashGen = 0;
+// Android's own boot-time dlkm_loader abort happens on every phone and is not the app's crash.
+const bootNoise = (e) => e && e.process === "dlkm_loader";
 function addCrash(e) {
+  if (bootNoise(e)) return;
   const tb = $("crashes"); if (tb.querySelector(".empty")) tb.innerHTML = "";
   const tr = document.createElement("tr");
   tr.innerHTML = `<td class="n">${e.seq}</td><td><span class="side app">${esc(e.type || e.kind || "")}</span></td><td><b>${esc(e.process || "")}</b> ${esc(e.exception || e.reason || e.signal || "")} ${esc((e.message || "").slice(0, 140))}</td>`;

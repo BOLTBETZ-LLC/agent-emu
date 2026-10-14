@@ -891,6 +891,12 @@ async fn handle_call(st: &Arc<State>, conn: u64, req: &Value) -> R<Value> {
         }
         _ => {}
     }
+    // A misspelled call is named as such before any device lookup (the device defaults to d0, which may not exist).
+    const DEVICE_CALLS: &[&str] = &["stop", "screenshot", "ui_tree", "logs", "issues", "squeeze", "memory", "install_bundled", "crash_events",
+        "shell", "lease", "release", "tap", "swipe", "type_text", "key"];
+    if !DEVICE_CALLS.contains(&call) && !controls::CALLS.contains(&call) {
+        return Err(format!("unknown call `{call}`"));
+    }
     let d = st.dev(devid).ok_or(format!("no Device `{devid}`"))?;
     if call == "stop" {
         drop(d);
